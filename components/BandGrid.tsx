@@ -312,10 +312,63 @@ function BandDetail({
                 <span aria-hidden>←</span> Back to directory
               </button>
 
-              {/* Desktop: section label */}
-              <span className="hidden text-xs uppercase tracking-[0.2em] text-[#E8E0D0]/50 md:inline">
-                Band
-              </span>
+              {/* Desktop: edit this band */}
+              <Link
+                href={`/submit?${new URLSearchParams({
+                  correct: "true",
+                  band: band.slug,
+                  name: band.name,
+                  genres: band.genres.join(", "),
+                  location: band.location,
+                  started: band.started != null ? String(band.started) : "",
+                  status: band.status,
+                  website: band.website,
+                  instagram: band.instagram,
+                  bandcamp: band.bandcamp,
+                  spotify: band.spotify,
+                  bio: band.bio,
+                  image: band.image,
+                }).toString()}`}
+                onClick={onClose}
+                className="hidden items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80 md:inline-flex"
+              >
+                {/* ti-edit (Tabler) */}
+                <svg {...iconProps} width={15} height={15}>
+                  <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" />
+                  <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" />
+                  <path d="M16 5l3 3" />
+                </svg>
+                Edit this band
+              </Link>
+
+              {/* Mobile: edit this band */}
+              <Link
+                href={`/submit?${new URLSearchParams({
+                  correct: "true",
+                  band: band.slug,
+                  name: band.name,
+                  genres: band.genres.join(", "),
+                  location: band.location,
+                  started: band.started != null ? String(band.started) : "",
+                  status: band.status,
+                  website: band.website,
+                  instagram: band.instagram,
+                  bandcamp: band.bandcamp,
+                  spotify: band.spotify,
+                  bio: band.bio,
+                  image: band.image,
+                }).toString()}`}
+                onClick={onClose}
+                className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80 md:hidden"
+              >
+                {/* ti-edit (Tabler) */}
+                <svg {...iconProps} width={15} height={15}>
+                  <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" />
+                  <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" />
+                  <path d="M16 5l3 3" />
+                </svg>
+                Edit
+              </Link>
 
               {/* Desktop: icon close button */}
               <button
@@ -387,35 +440,6 @@ function BandDetail({
               </div>
             </div>
 
-            <div className="shrink-0 border-t border-[#E8E0D0]/15 px-5 py-3">
-              <Link
-                href={`/submit?${new URLSearchParams({
-                  correct: "true",
-                  band: band.slug,
-                  name: band.name,
-                  genres: band.genres.join(", "),
-                  location: band.location,
-                  started: band.started != null ? String(band.started) : "",
-                  status: band.status,
-                  website: band.website,
-                  instagram: band.instagram,
-                  bandcamp: band.bandcamp,
-                  spotify: band.spotify,
-                  bio: band.bio,
-                  image: band.image,
-                }).toString()}`}
-                onClick={onClose}
-                className="inline-flex items-center gap-2 rounded-md border border-[#E8E0D0]/25 px-3 py-1.5 text-xs text-[#E8E0D0]/80 transition hover:border-[#E8E0D0] hover:text-[#E8E0D0]"
-              >
-                {/* ti-edit (Tabler) */}
-                <svg {...iconProps} width={15} height={15}>
-                  <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" />
-                  <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" />
-                  <path d="M16 5l3 3" />
-                </svg>
-                Suggest a correction
-              </Link>
-            </div>
           </>
         )}
       </aside>
