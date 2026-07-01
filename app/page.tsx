@@ -20,10 +20,17 @@ export default async function Home() {
       </nav>
 
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
-        <h1 className="text-3xl font-medium tracking-tight sm:text-4xl">
-          Twin Cities Music Scene
+        <h1 className="m-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://images.thebirdhaus.org/misc/Screenshot%202026-06-30%20at%2011.16.26%E2%80%AFPM.png"
+            alt="TwinScene — a living directory of every band in the Twin Cities"
+            width={1437}
+            height={997}
+            className="mx-auto block w-full max-w-2xl rounded-lg"
+          />
         </h1>
-        <p className="mt-3 max-w-xl text-sm leading-relaxed text-[#E8E0D0]/70">
+        <p className="mt-4 text-center text-sm leading-relaxed text-[#E8E0D0]/70">
           A curated index of the Twin Cities music scene, maintained by{" "}
           <a
             href="https://thebirdhaus.org"
