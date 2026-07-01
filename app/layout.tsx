@@ -10,7 +10,7 @@ const instrumentSans = Instrument_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Twin Cities Music Scene",
+  title: "Twin Scene",
   description:
     "A curated index of the Twin Cities music scene, maintained by The Birdhaus.",
 };

@@ -529,9 +529,16 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
             type="button"
             onClick={surpriseMe}
             disabled={filtered.length === 0}
-            className="shrink-0 rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm transition hover:bg-[#E8E0D0]/10 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex shrink-0 items-center gap-2 rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm transition hover:bg-[#E8E0D0]/10 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            🎲 Surprise me
+            {/* ti-arrows-shuffle (Tabler) */}
+            <svg {...iconProps} width={16} height={16}>
+              <path d="M18 4l3 3l-3 3" />
+              <path d="M18 20l3 -3l-3 -3" />
+              <path d="M3 7h3a5 5 0 0 1 5 5a5 5 0 0 0 5 5h4" />
+              <path d="M3 17h3a5 5 0 0 0 5 -5a5 5 0 0 1 5 -5h4" />
+            </svg>
+            Surprise me
           </button>
         </div>
 
