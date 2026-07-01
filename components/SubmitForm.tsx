@@ -280,26 +280,47 @@ export default function SubmitForm({
   mode = "add",
   initialSlug = "",
   initialName = "",
+  initialGenres = "",
+  initialLocation = "",
+  initialStarted = "",
+  initialStatus = "",
+  initialWebsite = "",
+  initialInstagram = "",
+  initialBandcamp = "",
+  initialSpotify = "",
+  initialBio = "",
+  initialImage = "",
   genreOptions = [],
 }: {
   mode?: Mode;
   initialSlug?: string;
   initialName?: string;
+  initialGenres?: string;
+  initialLocation?: string;
+  initialStarted?: string;
+  initialStatus?: string;
+  initialWebsite?: string;
+  initialInstagram?: string;
+  initialBandcamp?: string;
+  initialSpotify?: string;
+  initialBio?: string;
+  initialImage?: string;
   genreOptions?: string[];
 }) {
   const [form, setForm] = useState<FormState>({
     bandName: initialName,
     submitterName: "",
     submitterEmail: "",
-    genres: "",
-    location: "",
-    started: "",
-    status: "Active",
-    website: "",
-    instagram: "",
-    bandcamp: "",
-    spotify: "",
-    bio: "",
+    genres: initialGenres,
+    location: initialLocation,
+    started: initialStarted,
+    // Fall back to "Active" when no status was passed (e.g. adding a band).
+    status: STATUS_OPTIONS.includes(initialStatus) ? initialStatus : "Active",
+    website: initialWebsite,
+    instagram: initialInstagram,
+    bandcamp: initialBandcamp,
+    spotify: initialSpotify,
+    bio: initialBio,
     notes: "",
   });
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>(
@@ -307,6 +328,8 @@ export default function SubmitForm({
   );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageError, setImageError] = useState("");
+  // Correction flow: whether the user asked to remove the band's current photo.
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const [status, setStatus] = useState<
     "idle" | "submitting" | "success" | "error"
   >("idle");
@@ -332,12 +355,31 @@ export default function SubmitForm({
     ) =>
       setForm((f) => ({ ...f, [key]: e.target.value }));
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setImageFile(e.target.files?.[0] ?? null);
+    const file = e.target.files?.[0] ?? null;
+    setImageFile(file);
+    // Selecting a new file is an implicit removal of the existing photo, so
+    // cancelling the new file falls back to "no photo", not the original.
+    if (file) setRemoveExistingImage(true);
     if (imageError) setImageError("");
   }
 
+  function clearImageFile() {
+    // Preserve removeExistingImage (kept true once a file was ever chosen or
+    // the existing photo was removed) so cancelling the new file lands on
+    // "no photo" rather than restoring the original.
+    setImageFile(null);
+    // Reset the input's value so re-selecting the same file fires onChange.
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   const isCorrect = mode === "correct";
+  // Show the band's current photo only in correction mode, while it hasn't
+  // been removed and no new file has been chosen (a new file takes precedence).
+  const showExistingImage =
+    isCorrect && !!initialImage && !removeExistingImage && !imageFile;
   const heading = isCorrect ? "Suggest a correction" : "Add your band";
   const subhead = isCorrect
     ? "Spot something wrong or out of date? Let us know and we'll update it."
@@ -392,6 +434,9 @@ export default function SubmitForm({
         existingSlug: isCorrect ? initialSlug : "",
         mode,
         bandSlug,
+        // Signals the Apps Script to blank the IMAGE column when no new photo
+        // is uploaded. Ignored server-side when a new imageBase64 is present.
+        removeImage: removeExistingImage ? "true" : "false",
       });
 
       // Only send the photo if one was selected. Omitting the fields
@@ -647,6 +692,7 @@ export default function SubmitForm({
         >
           <input
             id="bandPhoto"
+            ref={fileInputRef}
             type="file"
             accept="image/*"
             required={!isCorrect}
@@ -654,12 +700,43 @@ export default function SubmitForm({
             className={`${inputClass} file:mr-3 file:rounded file:border-0 file:bg-[#E8E0D0]/15 file:px-3 file:py-1 file:text-sm file:text-[#E8E0D0]`}
           />
           {previewUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={previewUrl}
-              alt="Selected band photo preview"
-              className="mt-3 h-24 w-24 rounded-md border border-[#E8E0D0]/20 object-cover"
-            />
+            <div className="relative mt-3 inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt="Selected band photo preview"
+                className="h-60 w-60 rounded-md border border-[#E8E0D0]/20 object-cover"
+              />
+              <button
+                type="button"
+                aria-label="Remove selected photo"
+                onClick={clearImageFile}
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 text-sm leading-none text-[#E8E0D0]/80 transition hover:text-[#E8E0D0]"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          {showExistingImage && (
+            <div className="mt-3">
+              <p className="mb-1 text-xs text-[#E8E0D0]/60">Current photo:</p>
+              <div className="relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={initialImage}
+                  alt="Current band photo"
+                  className="h-60 w-60 rounded-md border border-[#E8E0D0]/20 object-cover"
+                />
+                <button
+                  type="button"
+                  aria-label="Remove current photo"
+                  onClick={() => setRemoveExistingImage(true)}
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 text-sm leading-none text-[#E8E0D0]/80 transition hover:text-[#E8E0D0]"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
           )}
         </Field>
 

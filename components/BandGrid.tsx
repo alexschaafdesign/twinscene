@@ -389,9 +389,21 @@ function BandDetail({
 
             <div className="shrink-0 border-t border-[#E8E0D0]/15 px-5 py-3">
               <Link
-                href={`/submit?correct=true&band=${encodeURIComponent(
-                  band.slug,
-                )}&name=${encodeURIComponent(band.name)}`}
+                href={`/submit?${new URLSearchParams({
+                  correct: "true",
+                  band: band.slug,
+                  name: band.name,
+                  genres: band.genres.join(", "),
+                  location: band.location,
+                  started: band.started != null ? String(band.started) : "",
+                  status: band.status,
+                  website: band.website,
+                  instagram: band.instagram,
+                  bandcamp: band.bandcamp,
+                  spotify: band.spotify,
+                  bio: band.bio,
+                  image: band.image,
+                }).toString()}`}
                 onClick={onClose}
                 className="inline-flex items-center gap-2 rounded-md border border-[#E8E0D0]/25 px-3 py-1.5 text-xs text-[#E8E0D0]/80 transition hover:border-[#E8E0D0] hover:text-[#E8E0D0]"
               >
@@ -418,12 +430,13 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
   const [activeOnly, setActiveOnly] = useState(true);
 
   const [selected, setSelected] = useState<Band | null>(null);
-  // Retain the last-shown band so the drawer keeps its content while sliding out.
+  // Retain the last-shown band so the drawer keeps its content while sliding
+  // out. Updated during render (not in an effect) so it stays in sync with
+  // `selected` without an extra commit; it lingers when `selected` is null.
   const [shown, setShown] = useState<Band | null>(null);
-
-  useEffect(() => {
-    if (selected) setShown(selected);
-  }, [selected]);
+  if (selected && selected !== shown) {
+    setShown(selected);
+  }
 
   // Close drawer on Escape.
   useEffect(() => {

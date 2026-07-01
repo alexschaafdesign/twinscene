@@ -15,8 +15,14 @@ export default async function SubmitPage({
 }) {
   const sp = await searchParams;
   const isCorrect = sp.correct === "true";
-  const band = typeof sp.band === "string" ? sp.band : "";
-  const name = typeof sp.name === "string" ? sp.name : "";
+  // Read a single string search param, falling back to "".
+  const param = (key: string): string => {
+    const v = sp[key];
+    return typeof v === "string" ? v : "";
+  };
+
+  const band = param("band");
+  const name = param("name");
 
   // Unique, alphabetically sorted genres across all existing bands, used to
   // power the genre tag-input's autocomplete.
@@ -38,6 +44,16 @@ export default async function SubmitPage({
         mode={isCorrect ? "correct" : "add"}
         initialSlug={band}
         initialName={name}
+        initialGenres={param("genres")}
+        initialLocation={param("location")}
+        initialStarted={param("started")}
+        initialStatus={param("status")}
+        initialWebsite={param("website")}
+        initialInstagram={param("instagram")}
+        initialBandcamp={param("bandcamp")}
+        initialSpotify={param("spotify")}
+        initialBio={param("bio")}
+        initialImage={param("image")}
         genreOptions={genreOptions}
       />
     </main>
