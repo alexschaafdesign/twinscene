@@ -515,8 +515,10 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
 
   return (
     <div>
-      {/* Controls */}
-      <div className="mb-6 space-y-4">
+      {/* Controls — kept in a narrower centered container so they don't
+          stretch the full grid width on large breakpoints. */}
+      <div className="mx-auto mb-8 max-w-2xl">
+      <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
             type="search"
@@ -595,9 +597,10 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
         </div>
       </div>
 
-      <p className="mb-4 text-xs text-[#E8E0D0]/55">
-        Showing {filtered.length} of {bands.length} bands
-      </p>
+        <p className="mt-4 text-xs text-[#E8E0D0]/55">
+          Showing {filtered.length} of {bands.length} bands
+        </p>
+      </div>
 
       {filtered.length === 0 ? (
         <p className="py-16 text-center text-sm text-[#E8E0D0]/50">
