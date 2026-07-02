@@ -1,14 +1,28 @@
 /**
- * Shows support for the TCMS submission backend.
+ * Shows support for the TCMS submission backend (show-centric schema).
  *
- * This file contains ONLY the additions needed to persist upcoming shows.
- * Merge these into your existing Code.gs (bound to the spreadsheet) — the
- * `doPost` handler and helpers like `getSheet_()` / `todayString_()` already
- * live there. See the doPost note at the bottom for the one line to add.
+ * This file contains ONLY the show-related additions. Merge into your existing
+ * Code.gs (bound to the spreadsheet) — `doPost`, `getSheet_()`, `todayString_()`,
+ * `jsonOutput_()`, `NOTIFY_EMAIL`, and `INDEX_SHEET_NAME` already live there.
+ * See the doPost wire-up note at the bottom.
+ *
+ * SCHEMA: one row per SHOW (not per band). A show links to any number of
+ * directory bands via a comma-separated BAND_SLUGS column.
  */
 
 var SHOWS_SHEET_NAME = 'Shows';
-var SHOWS_HEADERS = ['SLUG', 'BAND_NAME', 'DATE', 'VENUE', 'NOTES', 'LINK', 'ADDED'];
+var SHOWS_HEADERS = [
+  'DATE',
+  'VENUE',
+  'TITLE',
+  'LINEUP',
+  'BAND_SLUGS',
+  'NOTES',
+  'LINK',
+  'SOURCE',
+  'SOURCE_KEY',
+  'ADDED',
+];
 
 /**
  * Return the "Shows" sheet, creating it (with headers) if it doesn't exist.
@@ -26,57 +40,60 @@ function getShowsSheet_() {
   return sheet;
 }
 
+function trim_(v) {
+  return (v == null ? '' : v).toString().trim();
+}
+
+function splitTrim_(s) {
+  return trim_(s)
+    .split(',')
+    .map(function (x) {
+      return x.trim();
+    })
+    .filter(String);
+}
+
 /**
- * Parse p.shows (a JSON string of show objects) and append one row per show to
- * the Shows tab. Absent/empty/malformed input is ignored — shows are optional
- * and must never fail the overall submission. Existing shows are left alone;
- * dedup/cleanup is manual for now.
+ * Insert or update a single show row, keyed by SOURCE_KEY. When sourceKey is
+ * non-empty and an existing row has the same key, that row is overwritten
+ * (idempotent re-imports / edits); otherwise a new row is appended. Values are
+ * placed by header name, so column order in the sheet doesn't matter.
  *
- * @param {string} bandSlug  Slug linking the show back to the Index band.
- * @param {string} bandName  Display name for convenience in the sheet.
- * @param {string} showsRaw  p.shows — a JSON array string, or undefined.
+ * @param {Object} fields  Map of UPPERCASE header -> value.
+ * @param {string} sourceKey  Dedup key; '' to always append.
  */
-function appendShows_(bandSlug, bandName, showsRaw) {
-  if (!showsRaw) return;
-
-  var shows;
-  try {
-    shows = JSON.parse(showsRaw);
-  } catch (err) {
-    return; // malformed JSON — skip rather than break the submission
-  }
-  if (!Array.isArray(shows) || shows.length === 0) return;
-
+function upsertShowRow_(fields, sourceKey) {
   var sheet = getShowsSheet_();
-  var added = todayString_();
-
-  shows.forEach(function (show) {
-    if (!show) return;
-    var date = (show.date || '').toString().trim();
-    var venue = (show.venue || '').toString().trim();
-    // Defensive: the client already drops rows with neither date nor venue.
-    if (!date && !venue) return;
-
-    sheet.appendRow([
-      bandSlug,
-      bandName || '',
-      date,
-      venue,
-      (show.notes || '').toString().trim(),
-      (show.link || '').toString().trim(),
-      added,
-    ]);
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet
+    .getRange(1, 1, 1, lastCol)
+    .getValues()[0]
+    .map(function (h) {
+      return h.toString().trim().toUpperCase();
+    });
+  var row = headers.map(function (h) {
+    return fields[h] != null ? fields[h] : '';
   });
-}
 
-/** Recipient for new-show notifications. */
-function showNotifyEmail_() {
-  return NOTIFY_EMAIL;
+  if (sourceKey) {
+    var keyIdx = headers.indexOf('SOURCE_KEY');
+    var last = sheet.getLastRow();
+    if (keyIdx >= 0 && last > 1) {
+      var keys = sheet.getRange(2, keyIdx + 1, last - 1, 1).getValues();
+      for (var i = 0; i < keys.length; i++) {
+        if (keys[i][0].toString().trim() === sourceKey) {
+          sheet.getRange(i + 2, 1, 1, headers.length).setValues([row]);
+          return;
+        }
+      }
+    }
+  }
+  sheet.appendRow(row);
 }
 
 /**
- * Slugify a band name. Kept in sync with slugify() in lib/fetchBands.ts and
- * SubmitForm.tsx. (If your script already has an equivalent, reuse that.)
+ * Slugify a band name. Kept in sync with slugify() in lib/fetchBands.ts.
+ * (If your script already has an equivalent, reuse that.)
  */
 function slugify_(name) {
   return name
@@ -90,8 +107,6 @@ function slugify_(name) {
 /**
  * Append a band to the Index tab, placing values by column header so it works
  * regardless of column order. Unlisted headers are left blank.
- *
- * @param {Object} fields  Map of UPPERCASE header name -> value.
  */
 function addBandToIndex_(fields) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(INDEX_SHEET_NAME);
@@ -109,63 +124,97 @@ function addBandToIndex_(fields) {
 }
 
 /**
- * Handle a show submission (p.formType === 'show'). Appends one row per band to
- * the Shows tab, optionally creates a brand-new band in the Index tab, emails a
- * notification, and returns a JSON response via jsonOutput_().
+ * Optional inline shows attached to a band submission (p.shows = JSON array of
+ * {date, venue, notes, link}). One show row each, linked to the band.
+ */
+function appendShows_(bandSlug, bandName, showsRaw) {
+  if (!showsRaw) return;
+  var shows;
+  try {
+    shows = JSON.parse(showsRaw);
+  } catch (err) {
+    return;
+  }
+  if (!Array.isArray(shows) || shows.length === 0) return;
+
+  var added = todayString_();
+  shows.forEach(function (show) {
+    if (!show) return;
+    var date = trim_(show.date);
+    var venue = trim_(show.venue);
+    if (!date && !venue) return;
+    upsertShowRow_(
+      {
+        DATE: date,
+        VENUE: venue,
+        TITLE: bandName || '',
+        LINEUP: bandName || '',
+        BAND_SLUGS: bandSlug || '',
+        NOTES: trim_(show.notes),
+        LINK: trim_(show.link),
+        SOURCE: 'manual',
+        SOURCE_KEY: '',
+        ADDED: added,
+      },
+      '',
+    );
+  });
+}
+
+/**
+ * Manual show submission from the "Add a Show" form (p.formType === 'show').
+ * Writes ONE show row linking the selected directory bands, optionally creating
+ * a brand-new band in the Index tab, and emails a notification.
  */
 function handleShowSubmission_(p) {
-  var date = (p.date || '').toString().trim();
-  var venue = (p.venue || '').toString().trim();
-  var notes = (p.notes || '').toString().trim();
-  var link = (p.link || '').toString().trim();
-  var submitterName = (p.submitterName || '').toString().trim();
-  var submitterEmail = (p.submitterEmail || '').toString().trim();
+  var date = trim_(p.date);
+  var venue = trim_(p.venue);
+  var notes = trim_(p.notes);
+  var link = trim_(p.link);
+  var submitterName = trim_(p.submitterName);
+  var submitterEmail = trim_(p.submitterEmail);
 
-  var splitTrim = function (s) {
-    return (s || '')
-      .toString()
-      .split(',')
-      .map(function (x) {
-        return x.trim();
-      })
-      .filter(String);
-  };
-  var slugs = splitTrim(p.bandSlugs);
-  var names = splitTrim(p.bandNames);
+  var slugs = splitTrim_(p.bandSlugs);
+  var names = splitTrim_(p.bandNames);
 
-  var showsSheet = getShowsSheet_();
-  var added = todayString_();
-  var bandSummary = [];
-
-  // Existing bands: one Shows row each.
-  for (var i = 0; i < slugs.length; i++) {
-    var slug = slugs[i];
-    var name = names[i] || slug;
-    showsSheet.appendRow([slug, name, date, venue, notes, link, added]);
-    bandSummary.push(name);
-  }
-
-  // New band added inline: add its show, then create it in the directory.
-  var newBandName = (p.newBandName || '').toString().trim();
+  // New band added inline: create it in the directory and link it.
+  var newBandName = trim_(p.newBandName);
   if (newBandName) {
     var newSlug = slugify_(newBandName);
-    showsSheet.appendRow([newSlug, newBandName, date, venue, notes, link, added]);
-    bandSummary.push(newBandName + ' (new)');
-
+    names.push(newBandName);
+    slugs.push(newSlug);
     addBandToIndex_({
       NAME: newBandName,
       SLUG: newSlug,
-      GENRES: (p.newBandGenres || '').toString().trim(),
-      LOCATION: (p.newBandLocation || '').toString().trim(),
+      GENRES: trim_(p.newBandGenres),
+      LOCATION: trim_(p.newBandLocation),
       STATUS: 'Active',
-      ADDED: added,
+      ADDED: todayString_(),
     });
   }
 
-  // Notification email.
+  var title = names[0] || venue;
+  var lineup = names.join(', ');
+
+  upsertShowRow_(
+    {
+      DATE: date,
+      VENUE: venue,
+      TITLE: title,
+      LINEUP: lineup,
+      BAND_SLUGS: slugs.join(','),
+      NOTES: notes,
+      LINK: link,
+      SOURCE: 'manual',
+      SOURCE_KEY: '',
+      ADDED: todayString_(),
+    },
+    '',
+  );
+
   var subject = '[TCMS] New show added: ' + venue + ' on ' + date;
   var body = [
-    'Bands: ' + (bandSummary.join(', ') || '(none)'),
+    'Show: ' + (lineup || title),
     'Venue: ' + venue,
     'Date: ' + date,
     'Notes: ' + (notes || '—'),
@@ -173,7 +222,38 @@ function handleShowSubmission_(p) {
     '',
     'Submitted by: ' + submitterName + ' <' + submitterEmail + '>',
   ].join('\n');
-  MailApp.sendEmail(showNotifyEmail_(), subject, body);
+  MailApp.sendEmail(NOTIFY_EMAIL, subject, body);
+
+  return jsonOutput_({ success: true });
+}
+
+/**
+ * Scraper import (p.formType === 'showImport'). Upserts one show row keyed by
+ * SOURCE_KEY so re-scraping / re-confirming edits the same row instead of
+ * duplicating. No email (imports are done in bulk).
+ */
+function handleShowImport_(p) {
+  var date = trim_(p.date);
+  var title = trim_(p.title);
+  if (!date || !title) {
+    return jsonOutput_({ success: false, error: 'Missing date or title' });
+  }
+
+  upsertShowRow_(
+    {
+      DATE: date,
+      VENUE: trim_(p.venue),
+      TITLE: title,
+      LINEUP: trim_(p.lineup),
+      BAND_SLUGS: trim_(p.bandSlugs),
+      NOTES: trim_(p.notes),
+      LINK: trim_(p.link),
+      SOURCE: trim_(p.source) || 'scrape',
+      SOURCE_KEY: trim_(p.sourceKey),
+      ADDED: todayString_(),
+    },
+    trim_(p.sourceKey),
+  );
 
   return jsonOutput_({ success: true });
 }
@@ -181,26 +261,17 @@ function handleShowSubmission_(p) {
 /*
  * ── Wire-up in your existing doPost(e) ──────────────────────────────────────
  *
- * 1) Route show submissions at the TOP of doPost, before the band flow.
- *    handleShowSubmission_ already returns a jsonOutput_() response, so return
- *    it directly:
- *
  *      function doPost(e) {
  *        var p = e.parameter;
  *
- *        // Show submissions have their own handler.
- *        if (p.formType === 'show') {
- *          return handleShowSubmission_(p);
- *        }
+ *        if (p.formType === 'show')       return handleShowSubmission_(p);
+ *        if (p.formType === 'showImport') return handleShowImport_(p);
  *
  *        // ... existing band submission flow ...
+ *        // (after writing the band row) appendShows_(p.bandSlug, p.bandName, p.shows);
  *      }
  *
- * 2) In the band flow, after writing the band row to the Index sheet, add:
- *
- *      appendShows_(p.bandSlug, p.bandName, p.shows);
- *
- * ── If todayString_() isn't already defined in your script, it looks like: ──
+ * ── If todayString_() isn't already defined: ────────────────────────────────
  *
  *      function todayString_() {
  *        return Utilities.formatDate(new Date(), 'America/Chicago', 'yyyy-MM-dd');

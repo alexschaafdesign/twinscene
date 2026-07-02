@@ -2,139 +2,187 @@
 
 import { useMemo, useState } from "react";
 
-export type ImportMatch = {
-  scrapedName: string;
+export type SuggestedMatch = {
   slug: string;
-  bandName: string;
+  name: string;
+  scrapedName: string;
   confidence: "auto" | "review";
-  imported: boolean;
 };
 
 export type ImportShow = {
-  date: string | null;
+  sourceKey: string;
+  date: string;
   venue: string;
-  headliner: string | null;
-  allBands: string[];
+  title: string;
+  lineup: string;
+  notes: string;
+  link: string;
   flyerUrl: string | null;
-  ticketUrl: string | null;
-  doorsTime: string | null;
-  musicTime: string | null;
-  advancePrice: number | null;
-  dosPrice: number | null;
-  matches: ImportMatch[];
+  suggested: SuggestedMatch[];
+  autoSlugs: string[];
+  alreadyImported: boolean;
 };
+
+export type BandOption = { slug: string; name: string };
 
 type RowStatus = "idle" | "submitting" | "done" | "error";
 
-/** Format "YYYY-MM-DD" as "Sat, Jul 12" in UTC. Falls back to the raw string. */
-function formatDate(date: string | null): string {
-  if (!date) return "Date TBA";
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
-  if (!m) return date;
-  const [, y, mo, d] = m;
-  const dt = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d)));
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(dt);
-}
+const inputClass =
+  "w-full rounded-md border border-[#E8E0D0]/20 bg-transparent px-3 py-1.5 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#E8E0D0]";
 
-/**
- * Build the NOTES string for a show: every band NOT being linked (unmatched
- * acts plus any matched band the user deselected), followed by door/music
- * times and prices. This is where the extra scraped detail lives for now.
- */
-function composeNotes(show: ImportShow, linkedScrapedNames: Set<string>): string {
-  const parts: string[] = [];
+/** Compact directory search that adds a band on selection. */
+function BandPicker({
+  bands,
+  selectedSlugs,
+  onAdd,
+  disabled,
+}: {
+  bands: BandOption[];
+  selectedSlugs: Set<string>;
+  onAdd: (band: BandOption) => void;
+  disabled?: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const qLower = query.trim().toLowerCase();
 
-  const others = show.allBands.filter((b) => !linkedScrapedNames.has(b));
-  if (others.length > 0) parts.push(`With ${others.join(", ")}`);
+  const matches = useMemo(() => {
+    if (!qLower) return [];
+    return bands
+      .filter(
+        (b) => !selectedSlugs.has(b.slug) && b.name.toLowerCase().includes(qLower),
+      )
+      .slice(0, 6);
+  }, [bands, selectedSlugs, qLower]);
 
-  const times: string[] = [];
-  if (show.doorsTime) times.push(`Doors ${show.doorsTime}`);
-  if (show.musicTime) times.push(`Music ${show.musicTime}`);
-  if (times.length > 0) parts.push(times.join(" / "));
-
-  const prices: string[] = [];
-  if (show.advancePrice != null) prices.push(`$${show.advancePrice} adv`);
-  if (show.dosPrice != null) prices.push(`$${show.dosPrice} dos`);
-  if (prices.length > 0) parts.push(prices.join(" / "));
-
-  return parts.join(" · ");
-}
-
-function ConfidenceBadge({ confidence }: { confidence: "auto" | "review" }) {
-  const isAuto = confidence === "auto";
   return (
-    <span
-      className={`rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-        isAuto
-          ? "bg-[#6FBF73]/20 text-[#8FD693]"
-          : "bg-[#D9A441]/20 text-[#E4BC6E]"
-      }`}
-    >
-      {isAuto ? "auto" : "review"}
-    </span>
+    <div className="relative">
+      <input
+        type="text"
+        value={query}
+        disabled={disabled}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        placeholder="Link a directory band…"
+        className={inputClass}
+      />
+      {open && matches.length > 0 && (
+        <ul className="absolute z-10 mt-1 max-h-[180px] w-full overflow-auto rounded-md border border-[#E8E0D0]/20 bg-[#2A2420] py-1 shadow-lg">
+          {matches.map((b) => (
+            <li key={b.slug}>
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onAdd(b);
+                  setQuery("");
+                }}
+                className="block w-full px-3 py-2 text-left text-sm text-[#E8E0D0] hover:bg-[#E8E0D0]/10"
+              >
+                {b.name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
-function ShowRow({ show }: { show: ImportShow }) {
-  // Pre-select high-confidence matches that aren't already in the sheet.
-  const [selected, setSelected] = useState<Set<string>>(
-    () =>
-      new Set(
-        show.matches
-          .filter((m) => m.confidence === "auto" && !m.imported)
-          .map((m) => m.slug),
-      ),
+function LabeledField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs text-[#E8E0D0]/55">{label}</span>
+      {children}
+    </label>
   );
-  const [status, setStatus] = useState<RowStatus>("idle");
+}
+
+function ShowCard({
+  show,
+  bands,
+}: {
+  show: ImportShow;
+  bands: BandOption[];
+}) {
+  const [date, setDate] = useState(show.date);
+  const [venue, setVenue] = useState(show.venue);
+  const [title, setTitle] = useState(show.title);
+  const [lineup, setLineup] = useState(show.lineup);
+  const [notes, setNotes] = useState(show.notes);
+  const [link, setLink] = useState(show.link);
+
+  // Directory band links, seeded from the auto-confidence matches.
+  const [links, setLinks] = useState<BandOption[]>(() =>
+    show.suggested
+      .filter((s) => show.autoSlugs.includes(s.slug))
+      .map((s) => ({ slug: s.slug, name: s.name })),
+  );
+
+  const [status, setStatus] = useState<RowStatus>(
+    show.alreadyImported ? "done" : "idle",
+  );
   const [errorMsg, setErrorMsg] = useState("");
 
-  function toggle(slug: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(slug)) next.delete(slug);
-      else next.add(slug);
-      return next;
-    });
+  const selectedSlugs = useMemo(
+    () => new Set(links.map((l) => l.slug)),
+    [links],
+  );
+
+  function addLink(band: BandOption) {
+    setLinks((prev) =>
+      prev.some((l) => l.slug === band.slug) ? prev : [...prev, band],
+    );
+  }
+  function removeLink(slug: string) {
+    setLinks((prev) => prev.filter((l) => l.slug !== slug));
   }
 
-  const selectable = show.matches.filter((m) => !m.imported);
-  const canImport = status !== "submitting" && status !== "done" && selected.size > 0;
+  // Review-confidence suggestions not already linked — offered as quick-adds.
+  const reviewSuggestions = show.suggested.filter(
+    (s) => !selectedSlugs.has(s.slug),
+  );
 
-  async function importShow() {
+  const busy = status === "submitting";
+
+  async function confirm() {
     const url = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
     if (!url) {
       setStatus("error");
       setErrorMsg("Submission endpoint isn't configured.");
       return;
     }
-
-    const chosen = show.matches.filter((m) => selected.has(m.slug));
-    if (chosen.length === 0) return;
-
-    const linkedScrapedNames = new Set(chosen.map((m) => m.scrapedName));
+    if (!date.trim() || !venue.trim() || !title.trim()) {
+      setStatus("error");
+      setErrorMsg("Date, venue, and title are required.");
+      return;
+    }
 
     setStatus("submitting");
     setErrorMsg("");
-
     try {
       const payload = new URLSearchParams({
-        formType: "show",
-        date: show.date ?? "",
-        venue: show.venue,
-        notes: composeNotes(show, linkedScrapedNames),
-        link: show.ticketUrl ?? "",
-        submitterName: "Twin Scene Importer",
-        submitterEmail: "importer@twinscene.org",
-        bandSlugs: chosen.map((m) => m.slug).join(","),
-        bandNames: chosen.map((m) => m.bandName).join(","),
+        formType: "showImport",
+        source: "pilllar",
+        sourceKey: show.sourceKey,
+        date: date.trim(),
+        venue: venue.trim(),
+        title: title.trim(),
+        lineup: lineup.trim(),
+        bandSlugs: links.map((l) => l.slug).join(","),
+        notes: notes.trim(),
+        link: link.trim(),
       });
-
       const res = await fetch(url, { method: "POST", body: payload });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Import failed");
@@ -157,89 +205,174 @@ function ShowRow({ show }: { show: ImportShow }) {
             className="h-20 w-20 shrink-0 rounded object-cover ring-1 ring-[#E8E0D0]/10"
           />
         )}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline justify-between gap-3">
-            <p className="text-sm font-medium text-[#E8E0D0]">
-              {formatDate(show.date)}
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="truncate text-sm font-medium text-[#E8E0D0]">
+              {title || "(untitled show)"}
             </p>
-            <span className="shrink-0 text-xs text-[#E8E0D0]/55">
-              {show.venue}
-            </span>
+            {status === "done" && (
+              <span className="shrink-0 rounded bg-[#6FBF73]/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#8FD693]">
+                on schedule
+              </span>
+            )}
           </div>
-          {show.headliner && (
-            <p className="mt-0.5 truncate text-sm text-[#E8E0D0]/75">
-              {show.headliner}
-              {show.allBands.length > 1 && (
-                <span className="text-[#E8E0D0]/45">
-                  {" "}
-                  + {show.allBands.length - 1} more
-                </span>
-              )}
-            </p>
-          )}
 
-          {selectable.length === 0 ? (
-            <p className="mt-3 text-xs text-[#E8E0D0]/45">
-              {show.matches.length === 0
-                ? "No directory bands matched — nothing to link."
-                : "All matched bands already imported."}
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-1.5">
-              {selectable.map((m) => (
-                <li key={m.slug} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    id={`${show.date}-${m.slug}`}
-                    checked={selected.has(m.slug)}
-                    onChange={() => toggle(m.slug)}
-                    disabled={status === "submitting" || status === "done"}
-                    className="h-4 w-4 accent-[#E8E0D0]"
-                  />
-                  <label
-                    htmlFor={`${show.date}-${m.slug}`}
-                    className="flex items-center gap-2"
+          <div className="grid gap-3 sm:grid-cols-2">
+            <LabeledField label="Date">
+              <input
+                type="date"
+                value={date}
+                disabled={busy}
+                onChange={(e) => setDate(e.target.value)}
+                className={`${inputClass} [color-scheme:dark]`}
+              />
+            </LabeledField>
+            <LabeledField label="Venue">
+              <input
+                type="text"
+                value={venue}
+                disabled={busy}
+                onChange={(e) => setVenue(e.target.value)}
+                className={inputClass}
+              />
+            </LabeledField>
+          </div>
+
+          <LabeledField label="Title (marquee)">
+            <input
+              type="text"
+              value={title}
+              disabled={busy}
+              onChange={(e) => setTitle(e.target.value)}
+              className={inputClass}
+            />
+          </LabeledField>
+
+          <LabeledField label="Lineup">
+            <input
+              type="text"
+              value={lineup}
+              disabled={busy}
+              onChange={(e) => setLineup(e.target.value)}
+              className={inputClass}
+            />
+          </LabeledField>
+
+          <div>
+            <span className="mb-1 block text-xs text-[#E8E0D0]/55">
+              Linked directory bands
+            </span>
+            {links.length > 0 && (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {links.map((l) => (
+                  <span
+                    key={l.slug}
+                    className="inline-flex items-center gap-1 rounded bg-[#E8E0D0]/15 px-2 py-0.5 text-xs text-[#E8E0D0]"
                   >
-                    <span className="text-[#E8E0D0]">{m.bandName}</span>
-                    {m.scrapedName !== m.bandName && (
-                      <span className="text-xs text-[#E8E0D0]/45">
-                        (from “{m.scrapedName}”)
+                    {l.name}
+                    <button
+                      type="button"
+                      aria-label={`Unlink ${l.name}`}
+                      disabled={busy}
+                      onClick={() => removeLink(l.slug)}
+                      className="text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <BandPicker
+              bands={bands}
+              selectedSlugs={selectedSlugs}
+              onAdd={addLink}
+              disabled={busy}
+            />
+            {reviewSuggestions.length > 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wide text-[#E8E0D0]/40">
+                  Suggested:
+                </span>
+                {reviewSuggestions.map((s) => (
+                  <button
+                    key={s.slug}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => addLink({ slug: s.slug, name: s.name })}
+                    className="inline-flex items-center gap-1 rounded border border-[#D9A441]/40 px-2 py-0.5 text-xs text-[#E4BC6E] transition hover:bg-[#D9A441]/10"
+                  >
+                    + {s.name}
+                    {s.scrapedName !== s.name && (
+                      <span className="text-[#E4BC6E]/60">
+                        (“{s.scrapedName}”)
                       </span>
                     )}
-                    <ConfidenceBadge confidence={m.confidence} />
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <LabeledField label="Notes">
+              <input
+                type="text"
+                value={notes}
+                disabled={busy}
+                onChange={(e) => setNotes(e.target.value)}
+                className={inputClass}
+              />
+            </LabeledField>
+            <LabeledField label="Ticket / info link">
+              <input
+                type="url"
+                value={link}
+                disabled={busy}
+                onChange={(e) => setLink(e.target.value)}
+                className={inputClass}
+              />
+            </LabeledField>
+          </div>
 
           {status === "error" && (
-            <p className="mt-2 text-xs text-[#E5A0A0]">{errorMsg}</p>
+            <p className="text-xs text-[#E5A0A0]">{errorMsg}</p>
           )}
 
-          {selectable.length > 0 && (
+          <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={importShow}
-              disabled={!canImport}
-              className="mt-3 rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-xs font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10 disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={confirm}
+              disabled={busy}
+              className="rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-medium text-[#2A2420] transition hover:bg-[#E8E0D0]/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {status === "submitting"
-                ? "Importing…"
+              {busy
+                ? "Adding…"
                 : status === "done"
-                  ? "Imported ✓"
-                  : `Import ${selected.size} band${selected.size === 1 ? "" : "s"}`}
+                  ? "Update on schedule"
+                  : "Add to schedule"}
             </button>
-          )}
+            {links.length === 0 && status !== "done" && (
+              <span className="text-xs text-[#E8E0D0]/40">
+                No bands linked — still adds to the schedule.
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </li>
   );
 }
 
-export default function ShowImportReview({ shows }: { shows: ImportShow[] }) {
-  const linkableCount = useMemo(
-    () => shows.filter((s) => s.matches.some((m) => !m.imported)).length,
+export default function ShowImportReview({
+  shows,
+  bandOptions,
+}: {
+  shows: ImportShow[];
+  bandOptions: BandOption[];
+}) {
+  const pending = useMemo(
+    () => shows.filter((s) => !s.alreadyImported).length,
     [shows],
   );
 
@@ -254,12 +387,16 @@ export default function ShowImportReview({ shows }: { shows: ImportShow[] }) {
   return (
     <div>
       <p className="mb-4 text-xs text-[#E8E0D0]/50">
-        {shows.length} bill{shows.length === 1 ? "" : "s"} scraped ·{" "}
-        {linkableCount} with new directory-band matches
+        {shows.length} show{shows.length === 1 ? "" : "s"} scraped · {pending}{" "}
+        not yet on the schedule
       </p>
       <ul className="space-y-3">
         {shows.map((show, i) => (
-          <ShowRow key={`${show.date}-${show.headliner}-${i}`} show={show} />
+          <ShowCard
+            key={`${show.sourceKey}-${i}`}
+            show={show}
+            bands={bandOptions}
+          />
         ))}
       </ul>
     </div>

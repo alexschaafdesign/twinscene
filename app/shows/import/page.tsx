@@ -16,9 +16,32 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-/** Dedup key matching a scraped band-row against an existing sheet row. */
-function showKey(slug: string, date: string, venue: string): string {
-  return `${slug}::${date}::${venue.trim().toLowerCase()}`;
+/** Lowercase/hyphenate for a stable dedup key. Mirrors slugify elsewhere. */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** Logistics-only NOTES default (lineup lives in its own field now). */
+function composeNotes(show: {
+  doorsTime: string | null;
+  musicTime: string | null;
+  advancePrice: number | null;
+  dosPrice: number | null;
+}): string {
+  const parts: string[] = [];
+  const times: string[] = [];
+  if (show.doorsTime) times.push(`Doors ${show.doorsTime}`);
+  if (show.musicTime) times.push(`Music ${show.musicTime}`);
+  if (times.length) parts.push(times.join(" / "));
+  const prices: string[] = [];
+  if (show.advancePrice != null) prices.push(`$${show.advancePrice} adv`);
+  if (show.dosPrice != null) prices.push(`$${show.dosPrice} dos`);
+  if (prices.length) parts.push(prices.join(" / "));
+  return parts.join(" · ");
 }
 
 export default async function ImportShowsPage({
@@ -42,6 +65,7 @@ export default async function ImportShowsPage({
   }
 
   let shows: ImportShow[] = [];
+  let bandOptions: { slug: string; name: string }[] = [];
   let error = "";
   try {
     const [bands, existing, scraped] = await Promise.all([
@@ -50,39 +74,43 @@ export default async function ImportShowsPage({
       scrapePilllar(),
     ]);
 
-    const { matchShow } = createMatcher(bands);
+    bandOptions = bands
+      .map((b) => ({ slug: b.slug, name: b.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
-    // Set of already-imported band-rows so we don't offer duplicates.
-    const existingKeys = new Set(
-      existing.map((s) => showKey(s.slug, s.date, s.venue)),
+    const { matchShow } = createMatcher(bands);
+    const importedKeys = new Set(
+      existing.map((s) => s.sourceKey).filter(Boolean),
     );
 
     shows = scraped.map((show) => {
       const matched = matchShow(show);
+      const headliner = show.headliner ?? show.allBands[0] ?? "";
+      const sourceKey = `pilllar:${show.date ?? "nodate"}:${slugify(headliner)}`;
+
+      const suggested = matched.bandMatches
+        .filter((m) => m.match)
+        .map((m) => ({
+          slug: m.match!.slug,
+          name: m.match!.name,
+          scrapedName: m.name,
+          confidence: m.confidence as "auto" | "review",
+        }));
+
       return {
-        date: show.date,
+        sourceKey,
+        date: show.date ?? "",
         venue: show.venue,
-        headliner: show.headliner,
-        allBands: show.allBands,
+        title: headliner,
+        lineup: show.allBands.join(", "),
+        notes: composeNotes(show),
+        link: show.ticketUrl ?? "",
         flyerUrl: show.flyerUrl,
-        ticketUrl: show.ticketUrl,
-        doorsTime: show.doorsTime,
-        musicTime: show.musicTime,
-        advancePrice: show.advancePrice,
-        dosPrice: show.dosPrice,
-        matches: matched.bandMatches
-          // Only bands we can link to the directory are selectable; the rest
-          // ride along in NOTES.
-          .filter((m) => m.match)
-          .map((m) => ({
-            scrapedName: m.name,
-            slug: m.match!.slug,
-            bandName: m.match!.name,
-            confidence: m.confidence as "auto" | "review",
-            imported:
-              !!show.date &&
-              existingKeys.has(showKey(m.match!.slug, show.date, show.venue)),
-          })),
+        suggested,
+        autoSlugs: suggested
+          .filter((s) => s.confidence === "auto")
+          .map((s) => s.slug),
+        alreadyImported: importedKeys.has(sourceKey),
       };
     });
   } catch (err) {
@@ -102,9 +130,9 @@ export default async function ImportShowsPage({
           Import Shows — Pilllar Forum
         </h1>
         <p className="mt-2 text-sm text-[#E8E0D0]/70">
-          Scraped bills matched to directory bands. Confirm the matches, then
-          import — approved shows are written to the Shows sheet and appear on
-          the shows page.
+          Every scraped show. Edit any field, confirm which directory bands it
+          links to, then add it to the schedule. Confirmed shows appear on the
+          shows page (and on each linked band&apos;s profile).
         </p>
       </header>
 
@@ -113,7 +141,7 @@ export default async function ImportShowsPage({
           {error}
         </p>
       ) : (
-        <ShowImportReview shows={shows} />
+        <ShowImportReview shows={shows} bandOptions={bandOptions} />
       )}
     </main>
   );

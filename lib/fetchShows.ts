@@ -9,12 +9,15 @@ const SHOWS_CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=1656115359&single=true&output=csv";
 
 export type Show = {
-  slug: string; // band slug (links to the band in the Index tab)
-  bandName: string;
   date: string; // raw string from sheet, e.g. "2026-07-15"
   venue: string;
+  title: string; // marquee / headliner — the show's display title
+  lineup: string; // full lineup, e.g. "shugE, Average Joey, Ditch Pigeon"
+  bandSlugs: string[]; // directory slugs this show links to (0..n)
   notes: string;
   link: string;
+  source: string; // "manual" | "pilllar" | …
+  sourceKey: string; // stable dedup key for scraped shows ("" for manual)
   added: string;
 };
 
@@ -123,19 +126,39 @@ export async function fetchShows(): Promise<Show[]> {
   const today = todayInChicago();
   const shows: Show[] = [];
 
+  const splitSlugs = (s: string): string[] =>
+    s
+      .split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+
   for (const row of rows.slice(1)) {
     const date = get(row, "DATE");
     // Skip rows with no date or a date in the past (string compare works for
     // ISO YYYY-MM-DD dates).
     if (!date || date < today) continue;
 
+    // Show-centric columns, with fallback to the legacy per-band columns
+    // (SLUG/BAND_NAME) so existing rows keep working before the sheet is
+    // migrated to the new schema.
+    const legacyName = get(row, "BAND_NAME");
+    const legacySlug = get(row, "SLUG");
+    const bandSlugsRaw = get(row, "BAND_SLUGS");
+
     shows.push({
-      slug: get(row, "SLUG"),
-      bandName: get(row, "BAND_NAME"),
       date,
       venue: get(row, "VENUE"),
+      title: get(row, "TITLE") || legacyName,
+      lineup: get(row, "LINEUP") || legacyName,
+      bandSlugs: bandSlugsRaw
+        ? splitSlugs(bandSlugsRaw)
+        : legacySlug
+          ? [legacySlug]
+          : [],
       notes: get(row, "NOTES"),
       link: get(row, "LINK"),
+      source: get(row, "SOURCE"),
+      sourceKey: get(row, "SOURCE_KEY"),
       added: get(row, "ADDED"),
     });
   }

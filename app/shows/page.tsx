@@ -92,17 +92,22 @@ export default async function ShowsPage() {
               <ul className="space-y-3">
                 {group.shows.map((show, i) => (
                   <li
-                    key={`${show.slug}-${show.venue}-${i}`}
+                    key={`${show.title}-${show.venue}-${i}`}
                     className="rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] p-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                       <div className="min-w-0">
                         <p className="font-medium text-[#E8E0D0]">
-                          {show.bandName}
+                          {show.title}
                         </p>
                         {show.venue && (
                           <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
                             {show.venue}
+                          </p>
+                        )}
+                        {show.lineup && show.lineup !== show.title && (
+                          <p className="mt-1 text-sm text-[#E8E0D0]/60">
+                            {show.lineup}
                           </p>
                         )}
                         {show.notes && (

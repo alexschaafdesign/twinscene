@@ -515,6 +515,11 @@ function BandDetail({
                             </a>
                           )}
                         </div>
+                        {show.title && (
+                          <p className="mt-0.5 text-sm font-medium text-[#E8E0D0]/90">
+                            {show.title}
+                          </p>
+                        )}
                         {show.venue && (
                           <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
                             {show.venue}
@@ -640,10 +645,12 @@ export default function BandGrid({
   const showsBySlug = useMemo(() => {
     const map = new Map<string, Show[]>();
     for (const show of shows) {
-      if (!show.slug) continue;
-      const list = map.get(show.slug);
-      if (list) list.push(show);
-      else map.set(show.slug, [show]);
+      for (const slug of show.bandSlugs) {
+        if (!slug) continue;
+        const list = map.get(slug);
+        if (list) list.push(show);
+        else map.set(slug, [show]);
+      }
     }
     return map;
   }, [shows]);
