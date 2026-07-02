@@ -161,6 +161,45 @@ function BandCard({
   );
 }
 
+/** Compact list row: small thumbnail + name/meta on one line. */
+function BandRow({
+  band,
+  onClick,
+}: {
+  band: Band;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="animate-fade-in group flex w-full items-center gap-3 rounded-md border border-[#E8E0D0]/10 px-3 py-2 text-left transition hover:border-[#E8E0D0]/30 hover:bg-[#E8E0D0]/5"
+    >
+      <div className="h-11 w-11 shrink-0">
+        <BandImage band={band} className="rounded-sm ring-1 ring-[#E8E0D0]/10" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <StatusDot status={band.status} />
+          <h3 className="truncate text-sm font-medium leading-snug">
+            {band.name}
+          </h3>
+        </div>
+        {metaLine(band) && (
+          <p className="mt-0.5 truncate text-xs text-[#E8E0D0]/55">
+            {metaLine(band)}
+          </p>
+        )}
+      </div>
+      {band.genres.length > 0 && (
+        <p className="ml-auto hidden max-w-[40%] shrink-0 truncate text-xs italic text-[#E8E0D0]/45 sm:block">
+          {band.genres.join(", ")}
+        </p>
+      )}
+    </button>
+  );
+}
+
 /* --- Link icon buttons for the detail drawer --- */
 
 function IconLink({
@@ -452,6 +491,16 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
   const [genre, setGenre] = useState("All");
   const [location, setLocation] = useState("All");
   const [activeOnly, setActiveOnly] = useState(true);
+  // Default per breakpoint: gallery on larger screens, compact list on mobile.
+  // Starts "gallery" to match SSR, then corrected on mount (see effect below).
+  // Once the user picks a view, `viewChosen` stops the breakpoint override.
+  const [view, setView] = useState<"gallery" | "compact">("gallery");
+  const [viewChosen, setViewChosen] = useState(false);
+
+  function chooseView(v: "gallery" | "compact") {
+    setView(v);
+    setViewChosen(true);
+  }
 
   const [selected, setSelected] = useState<Band | null>(null);
   // Retain the last-shown band so the drawer keeps its content while sliding
@@ -471,6 +520,17 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selected]);
+
+  // Pick the default view from the viewport width until the user overrides it.
+  // 640px is Tailwind's `sm` breakpoint — below it, the compact list reads best.
+  useEffect(() => {
+    if (viewChosen) return;
+    const mq = window.matchMedia("(max-width: 639px)");
+    const apply = () => setView(mq.matches ? "compact" : "gallery");
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [viewChosen]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -597,16 +657,62 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
         </div>
       </div>
 
-        <p className="mt-4 text-xs text-[#E8E0D0]/55">
-          Showing {filtered.length} of {bands.length} bands
-        </p>
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <p className="text-xs text-[#E8E0D0]/55">
+            Showing {filtered.length} of {bands.length} bands
+          </p>
+          <div className="flex items-center gap-0.5 rounded-md border border-[#E8E0D0]/20 p-0.5">
+            <button
+              type="button"
+              onClick={() => chooseView("gallery")}
+              aria-pressed={view === "gallery"}
+              aria-label="Gallery view"
+              title="Gallery view"
+              className={`flex h-7 w-7 items-center justify-center rounded transition ${
+                view === "gallery"
+                  ? "bg-[#E8E0D0] text-[#2A2420]"
+                  : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
+              }`}
+            >
+              {/* ti-layout-grid (Tabler) */}
+              <svg {...iconProps} width={16} height={16}>
+                <rect x="4" y="4" width="6" height="6" rx="1" />
+                <rect x="14" y="4" width="6" height="6" rx="1" />
+                <rect x="4" y="14" width="6" height="6" rx="1" />
+                <rect x="14" y="14" width="6" height="6" rx="1" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => chooseView("compact")}
+              aria-pressed={view === "compact"}
+              aria-label="Compact list view"
+              title="Compact list view"
+              className={`flex h-7 w-7 items-center justify-center rounded transition ${
+                view === "compact"
+                  ? "bg-[#E8E0D0] text-[#2A2420]"
+                  : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
+              }`}
+            >
+              {/* ti-list (Tabler) */}
+              <svg {...iconProps} width={16} height={16}>
+                <path d="M9 6l11 0" />
+                <path d="M9 12l11 0" />
+                <path d="M9 18l11 0" />
+                <path d="M5 6l0 .01" />
+                <path d="M5 12l0 .01" />
+                <path d="M5 18l0 .01" />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
 
       {filtered.length === 0 ? (
         <p className="py-16 text-center text-sm text-[#E8E0D0]/50">
           No bands match those filters.
         </p>
-      ) : (
+      ) : view === "gallery" ? (
         <div
           key={gridKey}
           className="grid gap-x-4 gap-y-7"
@@ -616,6 +722,19 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
         >
           {filtered.map((band) => (
             <BandCard
+              key={band.slug}
+              band={band}
+              onClick={() => setSelected(band)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div
+          key={gridKey}
+          className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          {filtered.map((band) => (
+            <BandRow
               key={band.slug}
               band={band}
               onClick={() => setSelected(band)}
