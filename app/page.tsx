@@ -11,11 +11,9 @@ export default async function Home() {
         <h1 className="m-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="https://images.thebirdhaus.org/misc/Screenshot%202026-06-30%20at%2011.16.26%E2%80%AFPM.png"
-            alt="TwinScene — a living directory of every band in the Twin Cities"
-            width={1437}
-            height={997}
-            className="mx-auto block w-full max-w-2xl rounded-lg"
+            src="/logo.png"
+            alt="Twin Scene"
+            className="mx-auto block w-full max-w-2xl"
           />
         </h1>
         <div className="mt-4 flex justify-center">
