@@ -18,7 +18,13 @@ export default async function Home() {
             className="mx-auto block w-full max-w-2xl rounded-lg"
           />
         </h1>
-        <div className="mt-4 flex justify-center">
+        <div className="mt-4 flex justify-center gap-3">
+          <Link
+            href="/shows"
+            className="shrink-0 rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10"
+          >
+            Shows
+          </Link>
           <Link
             href="/submit"
             className="shrink-0 rounded-md border border-[#E8E0D0] px-4 py-2 text-sm font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0] hover:text-[#2A2420]"

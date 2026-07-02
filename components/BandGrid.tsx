@@ -105,6 +105,10 @@ function BandImage({
 }
 
 function StatusDot({ status }: { status: string }) {
+  // No dot for "Active" — an unlabeled green dot reads like a presence/"online"
+  // indicator, which isn't the intent. Active is still tracked as a data point;
+  // hiatus/disbanded keep their dot since it flags something non-obvious.
+  if (status === "Active") return null;
   const color = statusColor(status);
   if (!color) return null;
   return (
@@ -462,6 +466,11 @@ function BandDetail({
               <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/85">
                 {band.bio || "No bio yet."}
               </p>
+
+              {/* Upcoming shows */}
+              <div className="mt-5">
+                {/* TODO: pass shows data per band */}
+              </div>
 
               {band.bandcamp && (
                 <div className="mt-5">

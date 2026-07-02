@@ -59,6 +59,20 @@ type FormState = {
   notes: string;
 };
 
+type ShowInput = {
+  date: string;
+  venue: string;
+  notes: string;
+  link: string;
+};
+
+const emptyShow = (): ShowInput => ({
+  date: "",
+  venue: "",
+  notes: "",
+  link: "",
+});
+
 function Field({
   label,
   htmlFor,
@@ -330,6 +344,8 @@ export default function SubmitForm({
   const [imageError, setImageError] = useState("");
   // Correction flow: whether the user asked to remove the band's current photo.
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  // Optional upcoming shows. Always at least one (possibly empty) row on screen.
+  const [shows, setShows] = useState<ShowInput[]>([emptyShow()]);
   const [status, setStatus] = useState<
     "idle" | "submitting" | "success" | "error"
   >("idle");
@@ -373,6 +389,24 @@ export default function SubmitForm({
     setImageFile(null);
     // Reset the input's value so re-selecting the same file fires onChange.
     if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function updateShow(index: number, key: keyof ShowInput, value: string) {
+    setShows((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, [key]: value } : s)),
+    );
+  }
+
+  function addShow() {
+    setShows((prev) => [...prev, emptyShow()]);
+  }
+
+  function removeShow(index: number) {
+    // Removing the last remaining row just clears it back to one empty row.
+    setShows((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length ? next : [emptyShow()];
+    });
   }
 
   const isCorrect = mode === "correct";
@@ -450,6 +484,20 @@ export default function SubmitForm({
       if (imageFile) {
         payload.set("imageBase64", await fileToBase64(imageFile));
         payload.set("imageMimeType", imageFile.type);
+      }
+
+      // Shows are optional. Only include rows with at least a date or venue,
+      // serialized as a JSON string the Apps Script parses back into rows.
+      const filledShows = shows
+        .filter((s) => s.date.trim() || s.venue.trim())
+        .map((s) => ({
+          date: s.date.trim(),
+          venue: s.venue.trim(),
+          notes: s.notes.trim(),
+          link: s.link.trim(),
+        }));
+      if (filledShows.length > 0) {
+        payload.set("shows", JSON.stringify(filledShows));
       }
 
       // Form-encoded body keeps this a "simple" CORS request (no preflight),
@@ -760,6 +808,111 @@ export default function SubmitForm({
             className={`${inputClass} resize-y`}
           />
         </Field>
+
+        {/* Upcoming shows — optional. Empty rows are dropped on submit. */}
+        <div>
+          <h2 className="text-sm font-medium text-[#E8E0D0]/85">
+            Upcoming shows
+          </h2>
+          <p className="mt-1 text-xs text-[#E8E0D0]/45">
+            Let people know where to catch you live.
+          </p>
+
+          <div className="mt-3 space-y-3">
+            {shows.map((show, i) => (
+              <div
+                key={i}
+                className="relative rounded-md bg-[rgba(232,224,208,0.05)] p-4 pr-10"
+              >
+                <button
+                  type="button"
+                  aria-label="Remove this show"
+                  onClick={() => removeShow(i)}
+                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E0D0]/20 text-sm leading-none text-[#E8E0D0]/70 transition hover:text-[#E8E0D0]"
+                >
+                  ×
+                </button>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor={`show-${i}-date`}
+                      className="mb-1 block text-xs text-[#E8E0D0]/70"
+                    >
+                      Date
+                    </label>
+                    <input
+                      id={`show-${i}-date`}
+                      type="date"
+                      value={show.date}
+                      onChange={(e) => updateShow(i, "date", e.target.value)}
+                      className={`${inputClass} [color-scheme:dark]`}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor={`show-${i}-venue`}
+                      className="mb-1 block text-xs text-[#E8E0D0]/70"
+                    >
+                      Venue
+                    </label>
+                    <input
+                      id={`show-${i}-venue`}
+                      type="text"
+                      value={show.venue}
+                      onChange={(e) => updateShow(i, "venue", e.target.value)}
+                      placeholder="e.g. 7th St Entry"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor={`show-${i}-notes`}
+                      className="mb-1 block text-xs text-[#E8E0D0]/70"
+                    >
+                      Notes
+                    </label>
+                    <input
+                      id={`show-${i}-notes`}
+                      type="text"
+                      value={show.notes}
+                      onChange={(e) => updateShow(i, "notes", e.target.value)}
+                      placeholder="e.g. w/ other band, free entry"
+                      className={inputClass}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor={`show-${i}-link`}
+                      className="mb-1 block text-xs text-[#E8E0D0]/70"
+                    >
+                      Link
+                    </label>
+                    <input
+                      id={`show-${i}-link`}
+                      type="url"
+                      value={show.link}
+                      onChange={(e) => updateShow(i, "link", e.target.value)}
+                      placeholder="https://"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={addShow}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[#E8E0D0]/30 px-3 py-1.5 text-sm text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]"
+          >
+            + Add another show
+          </button>
+        </div>
 
         {status === "error" && (
           <p className="rounded-md border border-[#E5A0A0]/40 bg-[#E5A0A0]/10 px-3.5 py-2.5 text-sm text-[#E5A0A0]">
