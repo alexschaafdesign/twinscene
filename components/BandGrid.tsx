@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Band } from "@/lib/fetchBands";
+import type { Show } from "@/lib/fetchShows";
 
 const GENRE_TAGS = [
   "All",
@@ -105,6 +106,10 @@ function BandImage({
 }
 
 function StatusDot({ status }: { status: string }) {
+  // No dot for "Active" — an unlabeled green dot reads like a presence/"online"
+  // indicator, which isn't the intent. Active is still tracked as a data point;
+  // hiatus/disbanded keep their dot since it flags something non-obvious.
+  if (status === "Active") return null;
   const color = statusColor(status);
   if (!color) return null;
   return (
@@ -161,6 +166,45 @@ function BandCard({
   );
 }
 
+/** Compact list row: small thumbnail + name/meta on one line. */
+function BandRow({
+  band,
+  onClick,
+}: {
+  band: Band;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="animate-fade-in group flex w-full items-center gap-3 rounded-md border border-[#E8E0D0]/10 px-3 py-2 text-left transition hover:border-[#E8E0D0]/30 hover:bg-[#E8E0D0]/5"
+    >
+      <div className="h-11 w-11 shrink-0">
+        <BandImage band={band} className="rounded-sm ring-1 ring-[#E8E0D0]/10" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <StatusDot status={band.status} />
+          <h3 className="truncate text-sm font-medium leading-snug">
+            {band.name}
+          </h3>
+        </div>
+        {metaLine(band) && (
+          <p className="mt-0.5 truncate text-xs text-[#E8E0D0]/55">
+            {metaLine(band)}
+          </p>
+        )}
+      </div>
+      {band.genres.length > 0 && (
+        <p className="ml-auto hidden max-w-[40%] shrink-0 truncate text-xs italic text-[#E8E0D0]/45 sm:block">
+          {band.genres.join(", ")}
+        </p>
+      )}
+    </button>
+  );
+}
+
 /* --- Link icon buttons for the detail drawer --- */
 
 function IconLink({
@@ -199,6 +243,24 @@ const iconProps = {
 
 function ensureUrl(value: string): string {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+}
+
+/**
+ * Format an ISO "YYYY-MM-DD" date as e.g. "Sat, Jul 12". Parsed/formatted in
+ * UTC so the date never slips a day across the viewer's timezone. Unexpected
+ * formats fall back to the raw string.
+ */
+function formatShowDate(date: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  if (!m) return date;
+  const [, y, mo, d] = m;
+  const dt = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d)));
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(dt);
 }
 
 function BandLinks({ band }: { band: Band }) {
@@ -266,10 +328,12 @@ function StatusBadge({ status }: { status: string }) {
 
 function BandDetail({
   band,
+  shows,
   open,
   onClose,
 }: {
   band: Band | null;
+  shows: Show[];
   open: boolean;
   onClose: () => void;
 }) {
@@ -424,6 +488,49 @@ function BandDetail({
                 {band.bio || "No bio yet."}
               </p>
 
+              {/* Upcoming shows */}
+              {shows.length > 0 && (
+                <div className="mt-5">
+                  <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+                    Upcoming shows
+                  </h3>
+                  <ul className="space-y-2">
+                    {shows.map((show, i) => (
+                      <li
+                        key={`${show.date}-${show.venue}-${i}`}
+                        className="rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] px-3 py-2.5"
+                      >
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-sm font-medium text-[#E8E0D0]">
+                            {formatShowDate(show.date)}
+                          </span>
+                          {show.link && (
+                            <a
+                              href={ensureUrl(show.link)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 text-xs text-[#E8E0D0]/70 underline decoration-[#E8E0D0]/30 underline-offset-2 transition hover:text-[#E8E0D0]"
+                            >
+                              Tickets / Info →
+                            </a>
+                          )}
+                        </div>
+                        {show.venue && (
+                          <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
+                            {show.venue}
+                          </p>
+                        )}
+                        {show.notes && (
+                          <p className="mt-0.5 text-xs text-[#E8E0D0]/50">
+                            {show.notes}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               {band.bandcamp && (
                 <div className="mt-5">
                   <iframe
@@ -447,11 +554,27 @@ function BandDetail({
   );
 }
 
-export default function BandGrid({ bands }: { bands: Band[] }) {
+export default function BandGrid({
+  bands,
+  shows = [],
+}: {
+  bands: Band[];
+  shows?: Show[];
+}) {
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("All");
   const [location, setLocation] = useState("All");
   const [activeOnly, setActiveOnly] = useState(true);
+  // Default per breakpoint: gallery on larger screens, compact list on mobile.
+  // Starts "gallery" to match SSR, then corrected on mount (see effect below).
+  // Once the user picks a view, `viewChosen` stops the breakpoint override.
+  const [view, setView] = useState<"gallery" | "compact">("gallery");
+  const [viewChosen, setViewChosen] = useState(false);
+
+  function chooseView(v: "gallery" | "compact") {
+    setView(v);
+    setViewChosen(true);
+  }
 
   const [selected, setSelected] = useState<Band | null>(null);
   // Retain the last-shown band so the drawer keeps its content while sliding
@@ -471,6 +594,17 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [selected]);
+
+  // Pick the default view from the viewport width until the user overrides it.
+  // 640px is Tailwind's `sm` breakpoint — below it, the compact list reads best.
+  useEffect(() => {
+    if (viewChosen) return;
+    const mq = window.matchMedia("(max-width: 639px)");
+    const apply = () => setView(mq.matches ? "compact" : "gallery");
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [viewChosen]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -501,6 +635,21 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
     });
   }, [bands, query, genre, location, activeOnly]);
 
+  // Group upcoming shows by band slug so the drawer can show a band's shows.
+  // fetchShows already filters to upcoming and sorts by date ascending.
+  const showsBySlug = useMemo(() => {
+    const map = new Map<string, Show[]>();
+    for (const show of shows) {
+      if (!show.slug) continue;
+      const list = map.get(show.slug);
+      if (list) list.push(show);
+      else map.set(show.slug, [show]);
+    }
+    return map;
+  }, [shows]);
+
+  const shownShows = shown ? showsBySlug.get(shown.slug) ?? [] : [];
+
   // Key changes whenever filters change, remounting the grid to replay the fade.
   const gridKey = `${query}|${genre}|${location}|${activeOnly}`;
 
@@ -515,8 +664,10 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
 
   return (
     <div>
-      {/* Controls */}
-      <div className="mb-6 space-y-4">
+      {/* Controls — kept in a narrower centered container so they don't
+          stretch the full grid width on large breakpoints. */}
+      <div className="mx-auto mb-8 max-w-2xl">
+      <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
             type="search"
@@ -595,15 +746,62 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
         </div>
       </div>
 
-      <p className="mb-4 text-xs text-[#E8E0D0]/55">
-        Showing {filtered.length} of {bands.length} bands
-      </p>
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <p className="text-xs text-[#E8E0D0]/55">
+            Showing {filtered.length} of {bands.length} bands
+          </p>
+          <div className="flex items-center gap-0.5 rounded-md border border-[#E8E0D0]/20 p-0.5">
+            <button
+              type="button"
+              onClick={() => chooseView("gallery")}
+              aria-pressed={view === "gallery"}
+              aria-label="Gallery view"
+              title="Gallery view"
+              className={`flex h-7 w-7 items-center justify-center rounded transition ${
+                view === "gallery"
+                  ? "bg-[#E8E0D0] text-[#2A2420]"
+                  : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
+              }`}
+            >
+              {/* ti-layout-grid (Tabler) */}
+              <svg {...iconProps} width={16} height={16}>
+                <rect x="4" y="4" width="6" height="6" rx="1" />
+                <rect x="14" y="4" width="6" height="6" rx="1" />
+                <rect x="4" y="14" width="6" height="6" rx="1" />
+                <rect x="14" y="14" width="6" height="6" rx="1" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => chooseView("compact")}
+              aria-pressed={view === "compact"}
+              aria-label="Compact list view"
+              title="Compact list view"
+              className={`flex h-7 w-7 items-center justify-center rounded transition ${
+                view === "compact"
+                  ? "bg-[#E8E0D0] text-[#2A2420]"
+                  : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
+              }`}
+            >
+              {/* ti-list (Tabler) */}
+              <svg {...iconProps} width={16} height={16}>
+                <path d="M9 6l11 0" />
+                <path d="M9 12l11 0" />
+                <path d="M9 18l11 0" />
+                <path d="M5 6l0 .01" />
+                <path d="M5 12l0 .01" />
+                <path d="M5 18l0 .01" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
 
       {filtered.length === 0 ? (
         <p className="py-16 text-center text-sm text-[#E8E0D0]/50">
           No bands match those filters.
         </p>
-      ) : (
+      ) : view === "gallery" ? (
         <div
           key={gridKey}
           className="grid gap-x-4 gap-y-7"
@@ -619,10 +817,24 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
             />
           ))}
         </div>
+      ) : (
+        <div
+          key={gridKey}
+          className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3"
+        >
+          {filtered.map((band) => (
+            <BandRow
+              key={band.slug}
+              band={band}
+              onClick={() => setSelected(band)}
+            />
+          ))}
+        </div>
       )}
 
       <BandDetail
         band={shown}
+        shows={shownShows}
         open={!!selected}
         onClose={() => setSelected(null)}
       />

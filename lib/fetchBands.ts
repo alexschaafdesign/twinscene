@@ -163,5 +163,9 @@ export async function fetchBands(): Promise<Band[]> {
     });
   }
 
+  // Always alphabetical by name (case-insensitive) regardless of sheet row
+  // order, so newly added bands slot in rather than landing at the bottom.
+  bands.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+
   return bands;
 }
