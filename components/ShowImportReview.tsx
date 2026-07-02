@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 export type SuggestedMatch = {
@@ -20,6 +21,7 @@ export type ImportShow = {
   flyerUrl: string | null;
   suggested: SuggestedMatch[];
   autoSlugs: string[];
+  unmatched: string[]; // scraped band names not in the directory (confidence 'none')
   alreadyImported: boolean;
 };
 
@@ -29,6 +31,61 @@ type RowStatus = "idle" | "submitting" | "done" | "error";
 
 const inputClass =
   "w-full rounded-md border border-[#E8E0D0]/20 bg-transparent px-3 py-1.5 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#E8E0D0]";
+
+/** Lowercase/hyphenate a band name. Kept in sync with slugify in fetchBands. */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * A scraped act that isn't in the directory. "Add to directory" opens the
+ * prefilled add-band form in a new tab (so you can add a photo, genres, bio,
+ * etc. before submitting) and optimistically links the band to this show — the
+ * add-mode slug matches slugify(name), so the link resolves once the band is
+ * approved. Remove the chip above if you end up not adding it.
+ */
+function UnmatchedBand({
+  name,
+  onAdded,
+}: {
+  name: string;
+  onAdded: (band: BandOption) => void;
+}) {
+  const [linked, setLinked] = useState(false);
+  const href = `/submit?${new URLSearchParams({
+    name,
+    status: "Active",
+  }).toString()}`;
+
+  return (
+    <li className="flex items-center gap-2 text-sm">
+      <span style={{ color: "rgba(232,224,208,0.5)" }}>{name}</span>
+      <Link
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={() => {
+          if (!linked) {
+            onAdded({ slug: slugify(name), name });
+            setLinked(true);
+          }
+        }}
+        className="cursor-pointer text-xs text-[#E8E0D0]/50 underline underline-offset-2 hover:text-[#E8E0D0]"
+      >
+        + Add to directory
+      </Link>
+      {linked && (
+        <span className="rounded bg-[#6FBF73]/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#8FD693]">
+          ✓ linked
+        </span>
+      )}
+    </li>
+  );
+}
 
 /** Compact directory search that adds a band on selection. */
 function BandPicker({
@@ -313,6 +370,19 @@ function ShowCard({
               </div>
             )}
           </div>
+
+          {show.unmatched.length > 0 && (
+            <div>
+              <span className="mb-1 block text-xs text-[#E8E0D0]/55">
+                Unmatched bands
+              </span>
+              <ul className="space-y-1">
+                {show.unmatched.map((name) => (
+                  <UnmatchedBand key={name} name={name} onAdded={addLink} />
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <LabeledField label="Notes">

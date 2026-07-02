@@ -97,6 +97,11 @@ export default async function ImportShowsPage({
           confidence: m.confidence as "auto" | "review",
         }));
 
+      // Scraped acts with no directory match — offered for one-click adding.
+      const unmatched = matched.bandMatches
+        .filter((m) => m.confidence === "none")
+        .map((m) => m.name);
+
       return {
         sourceKey,
         date: show.date ?? "",
@@ -110,6 +115,7 @@ export default async function ImportShowsPage({
         autoSlugs: suggested
           .filter((s) => s.confidence === "auto")
           .map((s) => s.slug),
+        unmatched,
         alreadyImported: importedKeys.has(sourceKey),
       };
     });
