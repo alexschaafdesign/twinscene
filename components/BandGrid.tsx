@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Band } from "@/lib/fetchBands";
+import type { Show } from "@/lib/fetchShows";
 
 const GENRE_TAGS = [
   "All",
@@ -244,6 +245,24 @@ function ensureUrl(value: string): string {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
+/**
+ * Format an ISO "YYYY-MM-DD" date as e.g. "Sat, Jul 12". Parsed/formatted in
+ * UTC so the date never slips a day across the viewer's timezone. Unexpected
+ * formats fall back to the raw string.
+ */
+function formatShowDate(date: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
+  if (!m) return date;
+  const [, y, mo, d] = m;
+  const dt = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d)));
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(dt);
+}
+
 function BandLinks({ band }: { band: Band }) {
   const hasAny =
     band.website || band.instagram || band.bandcamp || band.spotify;
@@ -309,10 +328,12 @@ function StatusBadge({ status }: { status: string }) {
 
 function BandDetail({
   band,
+  shows,
   open,
   onClose,
 }: {
   band: Band | null;
+  shows: Show[];
   open: boolean;
   onClose: () => void;
 }) {
@@ -468,9 +489,47 @@ function BandDetail({
               </p>
 
               {/* Upcoming shows */}
-              <div className="mt-5">
-                {/* TODO: pass shows data per band */}
-              </div>
+              {shows.length > 0 && (
+                <div className="mt-5">
+                  <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+                    Upcoming shows
+                  </h3>
+                  <ul className="space-y-2">
+                    {shows.map((show, i) => (
+                      <li
+                        key={`${show.date}-${show.venue}-${i}`}
+                        className="rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] px-3 py-2.5"
+                      >
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-sm font-medium text-[#E8E0D0]">
+                            {formatShowDate(show.date)}
+                          </span>
+                          {show.link && (
+                            <a
+                              href={ensureUrl(show.link)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="shrink-0 text-xs text-[#E8E0D0]/70 underline decoration-[#E8E0D0]/30 underline-offset-2 transition hover:text-[#E8E0D0]"
+                            >
+                              Tickets / Info →
+                            </a>
+                          )}
+                        </div>
+                        {show.venue && (
+                          <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
+                            {show.venue}
+                          </p>
+                        )}
+                        {show.notes && (
+                          <p className="mt-0.5 text-xs text-[#E8E0D0]/50">
+                            {show.notes}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {band.bandcamp && (
                 <div className="mt-5">
@@ -495,7 +554,13 @@ function BandDetail({
   );
 }
 
-export default function BandGrid({ bands }: { bands: Band[] }) {
+export default function BandGrid({
+  bands,
+  shows = [],
+}: {
+  bands: Band[];
+  shows?: Show[];
+}) {
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("All");
   const [location, setLocation] = useState("All");
@@ -569,6 +634,21 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
       return true;
     });
   }, [bands, query, genre, location, activeOnly]);
+
+  // Group upcoming shows by band slug so the drawer can show a band's shows.
+  // fetchShows already filters to upcoming and sorts by date ascending.
+  const showsBySlug = useMemo(() => {
+    const map = new Map<string, Show[]>();
+    for (const show of shows) {
+      if (!show.slug) continue;
+      const list = map.get(show.slug);
+      if (list) list.push(show);
+      else map.set(show.slug, [show]);
+    }
+    return map;
+  }, [shows]);
+
+  const shownShows = shown ? showsBySlug.get(shown.slug) ?? [] : [];
 
   // Key changes whenever filters change, remounting the grid to replay the fade.
   const gridKey = `${query}|${genre}|${location}|${activeOnly}`;
@@ -754,6 +834,7 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
 
       <BandDetail
         band={shown}
+        shows={shownShows}
         open={!!selected}
         onClose={() => setSelected(null)}
       />

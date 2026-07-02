@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { fetchBands } from "@/lib/fetchBands";
+import { fetchShows } from "@/lib/fetchShows";
 import BandGrid from "@/components/BandGrid";
 
 export default async function Home() {
-  const bands = await fetchBands();
+  const [bands, shows] = await Promise.all([fetchBands(), fetchShows()]);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
@@ -34,7 +35,7 @@ export default async function Home() {
         </div>
       </header>
 
-      <BandGrid bands={bands} />
+      <BandGrid bands={bands} shows={shows} />
     </main>
   );
 }
