@@ -56,10 +56,10 @@ export default async function ShowsPage() {
             <span aria-hidden>←</span> Directory
           </Link>
           <Link
-            href="/submit"
+            href="/shows/submit"
             className="shrink-0 rounded-md border border-[#E8E0D0] px-4 py-2 text-sm font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0] hover:text-[#2A2420]"
           >
-            Add your band →
+            Add a show →
           </Link>
         </nav>
         <h1 className="mt-6 text-2xl font-medium tracking-tight sm:text-3xl">
