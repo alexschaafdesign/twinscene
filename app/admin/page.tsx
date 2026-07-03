@@ -1,9 +1,14 @@
 import { SCRAPERS } from "@/lib/scrapers";
+import { fetchBands, type Band } from "@/lib/fetchBands";
 import {
   fetchScraperLog,
   SCRAPER_LOG_CONFIGURED,
   type ScraperLogRow,
 } from "@/lib/fetchScraperLog";
+import {
+  fetchNonLocalBands,
+  type NonLocalBand,
+} from "@/lib/fetchNonLocalBands";
 import AdminPanel from "@/components/AdminPanel";
 
 // Reads the secret and no-store data at request time — never cache.
@@ -30,7 +35,15 @@ export default async function AdminPage({
     );
   }
 
-  const log: ScraperLogRow[] = await fetchScraperLog();
+  const [log, bands, nonLocalBands]: [
+    ScraperLogRow[],
+    Band[],
+    NonLocalBand[],
+  ] = await Promise.all([
+    fetchScraperLog(),
+    fetchBands(),
+    fetchNonLocalBands(),
+  ]);
 
   // Only pass serializable data to the client (scrape functions can't cross).
   const scrapers = Object.values(SCRAPERS).map((s) => ({
@@ -42,6 +55,8 @@ export default async function AdminPage({
     <AdminPanel
       scrapers={scrapers}
       log={log}
+      bands={bands}
+      nonLocalBands={nonLocalBands}
       secret={provided}
       logConfigured={SCRAPER_LOG_CONFIGURED}
     />

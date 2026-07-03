@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import type { ScraperLogRow } from "@/lib/fetchScraperLog";
+import type { Band } from "@/lib/fetchBands";
+import type { NonLocalBand } from "@/lib/fetchNonLocalBands";
 
 type ScraperInfo = { id: string; name: string };
 
@@ -59,11 +61,15 @@ const IDLE: RunState = { status: "idle", message: "" };
 export default function AdminPanel({
   scrapers,
   log,
+  bands,
+  nonLocalBands,
   secret,
   logConfigured,
 }: {
   scrapers: ScraperInfo[];
   log: ScraperLogRow[];
+  bands: Band[];
+  nonLocalBands: NonLocalBand[];
   secret: string;
   logConfigured: boolean;
 }) {
@@ -168,7 +174,24 @@ export default function AdminPanel({
     setDismissed((prev) => new Set(prev).add(name));
   }
 
-  const newBands = (log[0]?.newBandNames ?? []).filter((n) => !dismissed.has(n));
+  // Names already in the directory, for filtering out bands we already have.
+  const directoryNames = new Set(
+    bands.map((b) => b.name.toLowerCase().trim()),
+  );
+  // Names previously flagged as non-local, so they don't resurface.
+  const nonLocalNames = new Set(
+    nonLocalBands.map((b) => b.name.toLowerCase().trim()),
+  );
+
+  // Discovered names that are neither in the directory nor already flagged
+  // non-local (case-insensitive), minus any dismissed from the queue this
+  // session.
+  const trulyNew = (log[0]?.newBandNames ?? []).filter(
+    (name) =>
+      !directoryNames.has(name.toLowerCase().trim()) &&
+      !nonLocalNames.has(name.toLowerCase().trim()),
+  );
+  const newBands = trulyNew.filter((n) => !dismissed.has(n));
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
@@ -302,10 +325,13 @@ export default function AdminPanel({
 
       {/* 3. NEW BANDS DISCOVERED ──────────────────────────────────────── */}
       <section>
-        <h2 className={`${SECTION_HEADING} mb-4`}>New bands discovered</h2>
+        <h2 className={`${SECTION_HEADING} mb-4`}>
+          {newBands.length} new{" "}
+          {newBands.length === 1 ? "band" : "bands"} not yet in directory
+        </h2>
         {newBands.length === 0 ? (
           <p className="text-sm text-[#E8E0D0]/55">
-            No new bands in the most recent run.
+            All discovered bands are already in the directory.
           </p>
         ) : (
           <ul className="space-y-2">
