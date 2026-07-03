@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { fetchBands } from "@/lib/fetchBands";
+import { SHOWS_ENABLED } from "@/lib/features";
 import { fetchShows } from "@/lib/fetchShows";
 import { scrapePilllar } from "@/lib/scrapers/pilllar";
 import { createMatcher } from "@/lib/bandMatcher";
@@ -49,6 +51,8 @@ export default async function ImportShowsPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  if (!SHOWS_ENABLED) notFound();
+
   const sp = await searchParams;
   const secret = process.env.SCRAPE_SECRET;
   const provided = typeof sp.secret === "string" ? sp.secret : "";

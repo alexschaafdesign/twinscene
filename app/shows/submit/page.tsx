@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ShowSubmitForm from "@/components/ShowSubmitForm";
 import { fetchBands } from "@/lib/fetchBands";
+import { SHOWS_ENABLED } from "@/lib/features";
 
 export const metadata: Metadata = {
   title: "Add a Show — Twin Scene",
@@ -9,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ShowSubmitPage() {
+  if (!SHOWS_ENABLED) notFound();
   const bands = await fetchBands();
   // Lean list for the client component — just what the picker needs.
   const bandOptions = bands.map((b) => ({ slug: b.slug, name: b.name }));

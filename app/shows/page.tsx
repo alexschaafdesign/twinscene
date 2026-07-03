@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { fetchShows, type Show } from "@/lib/fetchShows";
+import { SHOWS_ENABLED } from "@/lib/features";
 
 export const metadata: Metadata = {
   title: "Upcoming Shows — Twin Scene",
@@ -42,6 +44,7 @@ function groupByDate(shows: Show[]): { date: string; shows: Show[] }[] {
 }
 
 export default async function ShowsPage() {
+  if (!SHOWS_ENABLED) notFound();
   const shows = await fetchShows();
   const groups = groupByDate(shows);
 

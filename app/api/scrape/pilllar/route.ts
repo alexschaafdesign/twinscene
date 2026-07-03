@@ -2,12 +2,17 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getScraper } from "@/lib/scrapers";
 import { fetchBands } from "@/lib/fetchBands";
 import { createMatcher, type MatchedShow } from "@/lib/bandMatcher";
+import { SHOWS_ENABLED } from "@/lib/features";
 
 // cheerio needs the Node.js runtime, and the scrape must never be cached.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  if (!SHOWS_ENABLED) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const secret = process.env.SCRAPE_SECRET;
   if (secret && request.nextUrl.searchParams.get("secret") !== secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
