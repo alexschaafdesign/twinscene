@@ -9,8 +9,6 @@ const BIO_MAX = 300;
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
 
-const STATUS_OPTIONS = ["Active", "On hiatus", "Disbanded"];
-
 const inputClass =
   "w-full rounded-md border border-[#E8E0D0]/20 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#E8E0D0]";
 
@@ -50,7 +48,6 @@ type FormState = {
   genres: string;
   location: string;
   started: string;
-  status: string;
   website: string;
   instagram: string;
   bandcamp: string;
@@ -297,7 +294,6 @@ export default function SubmitForm({
   initialGenres = "",
   initialLocation = "",
   initialStarted = "",
-  initialStatus = "",
   initialWebsite = "",
   initialInstagram = "",
   initialBandcamp = "",
@@ -312,7 +308,6 @@ export default function SubmitForm({
   initialGenres?: string;
   initialLocation?: string;
   initialStarted?: string;
-  initialStatus?: string;
   initialWebsite?: string;
   initialInstagram?: string;
   initialBandcamp?: string;
@@ -328,8 +323,6 @@ export default function SubmitForm({
     genres: initialGenres,
     location: initialLocation,
     started: initialStarted,
-    // Fall back to "Active" when no status was passed (e.g. adding a band).
-    status: STATUS_OPTIONS.includes(initialStatus) ? initialStatus : "Active",
     website: initialWebsite,
     instagram: initialInstagram,
     bandcamp: initialBandcamp,
@@ -652,21 +645,6 @@ export default function SubmitForm({
             />
           </Field>
         </div>
-
-        <Field label="Status" htmlFor="status">
-          <select
-            id="status"
-            value={form.status}
-            onChange={set("status")}
-            className={`${inputClass} appearance-none`}
-          >
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s} className="bg-[#2A2420] text-[#E8E0D0]">
-                {s}
-              </option>
-            ))}
-          </select>
-        </Field>
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Website" htmlFor="website">

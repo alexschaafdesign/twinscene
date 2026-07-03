@@ -13,7 +13,6 @@ export type Band = {
   location: string;
   bio: string;
   started: number | null;
-  status: string; // 'Active' | 'On hiatus' | 'Disbanded' | ''
   image: string;
   website: string;
   instagram: string; // handle only
@@ -153,7 +152,6 @@ export async function fetchBands(): Promise<Band[]> {
       location: get(row, "LOCATION"),
       bio: get(row, "BIO"),
       started: Number.isNaN(started) ? null : started,
-      status: get(row, "STATUS"),
       image: get(row, "IMAGE"),
       website: get(row, "WEBSITE"),
       instagram: cleanInstagram(get(row, "INSTAGRAM")),

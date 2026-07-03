@@ -56,10 +56,7 @@ function UnmatchedBand({
   onAdded: (band: BandOption) => void;
 }) {
   const [linked, setLinked] = useState(false);
-  const href = `/submit?${new URLSearchParams({
-    name,
-    status: "Active",
-  }).toString()}`;
+  const href = `/submit?${new URLSearchParams({ name }).toString()}`;
 
   return (
     <li className="flex items-center gap-2 text-sm">

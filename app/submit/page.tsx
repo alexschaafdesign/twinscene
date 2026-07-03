@@ -47,7 +47,6 @@ export default async function SubmitPage({
         initialGenres={param("genres")}
         initialLocation={param("location")}
         initialStarted={param("started")}
-        initialStatus={param("status")}
         initialWebsite={param("website")}
         initialInstagram={param("instagram")}
         initialBandcamp={param("bandcamp")}

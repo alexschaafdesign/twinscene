@@ -57,19 +57,6 @@ function initials(name: string): string {
   return (words[0][0] + words[1][0]).toUpperCase();
 }
 
-function statusColor(status: string): string | null {
-  switch (status) {
-    case "Active":
-      return "#6FBF73";
-    case "On hiatus":
-      return "#D9A441";
-    case "Disbanded":
-      return "#8C8378";
-    default:
-      return null;
-  }
-}
-
 /** Square band image with an initials fallback when missing or broken. */
 function BandImage({
   band,
@@ -105,23 +92,6 @@ function BandImage({
   );
 }
 
-function StatusDot({ status }: { status: string }) {
-  // No dot for "Active" — an unlabeled green dot reads like a presence/"online"
-  // indicator, which isn't the intent. Active is still tracked as a data point;
-  // hiatus/disbanded keep their dot since it flags something non-obvious.
-  if (status === "Active") return null;
-  const color = statusColor(status);
-  if (!color) return null;
-  return (
-    <span
-      title={status}
-      aria-label={status}
-      className="inline-block h-2 w-2 shrink-0 rounded-full"
-      style={{ backgroundColor: color }}
-    />
-  );
-}
-
 function metaLine(band: Band): string {
   const parts: string[] = [];
   if (band.location) parts.push(band.location);
@@ -146,12 +116,9 @@ function BandCard({
         band={band}
         className="rounded-sm ring-1 ring-[#E8E0D0]/10 transition group-hover:ring-[#E8E0D0]/40"
       />
-      <div className="mt-2.5 flex items-center gap-1.5">
-        <StatusDot status={band.status} />
-        <h3 className="truncate text-sm font-medium leading-snug">
-          {band.name}
-        </h3>
-      </div>
+      <h3 className="mt-2.5 truncate text-sm font-medium leading-snug">
+        {band.name}
+      </h3>
       {metaLine(band) && (
         <p className="mt-0.5 truncate text-xs text-[#E8E0D0]/55">
           {metaLine(band)}
@@ -184,12 +151,9 @@ function BandRow({
         <BandImage band={band} className="rounded-sm ring-1 ring-[#E8E0D0]/10" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <StatusDot status={band.status} />
-          <h3 className="truncate text-sm font-medium leading-snug">
-            {band.name}
-          </h3>
-        </div>
+        <h3 className="truncate text-sm font-medium leading-snug">
+          {band.name}
+        </h3>
         {metaLine(band) && (
           <p className="mt-0.5 truncate text-xs text-[#E8E0D0]/55">
             {metaLine(band)}
@@ -309,23 +273,6 @@ function BandLinks({ band }: { band: Band }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const color = statusColor(status);
-  if (!color) return null;
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs"
-      style={{ borderColor: `${color}66`, color }}
-    >
-      <span
-        className="h-1.5 w-1.5 rounded-full"
-        style={{ backgroundColor: color }}
-      />
-      {status}
-    </span>
-  );
-}
-
 function BandDetail({
   band,
   shows,
@@ -385,7 +332,6 @@ function BandDetail({
                   genres: band.genres.join(", "),
                   location: band.location,
                   started: band.started != null ? String(band.started) : "",
-                  status: band.status,
                   website: band.website,
                   instagram: band.instagram,
                   bandcamp: band.bandcamp,
@@ -414,7 +360,6 @@ function BandDetail({
                   genres: band.genres.join(", "),
                   location: band.location,
                   started: band.started != null ? String(band.started) : "",
-                  status: band.status,
                   website: band.website,
                   instagram: band.instagram,
                   bandcamp: band.bandcamp,
@@ -455,20 +400,15 @@ function BandDetail({
                 />
               </div>
 
-              <div className="mt-5 flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-2xl font-medium leading-tight">
-                    {band.name}
-                  </h2>
-                  {metaLine(band) && (
-                    <p className="mt-1 text-sm text-[#E8E0D0]/65">
-                      {metaLine(band)}
-                    </p>
-                  )}
-                </div>
-                <div className="pt-1">
-                  <StatusBadge status={band.status} />
-                </div>
+              <div className="mt-5">
+                <h2 className="text-2xl font-medium leading-tight">
+                  {band.name}
+                </h2>
+                {metaLine(band) && (
+                  <p className="mt-1 text-sm text-[#E8E0D0]/65">
+                    {metaLine(band)}
+                  </p>
+                )}
               </div>
 
               {band.genres.length > 0 && (
@@ -569,7 +509,6 @@ export default function BandGrid({
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("All");
   const [location, setLocation] = useState("All");
-  const [activeOnly, setActiveOnly] = useState(true);
   // Default per breakpoint: gallery on larger screens, compact list on mobile.
   // Starts "gallery" to match SSR, then corrected on mount (see effect below).
   // Once the user picks a view, `viewChosen` stops the breakpoint override.
@@ -631,14 +570,9 @@ export default function BandGrid({
       // Location bucket
       if (!matchesLocation(band.location, location)) return false;
 
-      // Active-only hides disbanded / on-hiatus bands
-      if (activeOnly && (band.status === "Disbanded" || band.status === "On hiatus")) {
-        return false;
-      }
-
       return true;
     });
-  }, [bands, query, genre, location, activeOnly]);
+  }, [bands, query, genre, location]);
 
   // Group upcoming shows by band slug so the drawer can show a band's shows.
   // fetchShows already filters to upcoming and sorts by date ascending.
@@ -658,7 +592,7 @@ export default function BandGrid({
   const shownShows = shown ? showsBySlug.get(shown.slug) ?? [] : [];
 
   // Key changes whenever filters change, remounting the grid to replay the fade.
-  const gridKey = `${query}|${genre}|${location}|${activeOnly}`;
+  const gridKey = `${query}|${genre}|${location}`;
 
   function surpriseMe() {
     if (filtered.length === 0) return;
@@ -721,7 +655,7 @@ export default function BandGrid({
           })}
         </div>
 
-        {/* Location + status */}
+        {/* Location */}
         <div className="flex flex-wrap items-center gap-1.5">
           {LOCATION_TAGS.map((tag) => {
             const active = location === tag;
@@ -740,16 +674,6 @@ export default function BandGrid({
               </button>
             );
           })}
-
-          <label className="ml-auto flex cursor-pointer select-none items-center gap-2 text-xs text-[#E8E0D0]/70">
-            <input
-              type="checkbox"
-              checked={activeOnly}
-              onChange={(e) => setActiveOnly(e.target.checked)}
-              className="h-3.5 w-3.5 accent-[#E8E0D0]"
-            />
-            Active only
-          </label>
         </div>
       </div>
 
