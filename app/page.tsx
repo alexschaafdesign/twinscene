@@ -8,6 +8,23 @@ export default async function Home() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
+      <div
+        role="status"
+        className="mb-8 flex items-start gap-3 rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-4 py-3 text-sm leading-relaxed text-[#E8E0D0]/90"
+      >
+        <span
+          aria-hidden
+          className="mt-0.5 shrink-0 rounded bg-[#E8B84B]/20 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-[#E8B84B]"
+        >
+          Beta
+        </span>
+        <p className="m-0">
+          This site is in early beta — lots of in-progress sections and
+          half-finished ideas. We&apos;ll announce when it&apos;s fully released
+          to the public!
+        </p>
+      </div>
+
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
         <h1 className="m-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
