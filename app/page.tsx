@@ -21,14 +21,14 @@ export default async function Home() {
           welcome to the Twin Cities music scene
         </p>
         <p className="mt-1 text-center text-sm text-[#E8E0D0]/70">
-          Created and maintained by Alex at the{" "}
+          Created and maintained by Alex at {" "}
           <a
             href="https://thebirdhaus.org"
             target="_blank"
             rel="noopener noreferrer"
             className="underline hover:text-[#E8E0D0]"
           >
-            Birdhaus
+            the Birdhaus
           </a>
         </p>
         <div className="mt-4 flex justify-center gap-3">
