@@ -1,0 +1,9 @@
+{
+  "//": "SCRAPE_SECRET must be set as an env var on Vercel (used by the on-demand /api/scrape/* endpoints). Vercel cron paths can't reference env vars or carry a secret query param, so the cron hits /api/cron/scrape, which authenticates via the 'x-vercel-cron' header instead. Schedule 0 13 * * * is 13:00 UTC daily (~8am CT, a reasonable year-round approximation).",
+  "crons": [
+    {
+      "path": "/api/cron/scrape",
+      "schedule": "0 13 * * *"
+    }
+  ]
+}

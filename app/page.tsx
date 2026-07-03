@@ -17,6 +17,20 @@ export default async function Home() {
             className="mx-auto block w-full max-w-2xl"
           />
         </h1>
+        <p className="mt-4 text-center text-lg font-medium text-[#E8E0D0]">
+          welcome to the Twin Cities music scene
+        </p>
+        <p className="mt-1 text-center text-sm text-[#E8E0D0]/70">
+          Created and maintained by Alex at the{" "}
+          <a
+            href="https://thebirdhaus.org"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-[#E8E0D0]"
+          >
+            Birdhaus
+          </a>
+        </p>
         <div className="mt-4 flex justify-center gap-3">
           <Link
             href="/shows"

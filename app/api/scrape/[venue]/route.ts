@@ -7,15 +7,22 @@ import { createMatcher, type MatchedShow } from "@/lib/bandMatcher";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ venue: string }> },
+) {
   const secret = process.env.SCRAPE_SECRET;
   if (secret && request.nextUrl.searchParams.get("secret") !== secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const scraper = getScraper("pilllar");
+  const { venue } = await params;
+  const scraper = getScraper(venue);
   if (!scraper) {
-    return NextResponse.json({ error: "Scraper not found" }, { status: 404 });
+    return NextResponse.json(
+      { error: `No scraper registered for '${venue}'` },
+      { status: 404 },
+    );
   }
 
   try {
