@@ -9,6 +9,7 @@ export const dynamic = "force-dynamic";
 // instead of the SCRAPE_SECRET check the on-demand endpoints use, we trust the
 // 'x-vercel-cron' header Vercel attaches to scheduled invocations. Runs the
 // exact same all-scraper logic as /api/scrape/all.
+// Scheduled in vercel.json at "0 13 * * *" = 13:00 UTC daily (~8am CT).
 export async function GET(request: NextRequest) {
   if (!request.headers.get("x-vercel-cron")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
