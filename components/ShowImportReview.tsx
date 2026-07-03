@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export type SuggestedMatch = {
   slug: string;
@@ -190,6 +190,17 @@ function ShowCard({
     show.alreadyImported ? "done" : "idle",
   );
   const [errorMsg, setErrorMsg] = useState("");
+  const [expanded, setExpanded] = useState(false);
+
+  // Close the expanded flyer on Escape.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setExpanded(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   const selectedSlugs = useMemo(
     () => new Set(links.map((l) => l.slug)),
@@ -252,15 +263,38 @@ function ShowCard({
 
   return (
     <li className="rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] p-4">
-      <div className="flex gap-4">
-        {show.flyerUrl && (
-          // eslint-disable-next-line @next/next/no-img-element -- external flyer art
+      {expanded && show.flyerUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Show flyer"
+          onClick={() => setExpanded(false)}
+          className="fixed inset-0 z-50 flex cursor-zoom-out items-center justify-center bg-black/80 p-6"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- external flyer art */}
           <img
             src={show.flyerUrl}
             alt=""
-            loading="lazy"
-            className="h-20 w-20 shrink-0 rounded object-cover ring-1 ring-[#E8E0D0]/10"
+            className="max-h-full max-w-full rounded shadow-2xl"
           />
+        </div>
+      )}
+      <div className="flex gap-4">
+        {show.flyerUrl && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            aria-label="Expand flyer"
+            className="h-20 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded ring-1 ring-[#E8E0D0]/10 transition hover:ring-[#E8E0D0]/40"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- external flyer art */}
+            <img
+              src={show.flyerUrl}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover"
+            />
+          </button>
         )}
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex items-center justify-between gap-3">

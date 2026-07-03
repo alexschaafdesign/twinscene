@@ -7,11 +7,11 @@
 // TODO: replace YOUR_NON_LOCAL_GID with the real gid once the "Non-Local Bands"
 // tab is published to the web (File → Share → Publish to web → that tab → CSV).
 const NON_LOCAL_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=YOUR_NON_LOCAL_GID&single=true&output=csv";
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=2050025979&single=true&output=csv";
 
 /** Whether the non-local CSV URL has had its real gid filled in yet. */
 export const NON_LOCAL_CONFIGURED =
-  !NON_LOCAL_CSV_URL.includes("YOUR_NON_LOCAL_GID");
+  !NON_LOCAL_CSV_URL.includes("2050025979");
 
 export type NonLocalBand = {
   name: string;
