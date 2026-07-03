@@ -98,10 +98,12 @@ export default function AdminPanel({
   const [runStates, setRunStates] = useState<Record<string, RunState>>({});
   const [allState, setAllState] = useState<RunState>(IDLE);
 
-  // Per-band add status for the "New bands discovered" section.
-  const [bandStates, setBandStates] = useState<
-    Record<string, "idle" | "loading" | "added" | "error">
-  >({});
+  // Bands flagged "not local" this session — kept in the list with a chip.
+  const [notLocalFlagged, setNotLocalFlagged] = useState<Set<string>>(
+    new Set(),
+  );
+  // Bands removed from the visible queue this session.
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   const submitUrl = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
   const q = `secret=${encodeURIComponent(secret)}`;
@@ -145,36 +147,28 @@ export default function AdminPanel({
     }
   }
 
-  async function addBand(name: string) {
-    if (!submitUrl) {
-      setBandStates((s) => ({ ...s, [name]: "error" }));
-      return;
-    }
-    setBandStates((s) => ({ ...s, [name]: "loading" }));
-    try {
-      // Stub band: mode 'add' with no photo — a placeholder to flesh out later.
-      // Matches the band-submission fields the Apps Script doPost fallthrough
-      // reads; deliberately sends no formType.
-      const payload = new URLSearchParams({
-        mode: "add",
-        bandName: name,
-        bandSlug: slugify(name),
-        status: "Active",
-        submitterName: "Admin",
-        submitterEmail: "alex@thebirdhaus.org",
-        notes: "Discovered via scraper — needs photo and details",
-        removeImage: "false",
-      });
-      const res = await fetch(submitUrl, { method: "POST", body: payload });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || "Failed");
-      setBandStates((s) => ({ ...s, [name]: "added" }));
-    } catch {
-      setBandStates((s) => ({ ...s, [name]: "error" }));
+  // Flag a band as not local: keep it in the list with a "Not local" chip and
+  // log it in the background. A failed POST is fine — the chip still sticks.
+  function flagNotLocal(name: string) {
+    setNotLocalFlagged((prev) => new Set(prev).add(name));
+    if (submitUrl) {
+      void fetch(submitUrl, {
+        method: "POST",
+        body: new URLSearchParams({
+          formType: "nonLocalBand",
+          bandName: name,
+          bandSlug: slugify(name),
+        }),
+      }).catch(() => {});
     }
   }
 
-  const newBands = log[0]?.newBandNames ?? [];
+  // Clear a band from this approval queue (visual only — no POST).
+  function removeFromList(name: string) {
+    setDismissed((prev) => new Set(prev).add(name));
+  }
+
+  const newBands = (log[0]?.newBandNames ?? []).filter((n) => !dismissed.has(n));
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
@@ -316,7 +310,6 @@ export default function AdminPanel({
         ) : (
           <ul className="space-y-2">
             {newBands.map((name) => {
-              const state = bandStates[name] ?? "idle";
               return (
                 <li
                   key={name}
@@ -325,29 +318,34 @@ export default function AdminPanel({
                   <span className="min-w-0 break-words text-sm text-[#E8E0D0]">
                     {name}
                   </span>
-                  {state === "added" ? (
-                    <span className="shrink-0 rounded bg-[#8FD08F]/15 px-2 py-1 text-xs font-medium text-[#8FD08F]">
-                      ✓ Added
-                    </span>
-                  ) : (
-                    <div className="shrink-0 text-right">
+                  {notLocalFlagged.has(name) ? (
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="rounded bg-[#E8E0D0]/10 px-2 py-1 text-xs text-[#E8E0D0]/50">
+                        Not local
+                      </span>
                       <button
                         type="button"
-                        onClick={() => addBand(name)}
-                        disabled={state === "loading"}
+                        onClick={() => removeFromList(name)}
+                        className="cursor-pointer text-xs text-[#E8E0D0]/30 hover:text-[#E8E0D0]/60"
+                      >
+                        Remove from list
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="inline-flex shrink-0 items-center">
+                      <a
+                        href={`/submit?name=${encodeURIComponent(name)}`}
                         className={BTN}
                       >
-                        {state === "loading" ? (
-                          <Spinner label="Adding…" />
-                        ) : (
-                          "+ Add to directory"
-                        )}
+                        + Add to directory
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => flagNotLocal(name)}
+                        className="ml-2 cursor-pointer text-xs text-[#E8E0D0]/30 hover:text-[#E8E0D0]/60"
+                      >
+                        Not local
                       </button>
-                      {state === "error" && (
-                        <p className="mt-1 text-xs text-[#E5A0A0]">
-                          Failed — try again
-                        </p>
-                      )}
                     </div>
                   )}
                 </li>
