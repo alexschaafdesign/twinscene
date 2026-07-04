@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { Band } from "@/lib/fetchBands";
-import type { Show } from "@/lib/fetchShows";
-import BandcampPlayer from "@/components/BandcampPlayer";
+import { BandImage, iconProps, metaLine } from "@/components/band-shared";
 
 const GENRE_TAGS = [
   "All",
@@ -50,67 +50,10 @@ function matchesLocation(location: string, filter: string): boolean {
   }
 }
 
-/** First letters of the band's name words, up to two, for the placeholder. */
-function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return "?";
-  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
-  return (words[0][0] + words[1][0]).toUpperCase();
-}
-
-/** Square band image with an initials fallback when missing or broken. */
-function BandImage({
-  band,
-  className = "",
-}: {
-  band: Band;
-  className?: string;
-}) {
-  const [errored, setErrored] = useState(false);
-  const showImage = band.image && !errored;
-
+function BandCard({ band }: { band: Band }) {
   return (
-    <div
-      className={`relative aspect-square w-full overflow-hidden bg-[#3A332D] ${className}`}
-    >
-      {showImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- band art comes from arbitrary external hosts
-        <img
-          src={band.image}
-          alt={band.name}
-          loading="lazy"
-          onError={() => setErrored(true)}
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center">
-          <span className="select-none text-4xl font-medium text-[#E8E0D0]/30">
-            {initials(band.name)}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function metaLine(band: Band): string {
-  const parts: string[] = [];
-  if (band.location) parts.push(band.location);
-  if (band.started) parts.push(`Est. ${band.started}`);
-  return parts.join(" · ");
-}
-
-function BandCard({
-  band,
-  onClick,
-}: {
-  band: Band;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
+    <Link
+      href={`/bands/${band.slug}`}
       className="animate-fade-in group flex flex-col text-left transition-opacity"
     >
       <BandImage
@@ -130,22 +73,15 @@ function BandCard({
           {band.genres.join(", ")}
         </p>
       )}
-    </button>
+    </Link>
   );
 }
 
 /** Compact list row: small thumbnail + name/meta on one line. */
-function BandRow({
-  band,
-  onClick,
-}: {
-  band: Band;
-  onClick: () => void;
-}) {
+function BandRow({ band }: { band: Band }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <Link
+      href={`/bands/${band.slug}`}
       className="animate-fade-in group flex w-full items-center gap-3 rounded-md border border-[#E8E0D0]/10 px-3 py-2 text-left transition hover:border-[#E8E0D0]/30 hover:bg-[#E8E0D0]/5"
     >
       <div className="h-11 w-11 shrink-0">
@@ -166,432 +102,12 @@ function BandRow({
           {band.genres.join(", ")}
         </p>
       )}
-    </button>
+    </Link>
   );
 }
 
-/* --- Link icon buttons for the detail drawer --- */
-
-function IconLink({
-  href,
-  label,
-  children,
-}: {
-  href: string;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={label}
-      title={label}
-      className="flex h-9 w-9 items-center justify-center rounded-full border border-[#E8E0D0]/25 text-[#E8E0D0]/80 transition hover:border-[#E8E0D0] hover:text-[#E8E0D0]"
-    >
-      {children}
-    </a>
-  );
-}
-
-const iconProps = {
-  width: 18,
-  height: 18,
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.6,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-};
-
-function ensureUrl(value: string): string {
-  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
-}
-
-/** Copies `text` to the clipboard, briefly showing a "Copied" confirmation. */
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      aria-label="Copy to clipboard"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(text);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
-        } catch {
-          // Clipboard may be unavailable (e.g. insecure context) — ignore.
-        }
-      }}
-      className="inline-flex items-center gap-1 text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
-    >
-      {/* ti-copy (Tabler) */}
-      <svg {...iconProps} width={15} height={15}>
-        <path d="M8 10a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" />
-        <path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" />
-      </svg>
-      {copied && <span className="text-xs text-[#8FD693]">Copied</span>}
-    </button>
-  );
-}
-
-/**
- * Format an ISO "YYYY-MM-DD" date as e.g. "Sat, Jul 12". Parsed/formatted in
- * UTC so the date never slips a day across the viewer's timezone. Unexpected
- * formats fall back to the raw string.
- */
-function formatShowDate(date: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
-  if (!m) return date;
-  const [, y, mo, d] = m;
-  const dt = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d)));
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(dt);
-}
-
-function BandLinks({ band }: { band: Band }) {
-  const hasAny =
-    band.website || band.instagram || band.bandcamp || band.spotify;
-  if (!hasAny) return null;
-
-  return (
-    <div className="flex flex-wrap gap-2.5">
-      {band.website && (
-        <IconLink href={ensureUrl(band.website)} label="Website">
-          <svg {...iconProps}>
-            <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18" />
-          </svg>
-        </IconLink>
-      )}
-      {band.instagram && (
-        <IconLink
-          href={`https://instagram.com/${band.instagram}`}
-          label={`Instagram @${band.instagram}`}
-        >
-          <svg {...iconProps}>
-            <rect x="3" y="3" width="18" height="18" rx="5" />
-            <circle cx="12" cy="12" r="4" />
-            <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" />
-          </svg>
-        </IconLink>
-      )}
-      {band.bandcamp && (
-        <IconLink href={ensureUrl(band.bandcamp)} label="Bandcamp">
-          <svg {...iconProps}>
-            <path d="M4 16l5-8h11l-5 8z" />
-          </svg>
-        </IconLink>
-      )}
-      {band.spotify && (
-        <IconLink href={ensureUrl(band.spotify)} label="Spotify">
-          <svg {...iconProps}>
-            <circle cx="12" cy="12" r="9" />
-            <path d="M7.5 9.5c3-1 6-1 9 .5M8 13c2.5-.8 5-.6 7 .5M8.5 16c2-.6 4-.4 5.5.4" />
-          </svg>
-        </IconLink>
-      )}
-    </div>
-  );
-}
-
-function BandDetail({
-  band,
-  shows,
-  open,
-  onClose,
-}: {
-  band: Band | null;
-  shows: Show[];
-  open: boolean;
-  onClose: () => void;
-}) {
-  return (
-    <>
-      {/* Overlay */}
-      <div
-        onClick={onClose}
-        aria-hidden={!open}
-        className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ${
-          open ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
-      />
-
-      {/*
-        Responsive drawer:
-        - Mobile (< md): full-screen (inset-0), slides up from the bottom.
-        - Desktop (md+): fixed 420px panel, right-anchored, slides in from the right.
-        Both transitions are CSS-only via transition-transform.
-      */}
-      <aside
-        role="dialog"
-        aria-modal="true"
-        aria-hidden={!open}
-        className={`fixed inset-0 z-50 flex flex-col bg-[#2A2420] transition-transform duration-300 ease-out md:inset-y-0 md:right-0 md:left-auto md:w-[420px] md:border-l md:border-[#E8E0D0]/15 md:shadow-2xl ${
-          open
-            ? "translate-y-0 md:translate-x-0"
-            : "translate-y-full md:translate-y-0 md:translate-x-full"
-        }`}
-      >
-        {band && (
-          <>
-            <div className="flex shrink-0 items-center justify-between border-b border-[#E8E0D0]/15 px-5 py-3">
-              {/* Mobile: prominent back button */}
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80 md:hidden"
-              >
-                <span aria-hidden>←</span> Back to directory
-              </button>
-
-              {/* Desktop: edit this band */}
-              <Link
-                href={`/submit?${new URLSearchParams({
-                  correct: "true",
-                  band: band.slug,
-                  name: band.name,
-                  genres: band.genres.join(", "),
-                  location: band.location,
-                  contactEmail: band.contactEmail,
-                  contactMethod: band.contactMethod,
-                  started: band.started != null ? String(band.started) : "",
-                  website: band.website,
-                  instagram: band.instagram,
-                  bandcamp: band.bandcamp,
-                  spotify: band.spotify,
-                  bio: band.bio,
-                  image: band.image,
-                }).toString()}`}
-                onClick={onClose}
-                className="hidden items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80 md:inline-flex"
-              >
-                {/* ti-edit (Tabler) */}
-                <svg {...iconProps} width={15} height={15}>
-                  <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" />
-                  <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" />
-                  <path d="M16 5l3 3" />
-                </svg>
-                Edit this band
-              </Link>
-
-              {/* Mobile: edit this band */}
-              <Link
-                href={`/submit?${new URLSearchParams({
-                  correct: "true",
-                  band: band.slug,
-                  name: band.name,
-                  genres: band.genres.join(", "),
-                  location: band.location,
-                  contactEmail: band.contactEmail,
-                  contactMethod: band.contactMethod,
-                  started: band.started != null ? String(band.started) : "",
-                  website: band.website,
-                  instagram: band.instagram,
-                  bandcamp: band.bandcamp,
-                  spotify: band.spotify,
-                  bio: band.bio,
-                  image: band.image,
-                }).toString()}`}
-                onClick={onClose}
-                className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80 md:hidden"
-              >
-                {/* ti-edit (Tabler) */}
-                <svg {...iconProps} width={15} height={15}>
-                  <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" />
-                  <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" />
-                  <path d="M16 5l3 3" />
-                </svg>
-                Edit
-              </Link>
-
-              {/* Desktop: icon close button */}
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className="hidden h-8 w-8 items-center justify-center rounded-full text-[#E8E0D0]/70 transition hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0] md:flex"
-              >
-                <svg {...iconProps} width={20} height={20}>
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-5 py-5">
-              <div className="mx-auto max-w-xs">
-                <BandImage
-                  band={band}
-                  className="rounded-md ring-1 ring-[#E8E0D0]/10"
-                />
-              </div>
-
-              <div className="mt-5">
-                <h2 className="text-2xl font-medium leading-tight">
-                  {band.name}
-                </h2>
-                {metaLine(band) && (
-                  <p className="mt-1 text-sm text-[#E8E0D0]/65">
-                    {metaLine(band)}
-                  </p>
-                )}
-              </div>
-
-              {band.genres.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {band.genres.map((g) => (
-                    <span
-                      key={g}
-                      className="rounded-full border border-[#E8E0D0]/20 px-2 py-0.5 text-xs text-[#E8E0D0]/75"
-                    >
-                      {g}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Bandcamp quick-sample player — kept near the top so it's
-                  visible without scrolling on both the mobile (slide-up) and
-                  desktop (side panel) variants of this shared drawer. */}
-              {(band.bandcampEmbedUrl || band.bandcamp) && (
-                <div className="mt-5">
-                  <BandcampPlayer
-                    name={band.name}
-                    bandcamp={band.bandcamp}
-                    bandcampEmbedUrl={band.bandcampEmbedUrl}
-                  />
-                </div>
-              )}
-
-              <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/85">
-                {band.bio || "No bio yet."}
-              </p>
-
-              {/* Upcoming shows */}
-              {shows.length > 0 && (
-                <div className="mt-5">
-                  <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-                    Upcoming shows
-                  </h3>
-                  <ul className="space-y-2">
-                    {shows.map((show, i) => (
-                      <li
-                        key={`${show.date}-${show.venue}-${i}`}
-                        className="rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] px-3 py-2.5"
-                      >
-                        <div className="flex items-baseline justify-between gap-3">
-                          <span className="text-sm font-medium text-[#E8E0D0]">
-                            {formatShowDate(show.date)}
-                          </span>
-                          {show.link && (
-                            <a
-                              href={ensureUrl(show.link)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="shrink-0 text-xs text-[#E8E0D0]/70 underline decoration-[#E8E0D0]/30 underline-offset-2 transition hover:text-[#E8E0D0]"
-                            >
-                              Tickets / Info →
-                            </a>
-                          )}
-                        </div>
-                        {show.title && (
-                          <p className="mt-0.5 text-sm font-medium text-[#E8E0D0]/90">
-                            {show.title}
-                          </p>
-                        )}
-                        {show.venue && (
-                          <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
-                            {show.venue}
-                          </p>
-                        )}
-                        {show.notes && (
-                          <p className="mt-0.5 text-xs text-[#E8E0D0]/50">
-                            {show.notes}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              <div className="mt-5">
-                <BandLinks band={band} />
-              </div>
-
-              {(() => {
-                // Surface the band's preferred contact method. Instagram-preferred
-                // links to their profile (for DMs); email shows read-only with a
-                // copy button; otherwise "Not set yet". The social-links row
-                // above is separate.
-                const usesInstagram =
-                  band.contactMethod === "instagram" && !!band.instagram;
-                const usesEmail =
-                  band.contactMethod === "email" && !!band.contactEmail;
-                let content;
-                if (usesInstagram) {
-                  content = (
-                    <p className="text-sm text-[#E8E0D0]/85">
-                      <span className="text-[#E8E0D0]/55">Instagram DMs: </span>
-                      <a
-                        href={`https://instagram.com/${band.instagram}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline underline-offset-2 transition hover:text-[#E8E0D0]"
-                      >
-                        @{band.instagram}
-                      </a>
-                    </p>
-                  );
-                } else if (usesEmail) {
-                  content = (
-                    <div className="flex items-center gap-2 text-sm text-[#E8E0D0]/85">
-                      <span className="text-[#E8E0D0]/55">Email:</span>
-                      <span className="select-all break-all">
-                        {band.contactEmail}
-                      </span>
-                      <CopyButton text={band.contactEmail} />
-                    </div>
-                  );
-                } else {
-                  content = (
-                    <p className="text-sm italic text-[#E8E0D0]/45">
-                      Not set yet
-                    </p>
-                  );
-                }
-                return (
-                  <div className="mt-5">
-                    <h3 className="mb-1 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-                      Preferred contact method
-                    </h3>
-                    {content}
-                  </div>
-                );
-              })()}
-            </div>
-
-          </>
-        )}
-      </aside>
-    </>
-  );
-}
-
-export default function BandGrid({
-  bands,
-  shows = [],
-}: {
-  bands: Band[];
-  shows?: Show[];
-}) {
+export default function BandGrid({ bands }: { bands: Band[] }) {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [genre, setGenre] = useState("All");
   const [location, setLocation] = useState("All");
@@ -605,25 +121,6 @@ export default function BandGrid({
     setView(v);
     setViewChosen(true);
   }
-
-  const [selected, setSelected] = useState<Band | null>(null);
-  // Retain the last-shown band so the drawer keeps its content while sliding
-  // out. Updated during render (not in an effect) so it stays in sync with
-  // `selected` without an extra commit; it lingers when `selected` is null.
-  const [shown, setShown] = useState<Band | null>(null);
-  if (selected && selected !== shown) {
-    setShown(selected);
-  }
-
-  // Close drawer on Escape.
-  useEffect(() => {
-    if (!selected) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelected(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selected]);
 
   // Pick the default view from the viewport width until the user overrides it.
   // 640px is Tailwind's `sm` breakpoint — below it, the compact list reads best.
@@ -660,30 +157,13 @@ export default function BandGrid({
     });
   }, [bands, query, genre, location]);
 
-  // Group upcoming shows by band slug so the drawer can show a band's shows.
-  // fetchShows already filters to upcoming and sorts by date ascending.
-  const showsBySlug = useMemo(() => {
-    const map = new Map<string, Show[]>();
-    for (const show of shows) {
-      for (const slug of show.bandSlugs) {
-        if (!slug) continue;
-        const list = map.get(slug);
-        if (list) list.push(show);
-        else map.set(slug, [show]);
-      }
-    }
-    return map;
-  }, [shows]);
-
-  const shownShows = shown ? showsBySlug.get(shown.slug) ?? [] : [];
-
   // Key changes whenever filters change, remounting the grid to replay the fade.
   const gridKey = `${query}|${genre}|${location}`;
 
   function surpriseMe() {
     if (filtered.length === 0) return;
     const idx = Math.floor(Math.random() * filtered.length);
-    setSelected(filtered[idx]);
+    router.push(`/bands/${filtered[idx].slug}`);
   }
 
   const filterPillBase =
@@ -827,11 +307,7 @@ export default function BandGrid({
           }}
         >
           {filtered.map((band) => (
-            <BandCard
-              key={band.slug}
-              band={band}
-              onClick={() => setSelected(band)}
-            />
+            <BandCard key={band.slug} band={band} />
           ))}
         </div>
       ) : (
@@ -840,21 +316,10 @@ export default function BandGrid({
           className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3"
         >
           {filtered.map((band) => (
-            <BandRow
-              key={band.slug}
-              band={band}
-              onClick={() => setSelected(band)}
-            />
+            <BandRow key={band.slug} band={band} />
           ))}
         </div>
       )}
-
-      <BandDetail
-        band={shown}
-        shows={shownShows}
-        open={!!selected}
-        onClose={() => setSelected(null)}
-      />
     </div>
   );
 }

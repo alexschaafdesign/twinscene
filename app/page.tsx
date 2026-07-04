@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { fetchBands } from "@/lib/fetchBands";
-import { fetchShows } from "@/lib/fetchShows";
 import BandGrid from "@/components/BandGrid";
 import { SHOWS_ENABLED } from "@/lib/features";
 
 export default async function Home() {
   const bands = await fetchBands();
-  const shows = SHOWS_ENABLED ? await fetchShows() : [];
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
@@ -68,7 +66,7 @@ export default async function Home() {
         </div>
       </header>
 
-      <BandGrid bands={bands} shows={shows} />
+      <BandGrid bands={bands} />
     </main>
   );
 }
