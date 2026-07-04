@@ -209,6 +209,34 @@ function ensureUrl(value: string): string {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
+/** Copies `text` to the clipboard, briefly showing a "Copied" confirmation. */
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      aria-label="Copy to clipboard"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        } catch {
+          // Clipboard may be unavailable (e.g. insecure context) — ignore.
+        }
+      }}
+      className="inline-flex items-center gap-1 text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
+    >
+      {/* ti-copy (Tabler) */}
+      <svg {...iconProps} width={15} height={15}>
+        <path d="M8 10a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z" />
+        <path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" />
+      </svg>
+      {copied && <span className="text-xs text-[#8FD693]">Copied</span>}
+    </button>
+  );
+}
+
 /**
  * Format an ISO "YYYY-MM-DD" date as e.g. "Sat, Jul 12". Parsed/formatted in
  * UTC so the date never slips a day across the viewer's timezone. Unexpected
@@ -495,17 +523,48 @@ function BandDetail({
                 <BandLinks band={band} />
               </div>
 
-              {band.contactEmail && (
-                <div className="mt-5">
-                  <h3 className="mb-1 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-                    Contact
-                  </h3>
-                  {/* Read-only, not a mailto link — meant to be copied. */}
-                  <p className="select-all break-all text-sm text-[#E8E0D0]/85">
-                    {band.contactEmail}
-                  </p>
-                </div>
-              )}
+              {(() => {
+                // Surface the band's preferred contact method. Instagram-preferred
+                // links to their profile (for DMs); email shows read-only with a
+                // copy button. The social-links row above is separate.
+                const usesInstagram =
+                  band.contactMethod === "instagram" && !!band.instagram;
+                let content = null;
+                if (usesInstagram) {
+                  content = (
+                    <p className="text-sm text-[#E8E0D0]/85">
+                      <span className="text-[#E8E0D0]/55">Instagram DMs: </span>
+                      <a
+                        href={`https://instagram.com/${band.instagram}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2 transition hover:text-[#E8E0D0]"
+                      >
+                        @{band.instagram}
+                      </a>
+                    </p>
+                  );
+                } else if (band.contactEmail) {
+                  content = (
+                    <div className="flex items-center gap-2 text-sm text-[#E8E0D0]/85">
+                      <span className="text-[#E8E0D0]/55">Email:</span>
+                      <span className="select-all break-all">
+                        {band.contactEmail}
+                      </span>
+                      <CopyButton text={band.contactEmail} />
+                    </div>
+                  );
+                }
+                if (!content) return null;
+                return (
+                  <div className="mt-5">
+                    <h3 className="mb-1 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+                      Preferred contact method
+                    </h3>
+                    {content}
+                  </div>
+                );
+              })()}
             </div>
 
           </>
