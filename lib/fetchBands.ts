@@ -11,6 +11,8 @@ export type Band = {
   slug: string;
   genres: string[];
   location: string;
+  contactEmail: string; // public contact address, shown on the profile
+  contactMethod: string; // "" | "email" | "instagram" — the band's preferred contact
   bio: string;
   started: number | null;
   image: string;
@@ -150,6 +152,8 @@ export async function fetchBands(): Promise<Band[]> {
         .map((g) => g.trim())
         .filter(Boolean),
       location: get(row, "LOCATION"),
+      contactEmail: get(row, "CONTACT_EMAIL"),
+      contactMethod: get(row, "CONTACT_METHOD"),
       bio: get(row, "BIO"),
       started: Number.isNaN(started) ? null : started,
       image: get(row, "IMAGE"),

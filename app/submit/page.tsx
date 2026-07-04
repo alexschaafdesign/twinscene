@@ -46,6 +46,8 @@ export default async function SubmitPage({
         initialName={name}
         initialGenres={param("genres")}
         initialLocation={param("location")}
+        initialContactEmail={param("contactEmail")}
+        initialContactMethod={param("contactMethod")}
         initialStarted={param("started")}
         initialWebsite={param("website")}
         initialInstagram={param("instagram")}

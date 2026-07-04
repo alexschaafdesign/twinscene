@@ -47,6 +47,8 @@ type FormState = {
   submitterEmail: string;
   genres: string;
   location: string;
+  contactEmail: string;
+  contactMethod: string; // "" | "email" | "instagram" — preferred contact
   started: string;
   website: string;
   instagram: string;
@@ -293,6 +295,8 @@ export default function SubmitForm({
   initialName = "",
   initialGenres = "",
   initialLocation = "",
+  initialContactEmail = "",
+  initialContactMethod = "",
   initialStarted = "",
   initialWebsite = "",
   initialInstagram = "",
@@ -307,6 +311,8 @@ export default function SubmitForm({
   initialName?: string;
   initialGenres?: string;
   initialLocation?: string;
+  initialContactEmail?: string;
+  initialContactMethod?: string;
   initialStarted?: string;
   initialWebsite?: string;
   initialInstagram?: string;
@@ -322,6 +328,8 @@ export default function SubmitForm({
     submitterEmail: "",
     genres: initialGenres,
     location: initialLocation,
+    contactEmail: initialContactEmail,
+    contactMethod: initialContactMethod,
     started: initialStarted,
     website: initialWebsite,
     instagram: initialInstagram,
@@ -425,6 +433,14 @@ export default function SubmitForm({
     }
     if (!form.genres.trim()) e.genres = "Required";
     if (!form.location.trim()) e.location = "Required";
+    // Contact method is optional, but choosing one makes that field required.
+    if (form.contactMethod === "email" && !form.contactEmail.trim())
+      e.contactEmail = "Required — you chose email as your contact method";
+    if (form.contactMethod === "instagram" && !form.instagram.trim())
+      e.instagram = "Required — you chose Instagram as your contact method";
+    // Validate the email format whenever one is given.
+    if (form.contactEmail.trim() && !EMAIL_RE.test(form.contactEmail.trim()))
+      e.contactEmail = "Enter a valid email address";
     return e;
   }
 
@@ -646,6 +662,57 @@ export default function SubmitForm({
           </Field>
         </div>
 
+        <div>
+          <span className="mb-1 block text-sm text-[#E8E0D0]/85">
+            How do you want to be contacted?
+          </span>
+          <div className="flex gap-2">
+            {(["email", "instagram"] as const).map((m) => {
+              const active = form.contactMethod === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  // Clicking the active choice again clears it (the choice is optional).
+                  onClick={() =>
+                    setForm((f) => ({
+                      ...f,
+                      contactMethod: active ? "" : m,
+                    }))
+                  }
+                  className={`rounded-md border px-3 py-1.5 text-sm transition ${
+                    active
+                      ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                      : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                  }`}
+                >
+                  {m === "email" ? "Email" : "Instagram"}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1 text-xs text-[#E8E0D0]/45">
+            Optional — choosing one makes that field required below.
+          </p>
+        </div>
+
+        <Field
+          label="Contact email"
+          htmlFor="contactEmail"
+          required={form.contactMethod === "email"}
+          error={errors.contactEmail}
+          hint="Shown publicly on your profile so people can reach you."
+        >
+          <input
+            id="contactEmail"
+            type="email"
+            value={form.contactEmail}
+            onChange={set("contactEmail")}
+            placeholder="band@example.com"
+            className={inputClass}
+          />
+        </Field>
+
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Website" htmlFor="website">
             <input
@@ -661,6 +728,8 @@ export default function SubmitForm({
           <Field
             label="Instagram handle"
             htmlFor="instagram"
+            required={form.contactMethod === "instagram"}
+            error={errors.instagram}
             hint="Just the handle, no @"
           >
             <input

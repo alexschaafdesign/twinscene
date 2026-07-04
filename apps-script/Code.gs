@@ -188,7 +188,8 @@ function handleShowSubmission_(p) {
       SLUG: newSlug,
       GENRES: trim_(p.newBandGenres),
       LOCATION: trim_(p.newBandLocation),
-      STATUS: 'Active',
+      CONTACT_EMAIL: trim_(p.newBandContactEmail),
+      INSTAGRAM: trim_(p.newBandInstagram),
       ADDED: todayString_(),
     });
   }

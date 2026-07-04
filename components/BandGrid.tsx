@@ -331,6 +331,8 @@ function BandDetail({
                   name: band.name,
                   genres: band.genres.join(", "),
                   location: band.location,
+                  contactEmail: band.contactEmail,
+                  contactMethod: band.contactMethod,
                   started: band.started != null ? String(band.started) : "",
                   website: band.website,
                   instagram: band.instagram,
@@ -359,6 +361,8 @@ function BandDetail({
                   name: band.name,
                   genres: band.genres.join(", "),
                   location: band.location,
+                  contactEmail: band.contactEmail,
+                  contactMethod: band.contactMethod,
                   started: band.started != null ? String(band.started) : "",
                   website: band.website,
                   instagram: band.instagram,
@@ -490,6 +494,18 @@ function BandDetail({
               <div className="mt-5">
                 <BandLinks band={band} />
               </div>
+
+              {band.contactEmail && (
+                <div className="mt-5">
+                  <h3 className="mb-1 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+                    Contact
+                  </h3>
+                  {/* Read-only, not a mailto link — meant to be copied. */}
+                  <p className="select-all break-all text-sm text-[#E8E0D0]/85">
+                    {band.contactEmail}
+                  </p>
+                </div>
+              )}
             </div>
 
           </>

@@ -186,6 +186,8 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
   const [newBandName, setNewBandName] = useState("");
   const [newBandGenres, setNewBandGenres] = useState("");
   const [newBandLocation, setNewBandLocation] = useState("");
+  const [newBandContactEmail, setNewBandContactEmail] = useState("");
+  const [newBandInstagram, setNewBandInstagram] = useState("");
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<
@@ -208,6 +210,8 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
     setNewBandName("");
     setNewBandGenres("");
     setNewBandLocation("");
+    setNewBandContactEmail("");
+    setNewBandInstagram("");
   }
 
   function resetForm() {
@@ -276,6 +280,8 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
         payload.set("newBandName", newBandName.trim());
         payload.set("newBandGenres", newBandGenres.trim());
         payload.set("newBandLocation", newBandLocation.trim());
+        payload.set("newBandContactEmail", newBandContactEmail.trim());
+        payload.set("newBandInstagram", newBandInstagram.trim());
       }
 
       const res = await fetch(url, { method: "POST", body: payload });
@@ -512,6 +518,36 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
                   value={newBandLocation}
                   onChange={(e) => setNewBandLocation(e.target.value)}
                   placeholder="e.g. Minneapolis"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field
+                label="Contact email"
+                htmlFor="newBandContactEmail"
+                hint="Shown publicly on the band's profile. Optional."
+              >
+                <input
+                  id="newBandContactEmail"
+                  type="email"
+                  value={newBandContactEmail}
+                  onChange={(e) => setNewBandContactEmail(e.target.value)}
+                  placeholder="band@example.com"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field
+                label="Instagram handle"
+                htmlFor="newBandInstagram"
+                hint="Just the handle, no @. Optional."
+              >
+                <input
+                  id="newBandInstagram"
+                  type="text"
+                  value={newBandInstagram}
+                  onChange={(e) => setNewBandInstagram(e.target.value)}
+                  placeholder="yourband"
                   className={inputClass}
                 />
               </Field>
