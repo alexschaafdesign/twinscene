@@ -18,7 +18,8 @@ export type Band = {
   image: string;
   website: string;
   instagram: string; // handle only
-  bandcamp: string;
+  bandcamp: string; // raw Bandcamp URL the submitter provided
+  bandcampEmbedUrl: string; // resolved EmbeddedPlayer URL (blank if unresolved)
   spotify: string;
   added: string;
 };
@@ -160,6 +161,7 @@ export async function fetchBands(): Promise<Band[]> {
       website: get(row, "WEBSITE"),
       instagram: cleanInstagram(get(row, "INSTAGRAM")),
       bandcamp: get(row, "BANDCAMP"),
+      bandcampEmbedUrl: get(row, "BANDCAMP EMBED URL"),
       spotify: get(row, "SPOTIFY"),
       added: get(row, "ADDED"),
     });

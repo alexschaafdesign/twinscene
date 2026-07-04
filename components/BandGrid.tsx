@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type { Band } from "@/lib/fetchBands";
 import type { Show } from "@/lib/fetchShows";
+import BandcampPlayer from "@/components/BandcampPlayer";
 
 const GENRE_TAGS = [
   "All",
@@ -456,6 +457,19 @@ function BandDetail({
                 </div>
               )}
 
+              {/* Bandcamp quick-sample player — kept near the top so it's
+                  visible without scrolling on both the mobile (slide-up) and
+                  desktop (side panel) variants of this shared drawer. */}
+              {(band.bandcampEmbedUrl || band.bandcamp) && (
+                <div className="mt-5">
+                  <BandcampPlayer
+                    name={band.name}
+                    bandcamp={band.bandcamp}
+                    bandcampEmbedUrl={band.bandcampEmbedUrl}
+                  />
+                </div>
+              )}
+
               <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/85">
                 {band.bio || "No bio yet."}
               </p>
@@ -508,17 +522,6 @@ function BandDetail({
                 </div>
               )}
 
-              {band.bandcamp && (
-                <div className="mt-5">
-                  <iframe
-                    title={`${band.name} on Bandcamp`}
-                    src={ensureUrl(band.bandcamp)}
-                    className="h-[120px] w-full rounded-md border border-[#E8E0D0]/15"
-                    loading="lazy"
-                  />
-                </div>
-              )}
-
               <div className="mt-5">
                 <BandLinks band={band} />
               </div>
@@ -526,10 +529,13 @@ function BandDetail({
               {(() => {
                 // Surface the band's preferred contact method. Instagram-preferred
                 // links to their profile (for DMs); email shows read-only with a
-                // copy button. The social-links row above is separate.
+                // copy button; otherwise "Not set yet". The social-links row
+                // above is separate.
                 const usesInstagram =
                   band.contactMethod === "instagram" && !!band.instagram;
-                let content = null;
+                const usesEmail =
+                  band.contactMethod === "email" && !!band.contactEmail;
+                let content;
                 if (usesInstagram) {
                   content = (
                     <p className="text-sm text-[#E8E0D0]/85">
@@ -544,7 +550,7 @@ function BandDetail({
                       </a>
                     </p>
                   );
-                } else if (band.contactEmail) {
+                } else if (usesEmail) {
                   content = (
                     <div className="flex items-center gap-2 text-sm text-[#E8E0D0]/85">
                       <span className="text-[#E8E0D0]/55">Email:</span>
@@ -554,8 +560,13 @@ function BandDetail({
                       <CopyButton text={band.contactEmail} />
                     </div>
                   );
+                } else {
+                  content = (
+                    <p className="text-sm italic text-[#E8E0D0]/45">
+                      Not set yet
+                    </p>
+                  );
                 }
-                if (!content) return null;
                 return (
                   <div className="mt-5">
                     <h3 className="mb-1 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
