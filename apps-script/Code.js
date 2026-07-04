@@ -753,7 +753,7 @@ function buildBandcampEmbedUrl_(item) {
     item.itemType +
     '=' +
     item.itemId +
-    '/size=small/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=small/transparent=true/'
+    '/size=small/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=none/transparent=true/'
   );
 }
 

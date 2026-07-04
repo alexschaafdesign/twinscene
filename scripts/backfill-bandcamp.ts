@@ -9,9 +9,14 @@
 // also emit a slug,embedUrl CSV you can paste/import into the sheet's
 // "Bandcamp Embed URL" column.
 //
+// Pass `--force` to re-resolve EVERY row that has a Bandcamp URL, even if an
+// embed is already stored — use this to regenerate embeds saved in an older
+// format (e.g. the earlier artwork=small layout).
+//
 // Run (Node ≥ 23 executes TypeScript directly):
 //   node scripts/backfill-bandcamp.ts
 //   node scripts/backfill-bandcamp.ts --write bandcamp-embed-backfill.csv
+//   node scripts/backfill-bandcamp.ts --force --write bandcamp-embed-backfill.csv
 
 import { writeFileSync } from "node:fs";
 import { fetchBands } from "../lib/fetchBands";
@@ -32,13 +37,20 @@ async function main() {
     console.error("--write requires a file path, e.g. --write backfill.csv");
     process.exit(1);
   }
+  // --force re-resolves every row with a Bandcamp URL, even if an embed is
+  // already stored — needed to regenerate embeds saved in an older format.
+  const force = args.includes("--force");
 
   const bands = await fetchBands();
-  // Rows that have a raw Bandcamp URL but no resolved embed yet.
-  const pending = bands.filter((b) => b.bandcamp && !b.bandcampEmbedUrl);
+  // Default: only rows missing an embed. With --force: every row with a URL.
+  const pending = bands.filter((b) =>
+    force ? b.bandcamp : b.bandcamp && !b.bandcampEmbedUrl,
+  );
 
   console.log(
-    `${bands.length} bands total; ${pending.length} with a Bandcamp URL but no embed.\n`,
+    force
+      ? `${bands.length} bands total; ${pending.length} with a Bandcamp URL (re-resolving all — --force).\n`
+      : `${bands.length} bands total; ${pending.length} with a Bandcamp URL but no embed.\n`,
   );
   if (pending.length === 0) {
     console.log("Nothing to backfill.");
