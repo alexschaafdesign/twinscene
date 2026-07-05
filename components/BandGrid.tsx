@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { Band } from "@/lib/fetchBands";
-import { BandImage, iconProps, metaLine } from "@/components/band-shared";
+import { iconProps, metaLine } from "@/components/band-shared";
+import { BandImage } from "@/components/band-shared-client";
 
 const GENRE_TAGS = [
   "All",

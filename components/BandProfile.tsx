@@ -10,14 +10,13 @@ import type { Band } from "@/lib/fetchBands";
 import type { Show } from "@/lib/fetchShows";
 import BandcampPlayer from "@/components/BandcampPlayer";
 import {
-  BandImage,
-  CopyButton,
   IconLink,
   ensureUrl,
   formatShowDate,
   iconProps,
   metaLine,
 } from "@/components/band-shared";
+import { BandImage, CopyButton } from "@/components/band-shared-client";
 
 /** Prefilled "correct this band" submit URL — shown in the profile header. */
 export function editHref(band: Band): string {
