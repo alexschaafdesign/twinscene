@@ -1,10 +1,12 @@
 // Shared band profile content — the photo, name, location, genres, Bandcamp
 // player, bio, upcoming shows, social links and preferred contact method.
 //
-// Extracted from the old drawer in BandGrid.tsx so the dedicated profile route
-// (app/bands/[slug]/page.tsx) renders exactly the same markup. This is the
-// scrollable content block only; the surrounding chrome (back / edit / close
-// header) is supplied by whatever frames it, using `editHref` below.
+// Full-width, two-column layout for the dedicated /bands/[slug] page: a left
+// sidebar (photo, player, links, contact) and a wider main column (name, bio,
+// shows). Items are placed explicitly per grid cell on md+, and fall back to a
+// single readable column on mobile (photo → name → player → bio → shows →
+// links → contact). The surrounding chrome (back / edit links) is supplied by
+// the page, using `editHref` below.
 
 import type { Band } from "@/lib/fetchBands";
 import type { Show } from "@/lib/fetchShows";
@@ -118,10 +120,10 @@ function ContactMethod({ band }: { band: Band }) {
   }
 
   return (
-    <div className="mt-5">
-      <h3 className="mb-1 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+    <div>
+      <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
         Preferred contact method
-      </h3>
+      </h2>
       {content}
     </div>
   );
@@ -134,36 +136,40 @@ export default function BandProfile({
   band: Band;
   shows?: Show[];
 }) {
+  const hasBandcamp = band.bandcampEmbedUrl || band.bandcamp;
+
   return (
-    <>
-      <div className="mx-auto max-w-xs">
+    <div className="grid grid-cols-1 gap-x-10 gap-y-6 md:grid-cols-[300px_minmax(0,1fr)]">
+      {/* Photo — left sidebar, top */}
+      <div className="mx-auto w-full max-w-sm md:col-start-1 md:row-start-1 md:mx-0 md:max-w-none">
         <BandImage band={band} className="rounded-md ring-1 ring-[#E8E0D0]/10" />
       </div>
 
-      <div className="mt-5">
-        <h2 className="text-2xl font-medium leading-tight">{band.name}</h2>
+      {/* Title cluster — main column, top */}
+      <div className="md:col-start-2 md:row-start-1">
+        <h1 className="text-3xl font-medium leading-tight sm:text-4xl">
+          {band.name}
+        </h1>
         {metaLine(band) && (
-          <p className="mt-1 text-sm text-[#E8E0D0]/65">{metaLine(band)}</p>
+          <p className="mt-2 text-sm text-[#E8E0D0]/65">{metaLine(band)}</p>
+        )}
+        {band.genres.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {band.genres.map((g) => (
+              <span
+                key={g}
+                className="rounded-full border border-[#E8E0D0]/20 px-2 py-0.5 text-xs text-[#E8E0D0]/75"
+              >
+                {g}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 
-      {band.genres.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {band.genres.map((g) => (
-            <span
-              key={g}
-              className="rounded-full border border-[#E8E0D0]/20 px-2 py-0.5 text-xs text-[#E8E0D0]/75"
-            >
-              {g}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Bandcamp quick-sample player — kept near the top so it's visible
-          without scrolling. */}
-      {(band.bandcampEmbedUrl || band.bandcamp) && (
-        <div className="mt-5">
+      {/* Bandcamp quick-sample player — under the photo in the sidebar */}
+      {hasBandcamp && (
+        <div className="md:col-start-1 md:row-start-2">
           <BandcampPlayer
             name={band.name}
             bandcamp={band.bandcamp}
@@ -172,16 +178,19 @@ export default function BandProfile({
         </div>
       )}
 
-      <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/85">
-        {band.bio || "No bio yet."}
-      </p>
+      {/* Bio — main column */}
+      <div className="md:col-start-2 md:row-start-2">
+        <p className="whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/85">
+          {band.bio || "No bio yet."}
+        </p>
+      </div>
 
-      {/* Upcoming shows */}
+      {/* Upcoming shows — main column */}
       {shows.length > 0 && (
-        <div className="mt-5">
-          <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+        <div className="md:col-start-2 md:row-start-3">
+          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
             Upcoming shows
-          </h3>
+          </h2>
           <ul className="space-y-2">
             {shows.map((show, i) => (
               <li
@@ -224,11 +233,15 @@ export default function BandProfile({
         </div>
       )}
 
-      <div className="mt-5">
+      {/* Social links — sidebar */}
+      <div className="md:col-start-1 md:row-start-3">
         <BandLinks band={band} />
       </div>
 
-      <ContactMethod band={band} />
-    </>
+      {/* Preferred contact — sidebar */}
+      <div className="md:col-start-1 md:row-start-4">
+        <ContactMethod band={band} />
+      </div>
+    </div>
   );
 }

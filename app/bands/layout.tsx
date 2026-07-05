@@ -1,19 +1,14 @@
 import Link from "next/link";
-import { fetchBands } from "@/lib/fetchBands";
-import BandGrid from "@/components/BandGrid";
 import { SHOWS_ENABLED } from "@/lib/features";
 
-// The /bands section: the filterable directory grid is the persistent backdrop,
-// and {children} renders on top of it. On /bands it's empty (see page.tsx); on
-// /bands/[slug] it's the profile, framed as a drawer overlay so the grid stays
-// mounted underneath — no reflow when moving between bands.
-export default async function BandsLayout({
+// Shared chrome for the /bands section: the site header, and a {children} slot.
+// The directory grid lives in the index page (page.tsx), not here, so a band
+// profile renders as its own full-width page rather than sitting under the grid.
+export default function BandsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const bands = await fetchBands();
-
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
       <header className="mb-8 flex items-center justify-between gap-4 border-b border-[#E8E0D0]/20 pb-6">
@@ -39,7 +34,6 @@ export default async function BandsLayout({
         </div>
       </header>
 
-      <BandGrid bands={bands} />
       {children}
     </main>
   );
