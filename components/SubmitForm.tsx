@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SHOWS_ENABLED } from "@/lib/features";
 
 type Mode = "add" | "correct";
 
@@ -498,18 +499,20 @@ export default function SubmitForm({
         payload.set("imageMimeType", imageFile.type);
       }
 
-      // Shows are optional. Only include rows with at least a date or venue,
-      // serialized as a JSON string the Apps Script parses back into rows.
-      const filledShows = shows
-        .filter((s) => s.date.trim() || s.venue.trim())
-        .map((s) => ({
-          date: s.date.trim(),
-          venue: s.venue.trim(),
-          notes: s.notes.trim(),
-          link: s.link.trim(),
-        }));
-      if (filledShows.length > 0) {
-        payload.set("shows", JSON.stringify(filledShows));
+      // Shows are optional and feature-flagged. Only include rows with at least
+      // a date or venue, serialized as JSON the Apps Script parses into rows.
+      if (SHOWS_ENABLED) {
+        const filledShows = shows
+          .filter((s) => s.date.trim() || s.venue.trim())
+          .map((s) => ({
+            date: s.date.trim(),
+            venue: s.venue.trim(),
+            notes: s.notes.trim(),
+            link: s.link.trim(),
+          }));
+        if (filledShows.length > 0) {
+          payload.set("shows", JSON.stringify(filledShows));
+        }
       }
 
       // Form-encoded body keeps this a "simple" CORS request (no preflight),
@@ -869,7 +872,8 @@ export default function SubmitForm({
           />
         </Field>
 
-        {/* Upcoming shows — optional. Empty rows are dropped on submit. */}
+        {/* Upcoming shows — feature-flagged; hidden while shows are disabled. */}
+        {SHOWS_ENABLED && (
         <div>
           <h2 className="text-sm font-medium text-[#E8E0D0]/85">
             Upcoming shows
@@ -973,6 +977,7 @@ export default function SubmitForm({
             + Add another show
           </button>
         </div>
+        )}
 
         {status === "error" && (
           <p className="rounded-md border border-[#E5A0A0]/40 bg-[#E5A0A0]/10 px-3.5 py-2.5 text-sm text-[#E5A0A0]">
