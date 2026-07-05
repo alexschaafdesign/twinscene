@@ -53,7 +53,7 @@ export default async function BandProfilePage({ params }: Props) {
     <div>
       <div className="mb-8 flex items-center justify-between gap-4">
         <Link
-          href="/bands"
+          href="/"
           className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
         >
           <span aria-hidden>←</span> Back to directory

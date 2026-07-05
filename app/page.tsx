@@ -3,6 +3,9 @@ import { fetchBands } from "@/lib/fetchBands";
 import BandGrid from "@/components/BandGrid";
 import { SHOWS_ENABLED } from "@/lib/features";
 
+// The home page: the band directory. It's the site's only section for now, so
+// it lives at the root. Individual profiles are at /bands/[slug]; a dedicated
+// /bands index can be added later alongside sibling sections (/venues, …).
 export default async function Home() {
   const bands = await fetchBands();
 
@@ -38,7 +41,7 @@ export default async function Home() {
           welcome to the Twin Cities music scene
         </p>
         <p className="mt-1 text-center text-sm text-[#E8E0D0]/70">
-          Created and maintained by Alex at {" "}
+          Created and maintained by Alex at{" "}
           <a
             href="https://thebirdhaus.org"
             target="_blank"

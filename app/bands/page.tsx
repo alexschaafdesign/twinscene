@@ -1,9 +1,8 @@
-import { fetchBands } from "@/lib/fetchBands";
-import BandGrid from "@/components/BandGrid";
+import { redirect } from "next/navigation";
 
-// The /bands directory index: the filterable grid. Individual profiles live at
-// /bands/[slug] as their own full-width pages.
-export default async function BandsIndex() {
-  const bands = await fetchBands();
-  return <BandGrid bands={bands} />;
+// No standalone /bands index yet — the directory lives at the site root for now.
+// Redirect /bands to home so the URL isn't a dead end. When a real /bands
+// section is added later (alongside /venues, /labels, …), replace this.
+export default function BandsIndex() {
+  redirect("/");
 }
