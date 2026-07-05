@@ -18,7 +18,7 @@ const SUBMISSION_COLUMNS = [
 
 const INDEX_COLUMNS = [
   'NAME', 'SLUG', 'GENRES', 'LOCATION', 'BIO', 'STARTED', 'STATUS', 'IMAGE',
-  'WEBSITE', 'INSTAGRAM', 'BANDCAMP', 'BANDCAMP_EMBED_URL', 'SPOTIFY', 'ADDED', 'CONTACT_EMAIL', 'CONTACT_METHOD',
+  'WEBSITE', 'INSTAGRAM', 'BANDCAMP', 'BANDCAMP_EMBED_URL', 'BANDCAMP_EMBED_HEIGHT', 'SPOTIFY', 'ADDED', 'CONTACT_EMAIL', 'CONTACT_METHOD',
 ];
 
 function showNotifyEmail_() {
@@ -341,6 +341,8 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
     const row = range.getValues()[0];
     const oldBandcamp = row[col('BANDCAMP')];
     const oldEmbed = row[col('BANDCAMP_EMBED_URL')];
+    const oldEmbedHeight = row[col('BANDCAMP_EMBED_HEIGHT')];
+    const embed = bandcampEmbedFor_(p.bandcamp || '', oldBandcamp, oldEmbed, oldEmbedHeight);
     row[col('NAME')] = p.bandName || '';
     row[col('GENRES')] = p.genres || '';
     row[col('LOCATION')] = p.location || '';
@@ -351,7 +353,8 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
     row[col('WEBSITE')] = p.website || '';
     row[col('INSTAGRAM')] = p.instagram || '';
     row[col('BANDCAMP')] = p.bandcamp || '';
-    row[col('BANDCAMP_EMBED_URL')] = bandcampEmbedFor_(p.bandcamp || '', oldBandcamp, oldEmbed);
+    row[col('BANDCAMP_EMBED_URL')] = embed.embedUrl;
+    row[col('BANDCAMP_EMBED_HEIGHT')] = embed.height;
     row[col('SPOTIFY')] = p.spotify || '';
     if (hasNewImage) {
       row[col('IMAGE')] = imageUrl;
@@ -363,6 +366,8 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
   }
 
   const newImage = hasNewImage ? imageUrl : '';
+  // Resolve once (a new row has no old values to reuse) so we don't fetch twice.
+  const newEmbed = bandcampEmbedFor_(p.bandcamp || '', '', '', '');
   const newRow = INDEX_COLUMNS.map(function(name) {
     switch (name) {
       case 'NAME': return p.bandName || '';
@@ -377,7 +382,8 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
       case 'WEBSITE': return p.website || '';
       case 'INSTAGRAM': return p.instagram || '';
       case 'BANDCAMP': return p.bandcamp || '';
-      case 'BANDCAMP_EMBED_URL': return bandcampEmbedFor_(p.bandcamp || '', '', '');
+      case 'BANDCAMP_EMBED_URL': return newEmbed.embedUrl;
+      case 'BANDCAMP_EMBED_HEIGHT': return newEmbed.height;
       case 'SPOTIFY': return p.spotify || '';
       case 'ADDED': return todayString_();
       default: return '';
@@ -747,34 +753,78 @@ function parseBandcampMeta_(html) {
   return { itemType: itemType, itemId: props.item_id.toString() };
 }
 
+/**
+ * Build the compact EmbeddedPlayer URL — the proven minimal single-line bar
+ * (artwork=none), used as the fallback for plain Bandcamp URLs.
+ */
 function buildBandcampEmbedUrl_(item) {
   return (
     'https://bandcamp.com/EmbeddedPlayer/' +
     item.itemType +
     '=' +
     item.itemId +
-    '/size=large/tracklist=true/artwork=small/bgcol=ffffff/linkcol=0687f5/transparent=true/'
+    '/size=small/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=none/transparent=true/'
   );
 }
 
+/** The minimal bar's known, confirmed-responsive height. */
+var MINIMAL_BAR_HEIGHT_ = 40;
+
 /**
- * Resolve a raw Bandcamp URL to an EmbeddedPlayer URL. Returns '' on any failure
- * (bad URL, non-bandcamp host, fetch error, unparseable page) so a blank embed
- * never fails the surrounding submission.
+ * Parse a Bandcamp <iframe> embed snippet (from their Share/Embed button) into
+ * { embedUrl, height }, used verbatim. Returns null if it isn't an iframe, its
+ * src isn't a bandcamp.com EmbeddedPlayer URL (rejected — user-submitted input
+ * on a public form), or no height can be found.
  */
-function resolveBandcampEmbedUrl_(bandcampUrl) {
-  var url = trim_(bandcampUrl);
-  if (!isBandcampUrl_(url)) return '';
+function parseBandcampEmbedSnippet_(input) {
+  if (!/<iframe/i.test(input)) return null;
+
+  var srcMatch = input.match(/\bsrc=(["'])([\s\S]*?)\1/i);
+  var src = srcMatch ? trim_(srcMatch[2]) : '';
+  if (!src || !/^https:\/\/bandcamp\.com\/EmbeddedPlayer\//i.test(src)) {
+    return null;
+  }
+
+  var height = 0;
+  var attr = input.match(/\bheight=(["'])\s*(\d+)(?:px)?\s*\1/i);
+  if (attr) height = parseInt(attr[2], 10);
+  if (!height) {
+    var style = input.match(/height\s*:\s*(\d+)\s*px/i);
+    if (style) height = parseInt(style[1], 10);
+  }
+  if (!height || isNaN(height)) return null;
+
+  return { embedUrl: src, height: height };
+}
+
+/**
+ * Resolve raw Bandcamp input to { embedUrl, height }. Hybrid behaviour: a pasted
+ * <iframe> embed snippet is used verbatim (exact src + height); otherwise the
+ * input is treated as a plain URL, scraped, and rendered as the minimal bar at
+ * its fixed height. Returns { embedUrl: '', height: 0 } on any failure so a
+ * blank embed never fails the surrounding submission.
+ */
+function resolveBandcampEmbedUrl_(rawInput) {
+  var input = trim_(rawInput);
+
+  if (input.indexOf('<iframe') !== -1) {
+    var snippet = parseBandcampEmbedSnippet_(input);
+    return snippet ? snippet : { embedUrl: '', height: 0 };
+  }
+
+  if (!isBandcampUrl_(input)) return { embedUrl: '', height: 0 };
   try {
-    var res = UrlFetchApp.fetch(url, {
+    var res = UrlFetchApp.fetch(input, {
       muteHttpExceptions: true,
       followRedirects: true,
     });
-    if (res.getResponseCode() !== 200) return '';
+    if (res.getResponseCode() !== 200) return { embedUrl: '', height: 0 };
     var item = parseBandcampMeta_(res.getContentText());
-    return item ? buildBandcampEmbedUrl_(item) : '';
+    return item
+      ? { embedUrl: buildBandcampEmbedUrl_(item), height: MINIMAL_BAR_HEIGHT_ }
+      : { embedUrl: '', height: 0 };
   } catch (err) {
-    return '';
+    return { embedUrl: '', height: 0 };
   }
 }
 
@@ -783,16 +833,21 @@ function resolveBandcampEmbedUrl_(bandcampUrl) {
  * only when the raw URL is new or has changed — so unrelated edits to a band row
  * don't trigger a network fetch.
  *
- * @param {string} newUrl    Bandcamp URL from the submission (may be '').
- * @param {string} oldUrl    Bandcamp URL currently stored (correction only).
- * @param {string} oldEmbed  Embed URL currently stored (correction only).
- * @return {string} Embed URL to write ('' clears it when the raw URL is gone).
+ * @param {string} newUrl      Bandcamp field from the submission (URL or iframe; may be '').
+ * @param {string} oldUrl      Bandcamp field currently stored (correction only).
+ * @param {string} oldEmbed    Embed URL currently stored (correction only).
+ * @param {string|number} oldHeight  Embed height currently stored (correction only).
+ * @return {{embedUrl: string, height: number}} Values to write (blank clears them).
  */
-function bandcampEmbedFor_(newUrl, oldUrl, oldEmbed) {
+function bandcampEmbedFor_(newUrl, oldUrl, oldEmbed, oldHeight) {
   newUrl = trim_(newUrl);
   oldUrl = trim_(oldUrl);
   oldEmbed = trim_(oldEmbed);
-  if (!newUrl) return ''; // Bandcamp cleared → clear the embed too.
-  if (newUrl === oldUrl && oldEmbed) return oldEmbed; // unchanged → reuse.
+  if (!newUrl) return { embedUrl: '', height: 0 }; // cleared → clear both.
+  if (newUrl === oldUrl && oldEmbed) {
+    // Unchanged raw field → reuse the stored embed (and its height).
+    var h = parseInt(oldHeight, 10);
+    return { embedUrl: oldEmbed, height: (h && !isNaN(h)) ? h : MINIMAL_BAR_HEIGHT_ };
+  }
   return resolveBandcampEmbedUrl_(newUrl);
 }

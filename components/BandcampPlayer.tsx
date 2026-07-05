@@ -14,31 +14,33 @@ export default function BandcampPlayer({
   name,
   bandcamp,
   bandcampEmbedUrl,
+  bandcampEmbedHeight,
 }: {
   name: string;
   bandcamp: string;
   bandcampEmbedUrl: string;
+  bandcampEmbedHeight: number;
 }) {
   if (bandcampEmbedUrl) {
-    // The large embed renders artwork + full tracklist. We give the iframe a
-    // generous fixed height so long tracklists render fully, and let the
-    // wrapper's max-height + overflow-y-auto scroll long albums internally.
-    // Short releases just show blank transparent space below the tracklist
-    // (fine, since transparent=true).
+    // Height comes from the resolver: 40 for the minimal bar, or the exact value
+    // from a pasted iframe snippet. The wrapper's max-height is only a safety net
+    // against an unexpectedly large pasted value, not the primary sizing.
     return (
-      <div className="max-h-[420px] overflow-y-auto rounded-md md:max-h-[650px]">
+      <div className="max-h-[800px] overflow-y-auto rounded-md">
         <iframe
           title={`${name} on Bandcamp`}
           src={bandcampEmbedUrl}
           seamless
           loading="lazy"
-          style={{ border: 0, width: "100%", height: 900 }}
+          style={{ border: 0, width: "100%", height: bandcampEmbedHeight }}
         />
       </div>
     );
   }
 
-  if (bandcamp) {
+  // Only link out when the stored value is an actual URL — if a submitter pasted
+  // an iframe snippet that failed to resolve, it isn't a usable href.
+  if (bandcamp && !bandcamp.includes("<iframe")) {
     return (
       <a
         href={ensureUrl(bandcamp)}

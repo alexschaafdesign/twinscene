@@ -57,16 +57,16 @@ async function main() {
     return;
   }
 
-  const resolved: { slug: string; embedUrl: string }[] = [];
+  const resolved: { slug: string; embedUrl: string; height: number }[] = [];
   let failed = 0;
 
   for (const band of pending) {
-    const embedUrl = await resolveBandcampEmbedUrl(band.bandcamp);
+    const { embedUrl, height } = await resolveBandcampEmbedUrl(band.bandcamp);
     if (embedUrl) {
-      resolved.push({ slug: band.slug, embedUrl });
+      resolved.push({ slug: band.slug, embedUrl, height });
       console.log(`✓ ${band.name}`);
       console.log(`    ${band.bandcamp}`);
-      console.log(`    → ${embedUrl}`);
+      console.log(`    → ${embedUrl} (height ${height})`);
     } else {
       failed++;
       console.log(`✗ ${band.name} — could not resolve (leaving embed blank)`);
@@ -87,9 +87,11 @@ async function main() {
   }
 
   const csv =
-    "SLUG,BANDCAMP EMBED URL\n" +
+    "SLUG,BANDCAMP EMBED URL,BANDCAMP EMBED HEIGHT\n" +
     resolved
-      .map((r) => `${csvField(r.slug)},${csvField(r.embedUrl)}`)
+      .map(
+        (r) => `${csvField(r.slug)},${csvField(r.embedUrl)},${r.height}`,
+      )
       .join("\n") +
     "\n";
   writeFileSync(outFile, csv);

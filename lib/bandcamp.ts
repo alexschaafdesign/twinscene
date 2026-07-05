@@ -6,9 +6,13 @@
 // `<meta name="bc-page-properties">` tag. This module fetches the page, extracts
 // that tag, and builds the EmbeddedPlayer URL.
 //
+// A submitter can also paste Bandcamp's own <iframe> embed code instead; that
+// path is used verbatim (exact src + height), no scraping needed.
+//
 // Used by scripts/backfill-bandcamp.ts. The Apps Script handler (apps-script/Code.gs)
-// mirrors resolveBandcampEmbedUrl() / parseBandcampMeta() / buildBandcampEmbedUrl()
-// in its own runtime — keep the two in sync when changing the regex or embed shape.
+// mirrors resolveBandcampEmbedUrl() / parseBandcampMeta() / parseBandcampEmbedSnippet() /
+// buildBandcampEmbedUrl() in its own runtime — keep the two in sync when changing
+// the regex or embed shape.
 
 /** True if `url` looks like a bandcamp.com URL (bare or with a subdomain). */
 export function isBandcampUrl(url: string): boolean {
@@ -76,36 +80,85 @@ export function parseBandcampMeta(html: string): BandcampItem | null {
   return { itemType, itemId: String(item_id) };
 }
 
-/** Build the compact EmbeddedPlayer URL for a resolved item. */
+/**
+ * Build the compact EmbeddedPlayer URL for a resolved item — the proven minimal
+ * single-line bar (artwork=none), used as the fallback for plain Bandcamp URLs.
+ */
 export function buildBandcampEmbedUrl(item: BandcampItem): string {
   return (
     `https://bandcamp.com/EmbeddedPlayer/${item.itemType}=${item.itemId}/` +
-    "size=large/tracklist=true/artwork=small/bgcol=ffffff/linkcol=0687f5/transparent=true/"
+    "size=small/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=none/transparent=true/"
   );
+}
+
+/** A resolved embed: the iframe src and the height to render it at. */
+export type BandcampEmbed = { embedUrl: string; height: number };
+
+/** Sentinel for "no embed" so callers can treat a blank result uniformly. */
+const NO_EMBED: BandcampEmbed = { embedUrl: "", height: 0 };
+
+/** The minimal bar's known, confirmed-responsive height. */
+const MINIMAL_BAR_HEIGHT = 40;
+
+/**
+ * Parse a Bandcamp <iframe> embed snippet (from their Share/Embed button) into
+ * its src + height, used verbatim. Returns null if `input` isn't an iframe, its
+ * src isn't a bandcamp.com EmbeddedPlayer URL (rejected — this is user-submitted
+ * input on a public form), or no height can be found.
+ */
+export function parseBandcampEmbedSnippet(input: string): BandcampEmbed | null {
+  if (!/<iframe/i.test(input)) return null;
+
+  const src = input.match(/\bsrc=(["'])([\s\S]*?)\1/i)?.[2]?.trim();
+  if (!src || !/^https:\/\/bandcamp\.com\/EmbeddedPlayer\//i.test(src)) {
+    return null;
+  }
+
+  // Height from a height="NNN" attribute, else a style="…height:NNNpx…" rule.
+  let height = 0;
+  const attr = input.match(/\bheight=(["'])\s*(\d+)(?:px)?\s*\1/i);
+  if (attr) height = parseInt(attr[2], 10);
+  if (!height) {
+    const style = input.match(/height\s*:\s*(\d+)\s*px/i);
+    if (style) height = parseInt(style[1], 10);
+  }
+  if (!height || Number.isNaN(height)) return null;
+
+  return { embedUrl: src, height };
 }
 
 type FetchLike = (url: string) => Promise<{ ok: boolean; text(): Promise<string> }>;
 
 /**
- * Fetch a Bandcamp page and resolve it to an EmbeddedPlayer URL. Returns "" on
- * any failure (bad URL, non-bandcamp host, network error, unparseable page) so
- * callers can treat a blank result as "no embed" without try/catch.
+ * Resolve raw Bandcamp input to an embed. Hybrid behaviour:
+ *  - If the input is a pasted <iframe> embed snippet, use its exact src + height.
+ *  - Otherwise treat it as a plain URL: scrape the page's meta tag and build the
+ *    minimal-bar embed at its known fixed height.
+ * Returns a blank embed ({ embedUrl: "", height: 0 }) on any failure (bad URL,
+ * non-bandcamp host, network error, unparseable page/snippet).
  *
  * @param fetchImpl  Injectable fetch (defaults to global fetch) for testing.
  */
 export async function resolveBandcampEmbedUrl(
-  bandcampUrl: string,
+  rawInput: string,
   fetchImpl: FetchLike = fetch,
-): Promise<string> {
-  const url = bandcampUrl.trim();
-  if (!isBandcampUrl(url)) return "";
+): Promise<BandcampEmbed> {
+  const input = rawInput.trim();
+
+  if (/<iframe/i.test(input)) {
+    return parseBandcampEmbedSnippet(input) ?? NO_EMBED;
+  }
+
+  if (!isBandcampUrl(input)) return NO_EMBED;
   try {
-    const res = await fetchImpl(url);
-    if (!res.ok) return "";
+    const res = await fetchImpl(input);
+    if (!res.ok) return NO_EMBED;
     const html = await res.text();
     const item = parseBandcampMeta(html);
-    return item ? buildBandcampEmbedUrl(item) : "";
+    return item
+      ? { embedUrl: buildBandcampEmbedUrl(item), height: MINIMAL_BAR_HEIGHT }
+      : NO_EMBED;
   } catch {
-    return "";
+    return NO_EMBED;
   }
 }

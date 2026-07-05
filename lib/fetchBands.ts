@@ -20,6 +20,7 @@ export type Band = {
   instagram: string; // handle only
   bandcamp: string; // raw Bandcamp URL the submitter provided
   bandcampEmbedUrl: string; // resolved EmbeddedPlayer URL (blank if unresolved)
+  bandcampEmbedHeight: number; // height to render the embed iframe at (px)
   spotify: string;
   added: string;
 };
@@ -144,6 +145,8 @@ export async function fetchBands(): Promise<Band[]> {
     const slugRaw = get(row, "SLUG");
     const startedRaw = get(row, "STARTED");
     const started = startedRaw ? parseInt(startedRaw, 10) : NaN;
+    // Height for the resolved embed; default to 120 when missing/unparseable.
+    const embedHeight = parseInt(get(row, "BANDCAMP EMBED HEIGHT"), 10);
 
     bands.push({
       name,
@@ -162,6 +165,7 @@ export async function fetchBands(): Promise<Band[]> {
       instagram: cleanInstagram(get(row, "INSTAGRAM")),
       bandcamp: get(row, "BANDCAMP"),
       bandcampEmbedUrl: get(row, "BANDCAMP EMBED URL"),
+      bandcampEmbedHeight: Number.isNaN(embedHeight) ? 120 : embedHeight,
       spotify: get(row, "SPOTIFY"),
       added: get(row, "ADDED"),
     });

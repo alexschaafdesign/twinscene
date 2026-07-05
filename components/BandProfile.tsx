@@ -68,7 +68,7 @@ function BandLinks({ band }: { band: Band }) {
           </svg>
         </IconLink>
       )}
-      {band.bandcamp && (
+      {band.bandcamp && !band.bandcamp.includes("<iframe") && (
         <IconLink href={ensureUrl(band.bandcamp)} label="Bandcamp">
           <svg {...iconProps}>
             <path d="M4 16l5-8h11l-5 8z" />
@@ -139,107 +139,106 @@ export default function BandProfile({
   const hasBandcamp = band.bandcampEmbedUrl || band.bandcamp;
 
   return (
-    <div className="grid grid-cols-1 gap-x-10 gap-y-6 md:grid-cols-[300px_minmax(0,1fr)]">
-      {/* Photo — left sidebar, top */}
+    <div className="grid grid-cols-1 gap-8 md:grid-cols-[300px_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:gap-x-10">
+      {/* Photo — sidebar, top */}
       <div className="mx-auto w-full max-w-sm md:col-start-1 md:row-start-1 md:mx-0 md:max-w-none">
         <BandImage band={band} className="rounded-md ring-1 ring-[#E8E0D0]/10" />
       </div>
 
-      {/* Title cluster — main column, top */}
-      <div className="md:col-start-2 md:row-start-1">
-        <h1 className="text-3xl font-medium leading-tight sm:text-4xl">
-          {band.name}
-        </h1>
-        {metaLine(band) && (
-          <p className="mt-2 text-sm text-[#E8E0D0]/65">{metaLine(band)}</p>
-        )}
-        {band.genres.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {band.genres.map((g) => (
-              <span
-                key={g}
-                className="rounded-full border border-[#E8E0D0]/20 px-2 py-0.5 text-xs text-[#E8E0D0]/75"
-              >
-                {g}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+      {/*
+        Main content — spans both sidebar rows and stacks internally, so name →
+        bio → player → shows flow tight from the top regardless of the photo's
+        height (rather than each aligning to the photo's grid row).
+      */}
+      <div className="space-y-6 md:col-start-2 md:row-span-2 md:row-start-1">
+        <div>
+          <h1 className="text-3xl font-medium leading-tight sm:text-4xl">
+            {band.name}
+          </h1>
+          {metaLine(band) && (
+            <p className="mt-2 text-sm text-[#E8E0D0]/65">{metaLine(band)}</p>
+          )}
+          {band.genres.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {band.genres.map((g) => (
+                <span
+                  key={g}
+                  className="rounded-full border border-[#E8E0D0]/20 px-2 py-0.5 text-xs text-[#E8E0D0]/75"
+                >
+                  {g}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
 
-      {/* Bandcamp quick-sample player — under the photo in the sidebar */}
-      {hasBandcamp && (
-        <div className="md:col-start-1 md:row-start-2">
+        {/* Bio — right below the name */}
+        <p className="whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/85">
+          {band.bio || "No bio yet."}
+        </p>
+
+        {/* Bandcamp player — right below the bio */}
+        {hasBandcamp && (
           <BandcampPlayer
             name={band.name}
             bandcamp={band.bandcamp}
             bandcampEmbedUrl={band.bandcampEmbedUrl}
+            bandcampEmbedHeight={band.bandcampEmbedHeight}
           />
-        </div>
-      )}
+        )}
 
-      {/* Bio — main column */}
-      <div className="md:col-start-2 md:row-start-2">
-        <p className="whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/85">
-          {band.bio || "No bio yet."}
-        </p>
-      </div>
-
-      {/* Upcoming shows — main column */}
-      {shows.length > 0 && (
-        <div className="md:col-start-2 md:row-start-3">
-          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-            Upcoming shows
-          </h2>
-          <ul className="space-y-2">
-            {shows.map((show, i) => (
-              <li
-                key={`${show.date}-${show.venue}-${i}`}
-                className="rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] px-3 py-2.5"
-              >
-                <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm font-medium text-[#E8E0D0]">
-                    {formatShowDate(show.date)}
-                  </span>
-                  {show.link && (
-                    <a
-                      href={ensureUrl(show.link)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="shrink-0 text-xs text-[#E8E0D0]/70 underline decoration-[#E8E0D0]/30 underline-offset-2 transition hover:text-[#E8E0D0]"
-                    >
-                      Tickets / Info →
-                    </a>
+        {/* Upcoming shows */}
+        {shows.length > 0 && (
+          <div>
+            <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+              Upcoming shows
+            </h2>
+            <ul className="space-y-2">
+              {shows.map((show, i) => (
+                <li
+                  key={`${show.date}-${show.venue}-${i}`}
+                  className="rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] px-3 py-2.5"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-medium text-[#E8E0D0]">
+                      {formatShowDate(show.date)}
+                    </span>
+                    {show.link && (
+                      <a
+                        href={ensureUrl(show.link)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="shrink-0 text-xs text-[#E8E0D0]/70 underline decoration-[#E8E0D0]/30 underline-offset-2 transition hover:text-[#E8E0D0]"
+                      >
+                        Tickets / Info →
+                      </a>
+                    )}
+                  </div>
+                  {show.title && (
+                    <p className="mt-0.5 text-sm font-medium text-[#E8E0D0]/90">
+                      {show.title}
+                    </p>
                   )}
-                </div>
-                {show.title && (
-                  <p className="mt-0.5 text-sm font-medium text-[#E8E0D0]/90">
-                    {show.title}
-                  </p>
-                )}
-                {show.venue && (
-                  <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
-                    {show.venue}
-                  </p>
-                )}
-                {show.notes && (
-                  <p className="mt-0.5 text-xs text-[#E8E0D0]/50">
-                    {show.notes}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Social links — sidebar */}
-      <div className="md:col-start-1 md:row-start-3">
-        <BandLinks band={band} />
+                  {show.venue && (
+                    <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
+                      {show.venue}
+                    </p>
+                  )}
+                  {show.notes && (
+                    <p className="mt-0.5 text-xs text-[#E8E0D0]/50">
+                      {show.notes}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
-      {/* Preferred contact — sidebar */}
-      <div className="md:col-start-1 md:row-start-4">
+      {/* Sidebar extras — directly under the photo */}
+      <div className="space-y-5 md:col-start-1 md:row-start-2">
+        <BandLinks band={band} />
         <ContactMethod band={band} />
       </div>
     </div>

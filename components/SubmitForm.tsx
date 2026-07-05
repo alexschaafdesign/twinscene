@@ -753,13 +753,17 @@ export default function SubmitForm({
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Bandcamp URL" htmlFor="bandcamp">
+          <Field
+            label="Bandcamp"
+            htmlFor="bandcamp"
+            hint="Paste your Bandcamp link, or for a richer player, paste the embed code from Bandcamp's Share/Embed button."
+          >
             <input
               id="bandcamp"
-              type="url"
+              type="text"
               value={form.bandcamp}
               onChange={set("bandcamp")}
-              placeholder="https://"
+              placeholder="https://…  or  <iframe …>"
               className={inputClass}
             />
           </Field>
