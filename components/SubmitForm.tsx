@@ -351,6 +351,9 @@ export default function SubmitForm({
     "idle" | "submitting" | "success" | "error"
   >("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  // Slug of the band just submitted, so the success screen can link to its
+  // profile page (set from the same bandSlug sent in the payload).
+  const [submittedSlug, setSubmittedSlug] = useState("");
 
   // Build a revocable object URL for the thumbnail preview, and revoke it
   // whenever the selected file changes or the component unmounts.
@@ -516,6 +519,7 @@ export default function SubmitForm({
       if (!data.success) {
         throw new Error(data.error || "Submission failed");
       }
+      setSubmittedSlug(bandSlug);
       setStatus("success");
     } catch (err) {
       setStatus("error");
@@ -528,17 +532,22 @@ export default function SubmitForm({
   }
 
   if (status === "success") {
+    const bandHref = submittedSlug ? `/bands/${submittedSlug}` : "/";
     return (
       <div className="rounded-lg border border-[#E8E0D0]/20 p-8 text-center">
-        <h2 className="text-xl font-medium">Thanks!</h2>
+        <h2 className="text-xl font-medium">
+          {isCorrect ? "Thanks for the updates!" : "Thanks!"}
+        </h2>
         <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[#E8E0D0]/75">
-          We&apos;ll review your submission and be in touch.
+          {isCorrect
+            ? "If the changes don't appear immediately, give it a minute or so."
+            : "Your band's been added — if it doesn't appear immediately, give it a minute or so."}
         </p>
         <Link
-          href="/"
+          href={bandHref}
           className="mt-6 inline-block rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm transition hover:bg-[#E8E0D0]/10"
         >
-          ← Back to directory
+          {submittedSlug ? `View ${form.bandName || "band"} →` : "← Back to directory"}
         </Link>
       </div>
     );
