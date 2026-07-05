@@ -20,15 +20,21 @@ export default function BandcampPlayer({
   bandcampEmbedUrl: string;
 }) {
   if (bandcampEmbedUrl) {
+    // The large embed renders artwork + full tracklist. We give the iframe a
+    // generous fixed height so long tracklists render fully, and let the
+    // wrapper's max-height + overflow-y-auto scroll long albums internally.
+    // Short releases just show blank transparent space below the tracklist
+    // (fine, since transparent=true).
     return (
-      <iframe
-        title={`${name} on Bandcamp`}
-        src={bandcampEmbedUrl}
-        seamless
-        loading="lazy"
-        style={{ border: 0, width: "100%", height: 40 }}
-        className="overflow-hidden rounded-md"
-      />
+      <div className="max-h-[420px] overflow-y-auto rounded-md md:max-h-[650px]">
+        <iframe
+          title={`${name} on Bandcamp`}
+          src={bandcampEmbedUrl}
+          seamless
+          loading="lazy"
+          style={{ border: 0, width: "100%", height: 900 }}
+        />
+      </div>
     );
   }
 

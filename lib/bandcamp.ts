@@ -80,7 +80,7 @@ export function parseBandcampMeta(html: string): BandcampItem | null {
 export function buildBandcampEmbedUrl(item: BandcampItem): string {
   return (
     `https://bandcamp.com/EmbeddedPlayer/${item.itemType}=${item.itemId}/` +
-    "size=small/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=none/transparent=true/"
+    "size=large/tracklist=true/artwork=small/bgcol=ffffff/linkcol=0687f5/transparent=true/"
   );
 }
 
