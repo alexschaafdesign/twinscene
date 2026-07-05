@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 type Mode = "add" | "correct";
 
-const BIO_MAX = 300;
+const BIO_MAX = 750;
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
 
