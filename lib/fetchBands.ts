@@ -1,10 +1,17 @@
 // Data layer for the Twin Cities Music Scene directory.
-// Fetches a published Google Sheet (CSV) and parses it into Band objects.
+// Fetches the Google Sheet as CSV and parses it into Band objects.
 // The fetch uses `cache: 'no-store'` (plus a cache-busting timestamp) so the
 // directory always reflects the latest sheet data rather than a cached copy.
-
+//
+// We read the live "gviz" export (Google Visualization API) rather than the
+// "Publish to web" CSV. Publish-to-web is a separate cached snapshot served
+// from multiple edge caches that refresh on Google's own schedule, so freshly
+// edited/added data (and new columns) would flicker in and out for minutes.
+// gviz reflects the live sheet almost immediately. `headers=1` is required —
+// without it gviz folds the header row into the first data row. `gid=0` is the
+// Index tab; the sheet must be shared "anyone with the link can view".
 const CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=0&single=true&output=csv";
+  "https://docs.google.com/spreadsheets/d/19a_z884uoSZ4KvAOjAFsZaDikRZLHhdRLKBGxkuns90/gviz/tq?tqx=out:csv&gid=0&headers=1";
 
 // A band-curated "linktree" entry: the top things they want people to see
 // (show tickets, a new release, etc.). `image` is a best-effort og:image the
