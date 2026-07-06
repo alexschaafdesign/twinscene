@@ -9,6 +9,15 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-app);
+
+  /* Light "paper" panel palette — a warm light surface that inverts the
+     site's dark theme for focused, readable forms (e.g. the submit form).
+     Registered as theme colors so `bg-paper`, `text-ink`, `border-ink/20`,
+     `text-danger`, etc. (with opacity modifiers) work like any Tailwind color
+     and can be reused by any future light panel. */
+  --color-paper: #f7f3e9;
+  --color-ink: #2a2420;
+  --color-danger: #b42318;
 }
 
 * {
