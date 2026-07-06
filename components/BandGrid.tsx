@@ -7,23 +7,10 @@ import type { Band } from "@/lib/fetchBands";
 import { iconProps, metaLine } from "@/components/band-shared";
 import { BandImage } from "@/components/band-shared-client";
 
-const GENRE_TAGS = [
-  "All",
-  "Punk",
-  "Indie",
-  "Folk",
-  "Rock",
-  "Pop",
-  "Jazz",
-  "Electronic",
-  "Hip-Hop",
-  "Experimental",
-  "Metal",
-  "Country",
-  "Americana",
-];
-
 const LOCATION_TAGS = ["All", "Minneapolis", "St. Paul", "Twin Cities", "Other"];
+
+// How many genre pills to show before the rest collapse behind "See more".
+const COLLAPSED_GENRE_COUNT = 12;
 
 /** Does a band's location match one of the named location buckets? */
 function matchesLocation(location: string, filter: string): boolean {
@@ -110,7 +97,10 @@ function BandRow({ band }: { band: Band }) {
 export default function BandGrid({ bands }: { bands: Band[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [genre, setGenre] = useState("All");
+  // Genres are multi-select: a band matches if it has ANY of the chosen ones.
+  // Empty = no genre filter (the "All" pill).
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const [showAllGenres, setShowAllGenres] = useState(false);
   const [location, setLocation] = useState("All");
   // Default per breakpoint: gallery on larger screens, compact list on mobile.
   // Starts "gallery" to match SSR, then corrected on mount (see effect below).
@@ -134,8 +124,48 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
     return () => mq.removeEventListener("change", apply);
   }, [viewChosen]);
 
+  // Every distinct genre bands have submitted, deduped case-insensitively and
+  // ordered by how many bands use it (most common first, then alphabetical).
+  const genreOptions = useMemo(() => {
+    const map = new Map<string, { label: string; count: number }>();
+    for (const band of bands) {
+      for (const g of band.genres) {
+        const key = g.toLowerCase();
+        const existing = map.get(key);
+        if (existing) existing.count++;
+        else map.set(key, { label: g, count: 1 });
+      }
+    }
+    return [...map.values()].sort(
+      (a, b) => b.count - a.count || a.label.localeCompare(b.label),
+    );
+  }, [bands]);
+
+  // When collapsed, show the top N — plus any selected genre that falls beyond
+  // the cutoff, so an active filter never hides itself.
+  const visibleGenres = useMemo(() => {
+    if (showAllGenres) return genreOptions;
+    const head = genreOptions.slice(0, COLLAPSED_GENRE_COUNT);
+    const headLabels = new Set(head.map((g) => g.label));
+    const selectedExtras = genreOptions.filter(
+      (g) => !headLabels.has(g.label) && selectedGenres.includes(g.label),
+    );
+    return [...head, ...selectedExtras];
+  }, [genreOptions, showAllGenres, selectedGenres]);
+
+  const hiddenGenreCount = genreOptions.length - visibleGenres.length;
+
+  function toggleGenre(label: string) {
+    setSelectedGenres((prev) =>
+      prev.includes(label)
+        ? prev.filter((g) => g !== label)
+        : [...prev, label],
+    );
+  }
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const genreSet = new Set(selectedGenres.map((g) => g.toLowerCase()));
     return bands.filter((band) => {
       // Search across name, genres, location
       if (q) {
@@ -145,10 +175,10 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
         if (!haystack.includes(q)) return false;
       }
 
-      // Genre tag (substring match against self-described genres)
-      if (genre !== "All") {
-        const genreStr = band.genres.join(" ").toLowerCase();
-        if (!genreStr.includes(genre.toLowerCase())) return false;
+      // Genre — match if the band has ANY of the selected genres.
+      if (genreSet.size > 0) {
+        const hit = band.genres.some((g) => genreSet.has(g.toLowerCase()));
+        if (!hit) return false;
       }
 
       // Location bucket
@@ -156,10 +186,10 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
 
       return true;
     });
-  }, [bands, query, genre, location]);
+  }, [bands, query, selectedGenres, location]);
 
   // Key changes whenever filters change, remounting the grid to replay the fade.
-  const gridKey = `${query}|${genre}|${location}`;
+  const gridKey = `${query}|${selectedGenres.join(",")}|${location}`;
 
   function surpriseMe() {
     if (filtered.length === 0) return;
@@ -201,25 +231,59 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
           </button>
         </div>
 
-        {/* Genre tags */}
+        {/* Genre tags — multi-select, derived from submitted genres */}
         <div className="flex flex-wrap gap-1.5">
-          {GENRE_TAGS.map((tag) => {
-            const active = genre === tag;
+          <button
+            type="button"
+            onClick={() => setSelectedGenres([])}
+            className={`${filterPillBase} ${
+              selectedGenres.length === 0
+                ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+            }`}
+          >
+            All
+          </button>
+          {visibleGenres.map(({ label }) => {
+            const active = selectedGenres.includes(label);
             return (
               <button
-                key={tag}
+                key={label}
                 type="button"
-                onClick={() => setGenre(tag)}
+                onClick={() => toggleGenre(label)}
                 className={`${filterPillBase} ${
                   active
                     ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
                     : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
                 }`}
               >
-                {tag}
+                {label}
               </button>
             );
           })}
+          {(hiddenGenreCount > 0 || showAllGenres) && (
+            <button
+              type="button"
+              onClick={() => setShowAllGenres((v) => !v)}
+              className={`${filterPillBase} border-dashed border-[#E8E0D0]/40 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/70`}
+            >
+              {showAllGenres ? "See less" : `See more (${hiddenGenreCount})`}
+            </button>
+          )}
+          {selectedGenres.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedGenres([])}
+              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-[#E8E0D0]/60 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+            >
+              {/* ti-x (Tabler) */}
+              <svg {...iconProps} width={13} height={13}>
+                <path d="M18 6l-12 12" />
+                <path d="M6 6l12 12" />
+              </svg>
+              Clear {selectedGenres.length} selected
+            </button>
+          )}
         </div>
 
         {/* Location */}
