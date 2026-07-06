@@ -5,7 +5,7 @@ import { fetchBands } from "@/lib/fetchBands";
 import { fetchShows } from "@/lib/fetchShows";
 import { SHOWS_ENABLED } from "@/lib/features";
 import BandProfile, { editHref } from "@/components/BandProfile";
-import { iconProps } from "@/components/band-shared";
+import { iconProps, locationLabel } from "@/components/band-shared";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -24,9 +24,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const band = await getBand(slug);
   if (!band) return {};
 
+  const place = locationLabel(band);
   const description =
     band.bio ||
-    `${band.name}${band.location ? ` — ${band.location}` : ""} on Twin Scene, the Twin Cities music directory.`;
+    `${band.name}${place ? ` — ${place}` : ""} on Twin Scene, the Twin Cities music directory.`;
 
   return {
     title: band.name,

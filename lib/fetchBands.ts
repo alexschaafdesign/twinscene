@@ -10,18 +10,18 @@ export type Band = {
   name: string;
   slug: string;
   genres: string[];
-  location: string;
+  city: string; // from the sheet's LOCATION column (e.g. "Minneapolis")
+  neighborhoods: string[]; // finer-grained areas within the city; may be empty
+  members: string[]; // individual people in the band; may be empty
   contactEmail: string; // public contact address, shown on the profile
   contactMethod: string; // "" | "email" | "instagram" — the band's preferred contact
   bio: string;
-  started: number | null;
   image: string;
   website: string;
   instagram: string; // handle only
   bandcamp: string; // raw Bandcamp URL the submitter provided
   bandcampEmbedUrl: string; // resolved EmbeddedPlayer URL (blank if unresolved)
   bandcampEmbedHeight: number; // height to render the embed iframe at (px)
-  spotify: string;
   added: string;
 };
 
@@ -143,8 +143,6 @@ export async function fetchBands(): Promise<Band[]> {
     if (!name) continue; // skip blank rows
 
     const slugRaw = get(row, "SLUG");
-    const startedRaw = get(row, "STARTED");
-    const started = startedRaw ? parseInt(startedRaw, 10) : NaN;
     // Height for the resolved embed; default to 120 when missing/unparseable.
     const embedHeight = parseInt(get(row, "BANDCAMP EMBED HEIGHT"), 10);
 
@@ -155,18 +153,24 @@ export async function fetchBands(): Promise<Band[]> {
         .split(",")
         .map((g) => g.trim())
         .filter(Boolean),
-      location: get(row, "LOCATION"),
+      city: get(row, "LOCATION"),
+      neighborhoods: get(row, "NEIGHBORHOODS")
+        .split(",")
+        .map((n) => n.trim())
+        .filter(Boolean),
+      members: get(row, "MEMBERS")
+        .split(",")
+        .map((m) => m.trim())
+        .filter(Boolean),
       contactEmail: get(row, "CONTACT_EMAIL"),
       contactMethod: get(row, "CONTACT_METHOD"),
       bio: get(row, "BIO"),
-      started: Number.isNaN(started) ? null : started,
       image: get(row, "IMAGE"),
       website: get(row, "WEBSITE"),
       instagram: cleanInstagram(get(row, "INSTAGRAM")),
       bandcamp: get(row, "BANDCAMP"),
       bandcampEmbedUrl: get(row, "BANDCAMP EMBED URL"),
       bandcampEmbedHeight: Number.isNaN(embedHeight) ? 120 : embedHeight,
-      spotify: get(row, "SPOTIFY"),
       added: get(row, "ADDED"),
     });
   }

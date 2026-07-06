@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import type { Band } from "@/lib/fetchBands";
-import { iconProps, metaLine } from "@/components/band-shared";
+import { iconProps, PlaceLine } from "@/components/band-shared";
 import { BandImage } from "@/components/band-shared-client";
 
 const GENRE_TAGS = [
@@ -64,11 +64,7 @@ function BandCard({ band }: { band: Band }) {
       <h3 className="mt-2.5 truncate text-sm font-medium leading-snug">
         {band.name}
       </h3>
-      {metaLine(band) && (
-        <p className="mt-0.5 truncate text-xs text-[#E8E0D0]/55">
-          {metaLine(band)}
-        </p>
-      )}
+      <PlaceLine band={band} className="mt-1 text-xs" />
       {band.genres.length > 0 && (
         <p className="mt-1 truncate text-xs italic text-[#E8E0D0]/45">
           {band.genres.join(", ")}
@@ -92,11 +88,7 @@ function BandRow({ band }: { band: Band }) {
         <h3 className="truncate text-sm font-medium leading-snug">
           {band.name}
         </h3>
-        {metaLine(band) && (
-          <p className="mt-0.5 truncate text-xs text-[#E8E0D0]/55">
-            {metaLine(band)}
-          </p>
-        )}
+        <PlaceLine band={band} className="mt-0.5 text-xs" />
       </div>
       {band.genres.length > 0 && (
         <p className="ml-auto hidden max-w-[40%] shrink-0 truncate text-xs italic text-[#E8E0D0]/45 sm:block">
@@ -137,9 +129,15 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return bands.filter((band) => {
-      // Search across name, genres, location
+      // Search across name, genres, city, neighborhoods, and members
       if (q) {
-        const haystack = [band.name, band.genres.join(" "), band.location]
+        const haystack = [
+          band.name,
+          band.genres.join(" "),
+          band.city,
+          band.neighborhoods.join(" "),
+          band.members.join(" "),
+        ]
           .join(" ")
           .toLowerCase();
         if (!haystack.includes(q)) return false;
@@ -152,7 +150,7 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
       }
 
       // Location bucket
-      if (!matchesLocation(band.location, location)) return false;
+      if (!matchesLocation(band.city, location)) return false;
 
       return true;
     });
@@ -181,7 +179,7 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, genre, or location…"
+            placeholder="Search by name, genre, location, or member…"
             className="w-full flex-1 rounded-md border border-[#E8E0D0]/25 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
           />
           <button

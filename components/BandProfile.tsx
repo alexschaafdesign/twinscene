@@ -13,10 +13,10 @@ import type { Show } from "@/lib/fetchShows";
 import BandcampPlayer from "@/components/BandcampPlayer";
 import {
   IconLink,
+  PlaceLine,
   ensureUrl,
   formatShowDate,
   iconProps,
-  metaLine,
 } from "@/components/band-shared";
 import { BandImage, CopyButton } from "@/components/band-shared-client";
 
@@ -27,23 +27,22 @@ export function editHref(band: Band): string {
     band: band.slug,
     name: band.name,
     genres: band.genres.join(", "),
-    location: band.location,
+    location: band.city, // the sheet's LOCATION column holds the city
+    neighborhoods: band.neighborhoods.join(", "),
+    members: band.members.join(", "),
     contactEmail: band.contactEmail,
     contactMethod: band.contactMethod,
-    started: band.started != null ? String(band.started) : "",
     website: band.website,
     instagram: band.instagram,
     bandcamp: band.bandcamp,
     bio: band.bio,
     image: band.image,
-    spotify: band.spotify,
   });
   return `/submit?${params.toString()}`;
 }
 
 function BandLinks({ band }: { band: Band }) {
-  const hasAny =
-    band.website || band.instagram || band.bandcamp || band.spotify;
+  const hasAny = band.website || band.instagram || band.bandcamp;
   if (!hasAny) return null;
 
   return (
@@ -72,14 +71,6 @@ function BandLinks({ band }: { band: Band }) {
         <IconLink href={ensureUrl(band.bandcamp)} label="Bandcamp">
           <svg {...iconProps}>
             <path d="M4 16l5-8h11l-5 8z" />
-          </svg>
-        </IconLink>
-      )}
-      {band.spotify && (
-        <IconLink href={ensureUrl(band.spotify)} label="Spotify">
-          <svg {...iconProps}>
-            <circle cx="12" cy="12" r="9" />
-            <path d="M7.5 9.5c3-1 6-1 9 .5M8 13c2.5-.8 5-.6 7 .5M8.5 16c2-.6 4-.4 5.5.4" />
           </svg>
         </IconLink>
       )}
@@ -155,9 +146,7 @@ export default function BandProfile({
           <h1 className="text-3xl font-medium leading-tight sm:text-4xl">
             {band.name}
           </h1>
-          {metaLine(band) && (
-            <p className="mt-2 text-sm text-[#E8E0D0]/65">{metaLine(band)}</p>
-          )}
+          <PlaceLine band={band} className="mt-2 text-sm" />
           {band.genres.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {band.genres.map((g) => (
@@ -176,6 +165,25 @@ export default function BandProfile({
         <p className="whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/85">
           {band.bio || "No bio yet."}
         </p>
+
+        {/* Members */}
+        {band.members.length > 0 && (
+          <div>
+            <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+              Members
+            </h2>
+            <div className="flex flex-wrap gap-1.5">
+              {band.members.map((m) => (
+                <span
+                  key={m}
+                  className="rounded-full bg-[#E8E0D0]/10 px-2.5 py-0.5 text-xs text-[#E8E0D0]/80"
+                >
+                  {m}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Bandcamp player — right below the bio */}
         {hasBandcamp && (

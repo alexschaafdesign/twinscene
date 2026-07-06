@@ -14,11 +14,18 @@ const SUBMISSION_COLUMNS = [
   'Timestamp', 'Mode', 'Slug', 'Existing Slug', 'Name', 'Genres', 'Location',
   'Started', 'Status', 'Bio', 'Website', 'Instagram', 'Bandcamp', 'Spotify',
   'Image URL', 'Submitter Name', 'Submitter Email', 'Notes', 'Review Status',
+  // Appended (not inserted) so existing Submissions columns don't shift.
+  'Neighborhoods', 'Members',
 ];
 
+// NOTE: the Index sheet's column order must match this array — writeToIndex_
+// reads/writes rows positionally. New columns are appended last, so add
+// matching "NEIGHBORHOODS" and "MEMBERS" headers (in that order) at the END of
+// the Index sheet.
 const INDEX_COLUMNS = [
   'NAME', 'SLUG', 'GENRES', 'LOCATION', 'BIO', 'STARTED', 'STATUS', 'IMAGE',
   'WEBSITE', 'INSTAGRAM', 'BANDCAMP', 'BANDCAMP_EMBED_URL', 'BANDCAMP_EMBED_HEIGHT', 'SPOTIFY', 'ADDED', 'CONTACT_EMAIL', 'CONTACT_METHOD',
+  'NEIGHBORHOODS', 'MEMBERS',
 ];
 
 function showNotifyEmail_() {
@@ -60,6 +67,8 @@ function doPost(e) {
       'Name': p.bandName || '',
       'Genres': p.genres || '',
       'Location': p.location || '',
+      'Neighborhoods': p.neighborhoods || '',
+      'Members': p.members || '',
       'Started': p.started || '',
       'Contact Email': p.contactEmail || '',
       'Contact Method': p.contactMethod || '',
@@ -346,8 +355,11 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
     row[col('NAME')] = p.bandName || '';
     row[col('GENRES')] = p.genres || '';
     row[col('LOCATION')] = p.location || '';
+    row[col('NEIGHBORHOODS')] = p.neighborhoods || '';
+    row[col('MEMBERS')] = p.members || '';
     row[col('BIO')] = p.bio || '';
-    row[col('STARTED')] = p.started || '';
+    // STARTED and SPOTIFY are no longer collected by the form. Leave their
+    // existing cell values untouched (don't blank them) on update.
     row[col('CONTACT_EMAIL')] = p.contactEmail || '';
     row[col('CONTACT_METHOD')] = p.contactMethod || '';
     row[col('WEBSITE')] = p.website || '';
@@ -355,7 +367,6 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
     row[col('BANDCAMP')] = p.bandcamp || '';
     row[col('BANDCAMP_EMBED_URL')] = embed.embedUrl;
     row[col('BANDCAMP_EMBED_HEIGHT')] = embed.height;
-    row[col('SPOTIFY')] = p.spotify || '';
     if (hasNewImage) {
       row[col('IMAGE')] = imageUrl;
     } else if (p.removeImage === 'true') {
@@ -374,8 +385,9 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
       case 'SLUG': return p.bandSlug || '';
       case 'GENRES': return p.genres || '';
       case 'LOCATION': return p.location || '';
+      case 'NEIGHBORHOODS': return p.neighborhoods || '';
+      case 'MEMBERS': return p.members || '';
       case 'BIO': return p.bio || '';
-      case 'STARTED': return p.started || '';
       case 'CONTACT_EMAIL': return p.contactEmail || '';
       case 'CONTACT_METHOD': return p.contactMethod || '';
       case 'IMAGE': return newImage;
@@ -384,7 +396,6 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
       case 'BANDCAMP': return p.bandcamp || '';
       case 'BANDCAMP_EMBED_URL': return newEmbed.embedUrl;
       case 'BANDCAMP_EMBED_HEIGHT': return newEmbed.height;
-      case 'SPOTIFY': return p.spotify || '';
       case 'ADDED': return todayString_();
       default: return '';
     }

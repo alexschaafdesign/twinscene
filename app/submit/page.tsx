@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import SubmitForm from "@/components/SubmitForm";
 import { fetchBands } from "@/lib/fetchBands";
+import { NEIGHBORHOOD_OPTIONS } from "@/lib/neighborhoods";
 
 export const metadata: Metadata = {
   title: "Add your band — Twin Cities Music Scene",
@@ -31,6 +32,19 @@ export default async function SubmitPage({
     new Set(bands.flatMap((b) => b.genres)),
   ).sort((a, b) => a.localeCompare(b));
 
+  // Neighborhood suggestions: the seeded Twin Cities list merged with any
+  // neighborhoods existing bands already use, so real-world additions persist
+  // as suggestions for the next person.
+  const neighborhoodOptions = Array.from(
+    new Set([...NEIGHBORHOOD_OPTIONS, ...bands.flatMap((b) => b.neighborhoods)]),
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Member suggestions come entirely from people already in the directory
+  // (no seed list), so autocomplete grows as bands list their members.
+  const memberOptions = Array.from(
+    new Set(bands.flatMap((b) => b.members)),
+  ).sort((a, b) => a.localeCompare(b));
+
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-14">
       <Link
@@ -46,16 +60,18 @@ export default async function SubmitPage({
         initialName={name}
         initialGenres={param("genres")}
         initialLocation={param("location")}
+        initialNeighborhoods={param("neighborhoods")}
+        initialMembers={param("members")}
         initialContactEmail={param("contactEmail")}
         initialContactMethod={param("contactMethod")}
-        initialStarted={param("started")}
         initialWebsite={param("website")}
         initialInstagram={param("instagram")}
         initialBandcamp={param("bandcamp")}
-        initialSpotify={param("spotify")}
         initialBio={param("bio")}
         initialImage={param("image")}
         genreOptions={genreOptions}
+        neighborhoodOptions={neighborhoodOptions}
+        memberOptions={memberOptions}
       />
     </main>
   );

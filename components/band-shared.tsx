@@ -14,12 +14,45 @@ export function initials(name: string): string {
   return (words[0][0] + words[1][0]).toUpperCase();
 }
 
-/** One-line "Location · Est. Year" summary; empty string when neither exists. */
-export function metaLine(band: Band): string {
-  const parts: string[] = [];
-  if (band.location) parts.push(band.location);
-  if (band.started) parts.push(`Est. ${band.started}`);
-  return parts.join(" · ");
+/**
+ * Human-readable place: "Neighborhood, City" (or just one, or neither).
+ * Multiple neighborhoods are comma-joined before the city, e.g.
+ * "Seward, Longfellow, Minneapolis".
+ */
+export function locationLabel(band: Band): string {
+  const hoods = band.neighborhoods.join(", ");
+  if (hoods && band.city) return `${hoods}, ${band.city}`;
+  return hoods || band.city;
+}
+
+/**
+ * Location as a single line, e.g. "Seward, Longfellow, Minneapolis".
+ * Neighborhoods (the hyper-local bit) render slightly brighter than the city
+ * so they read as the notable detail. Renders nothing when there's no place.
+ * `className` tunes size/spacing per context (card vs. profile).
+ */
+export function PlaceLine({
+  band,
+  className = "",
+}: {
+  band: Band;
+  className?: string;
+}) {
+  const hasHoods = band.neighborhoods.length > 0;
+  const hasPlace = hasHoods || !!band.city;
+  if (!hasPlace) return null;
+
+  return (
+    <p className={`truncate text-[#E8E0D0]/55 ${className}`}>
+      {hasHoods && (
+        <span className="text-[#E8E0D0]/85">
+          {band.neighborhoods.join(", ")}
+        </span>
+      )}
+      {hasHoods && band.city ? ", " : ""}
+      {band.city}
+    </p>
+  );
 }
 
 /** Prefix a bare URL with https:// if it has no scheme. */

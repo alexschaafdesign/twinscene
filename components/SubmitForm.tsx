@@ -15,6 +15,9 @@ const inputClass =
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Cities that get a one-tap button in the picker; anything else is "Other".
+const KNOWN_CITIES = ["Minneapolis", "St. Paul"] as const;
+
 /**
  * Lowercase, collapse non-alphanumeric runs into single hyphens, trim hyphens.
  * Kept in sync with slugify() in lib/fetchBands.ts.
@@ -47,14 +50,14 @@ type FormState = {
   submitterName: string;
   submitterEmail: string;
   genres: string;
-  location: string;
+  location: string; // city — persisted to the sheet's LOCATION column
+  neighborhoods: string; // comma-joined; parsed into a list like genres
+  members: string; // comma-joined band member names; parsed into a list
   contactEmail: string;
   contactMethod: string; // "" | "email" | "instagram" — preferred contact
-  started: string;
   website: string;
   instagram: string;
   bandcamp: string;
-  spotify: string;
   bio: string;
   notes: string;
 };
@@ -135,22 +138,25 @@ function Section({
 }
 
 /**
- * Tag-input with autocomplete for genres. Selected genres render as removable
- * chips; typing filters `options`, and an "Add '…'" entry lets the user create
- * a genre that isn't in the list yet. Value is the array of selected genres.
+ * Tag-input with autocomplete. Selected values render as removable chips;
+ * typing filters `options`, and an "Add '…'" entry lets the user create a value
+ * that isn't in the list yet. Used for both genres and neighborhoods. Value is
+ * the array of selected strings.
  */
-function GenreTagInput({
+function TagInput({
   id,
   value,
   options,
   onChange,
   hasError,
+  placeholder,
 }: {
   id: string;
   value: string[];
   options: string[];
   onChange: (next: string[]) => void;
   hasError?: boolean;
+  placeholder?: string;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -198,8 +204,8 @@ function GenreTagInput({
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, [open]);
 
-  function addGenre(genre: string) {
-    const trimmed = genre.trim();
+  function addTag(tag: string) {
+    const trimmed = tag.trim();
     if (!trimmed) return;
     if (!selectedLower.includes(trimmed.toLowerCase())) {
       onChange([...value, trimmed]);
@@ -209,13 +215,13 @@ function GenreTagInput({
     inputRef.current?.focus();
   }
 
-  function removeGenre(index: number) {
+  function removeTag(index: number) {
     onChange(value.filter((_, i) => i !== index));
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Backspace" && query === "" && value.length > 0) {
-      removeGenre(value.length - 1);
+      removeTag(value.length - 1);
       return;
     }
     if (e.key === "Escape") {
@@ -238,11 +244,11 @@ function GenreTagInput({
     if (e.key === "Enter") {
       if (open && items.length > 0) {
         e.preventDefault();
-        addGenre(items[activeIndex]?.value ?? "");
+        addTag(items[activeIndex]?.value ?? "");
       } else if (q) {
-        // Don't submit the form while a genre is half-typed.
+        // Don't submit the form while a value is half-typed.
         e.preventDefault();
-        addGenre(q);
+        addTag(q);
       }
     }
   }
@@ -255,18 +261,18 @@ function GenreTagInput({
           hasError ? "border-[#E5A0A0]/60" : "border-[#E8E0D0]/20"
         } bg-transparent px-2 py-1.5 text-sm transition focus-within:border-transparent focus-within:ring-2 focus-within:ring-[#E8E0D0]`}
       >
-        {value.map((genre, i) => (
+        {value.map((tag, i) => (
           <span
-            key={`${genre}-${i}`}
+            key={`${tag}-${i}`}
             className="inline-flex items-center gap-1 rounded bg-[#E8E0D0]/15 px-2 py-0.5 text-xs text-[#E8E0D0]"
           >
-            {genre}
+            {tag}
             <button
               type="button"
-              aria-label={`Remove ${genre}`}
+              aria-label={`Remove ${tag}`}
               onClick={(e) => {
                 e.stopPropagation();
-                removeGenre(i);
+                removeTag(i);
               }}
               className="text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
             >
@@ -285,9 +291,7 @@ function GenreTagInput({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder={
-            value.length === 0 ? "e.g. Baroque Yachtgaze, Sewer Punk" : ""
-          }
+          placeholder={value.length === 0 ? placeholder : ""}
           className="min-w-[8rem] flex-1 bg-transparent text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 focus:outline-none"
         />
       </div>
@@ -302,7 +306,7 @@ function GenreTagInput({
                 onMouseDown={(e) => {
                   // Select before the input blurs and closes the dropdown.
                   e.preventDefault();
-                  addGenre(item.value);
+                  addTag(item.value);
                 }}
                 className={`block w-full px-3 py-2 text-left text-sm text-[#E8E0D0] ${
                   i === activeIndex ? "bg-[#E8E0D0]/10" : ""
@@ -324,32 +328,36 @@ export default function SubmitForm({
   initialName = "",
   initialGenres = "",
   initialLocation = "",
+  initialNeighborhoods = "",
+  initialMembers = "",
   initialContactEmail = "",
   initialContactMethod = "",
-  initialStarted = "",
   initialWebsite = "",
   initialInstagram = "",
   initialBandcamp = "",
-  initialSpotify = "",
   initialBio = "",
   initialImage = "",
   genreOptions = [],
+  neighborhoodOptions = [],
+  memberOptions = [],
 }: {
   mode?: Mode;
   initialSlug?: string;
   initialName?: string;
   initialGenres?: string;
   initialLocation?: string;
+  initialNeighborhoods?: string;
+  initialMembers?: string;
   initialContactEmail?: string;
   initialContactMethod?: string;
-  initialStarted?: string;
   initialWebsite?: string;
   initialInstagram?: string;
   initialBandcamp?: string;
-  initialSpotify?: string;
   initialBio?: string;
   initialImage?: string;
   genreOptions?: string[];
+  neighborhoodOptions?: string[];
+  memberOptions?: string[];
 }) {
   const [form, setForm] = useState<FormState>({
     bandName: initialName,
@@ -357,13 +365,13 @@ export default function SubmitForm({
     submitterEmail: "",
     genres: initialGenres,
     location: initialLocation,
+    neighborhoods: initialNeighborhoods,
+    members: initialMembers,
     contactEmail: initialContactEmail,
     contactMethod: initialContactMethod,
-    started: initialStarted,
     website: initialWebsite,
     instagram: initialInstagram,
     bandcamp: initialBandcamp,
-    spotify: initialSpotify,
     bio: initialBio,
     notes: "",
   });
@@ -383,6 +391,13 @@ export default function SubmitForm({
   // Slug of the band just submitted, so the success screen can link to its
   // profile page (set from the same bandSlug sent in the payload).
   const [submittedSlug, setSubmittedSlug] = useState("");
+  // City picker: whether the free-text "Other" city box is active. Seeded true
+  // when editing a band whose city isn't one of the one-tap KNOWN_CITIES.
+  const [cityIsOther, setCityIsOther] = useState(
+    () =>
+      !!initialLocation &&
+      !KNOWN_CITIES.includes(initialLocation as (typeof KNOWN_CITIES)[number]),
+  );
 
   // Build a revocable object URL for the thumbnail preview, and revoke it
   // whenever the selected file changes or the component unmounts.
@@ -447,10 +462,10 @@ export default function SubmitForm({
   // been removed and no new file has been chosen (a new file takes precedence).
   const showExistingImage =
     isCorrect && !!initialImage && !removeExistingImage && !imageFile;
-  const heading = isCorrect ? "Suggest a correction" : "Add your band";
+  const heading = isCorrect ? "Edit this band" : "Add your band";
   const subhead = isCorrect
-    ? "Spot something wrong or out of date? Let us know and we'll update it."
-    : "Submit your band for inclusion in the directory. We review all submissions and add approved bands manually — usually within a week.";
+    ? "Spot something wrong or out of date? Update it below."
+    : "Add your band to the directory!";
 
   function validate(): Partial<Record<keyof FormState, string>> {
     const e: Partial<Record<keyof FormState, string>> = {};
@@ -621,9 +636,10 @@ export default function SubmitForm({
             error={errors.genres}
             hint="Pick from existing genres or type your own — be as specific or weird as you want."
           >
-            <GenreTagInput
+            <TagInput
               id="genres"
               options={genreOptions}
+              placeholder="e.g. Baroque Yachtgaze, Sewer Punk"
               value={
                 form.genres
                   ? form.genres.split(",").map((s) => s.trim()).filter(Boolean)
@@ -636,35 +652,113 @@ export default function SubmitForm({
             />
           </Field>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field
-              label="Location"
-              htmlFor="location"
-              required
-              error={errors.location}
-            >
+          <Field
+            label="City"
+            htmlFor="location"
+            required
+            error={errors.location}
+          >
+              <div className="flex flex-wrap gap-2">
+                {KNOWN_CITIES.map((c) => {
+                  const active = !cityIsOther && form.location === c;
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => {
+                        setCityIsOther(false);
+                        setForm((f) => ({ ...f, location: c }));
+                      }}
+                      className={`rounded-md border px-3 py-1.5 text-sm transition ${
+                        active
+                          ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                          : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCityIsOther(true);
+                    // Clear a previously-picked known city so the box starts empty.
+                    setForm((f) => ({
+                      ...f,
+                      location: KNOWN_CITIES.includes(
+                        f.location as (typeof KNOWN_CITIES)[number],
+                      )
+                        ? ""
+                        : f.location,
+                    }));
+                  }}
+                  className={`rounded-md border px-3 py-1.5 text-sm transition ${
+                    cityIsOther
+                      ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                      : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                  }`}
+                >
+                  Other
+                </button>
+              </div>
+            {cityIsOther && (
               <input
                 id="location"
                 type="text"
                 value={form.location}
                 onChange={set("location")}
-                placeholder="e.g. Minneapolis"
-                className={inputClass}
+                placeholder="e.g. Duluth, Hopkins"
+                className={`${inputClass} mt-2`}
               />
-            </Field>
+            )}
+          </Field>
 
-            <Field label="Year started" htmlFor="started">
-              <input
-                id="started"
-                type="number"
-                inputMode="numeric"
-                value={form.started}
-                onChange={set("started")}
-                placeholder="e.g. 2019"
-                className={inputClass}
-              />
-            </Field>
-          </div>
+          <Field
+            label="Neighborhood(s)"
+            htmlFor="neighborhoods"
+            hint="Optional — pick from the list or add your own, so people can find bands by their part of town."
+          >
+            <TagInput
+              id="neighborhoods"
+              options={neighborhoodOptions}
+              placeholder="e.g. Powderhorn, Seward"
+              value={
+                form.neighborhoods
+                  ? form.neighborhoods
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  : []
+              }
+              onChange={(next) =>
+                setForm((f) => ({ ...f, neighborhoods: next.join(", ") }))
+              }
+            />
+          </Field>
+
+          <Field
+            label="Band members"
+            htmlFor="members"
+            hint="Optional — add each member's name. Start typing to see people already in the directory, so fans can find every project someone's in."
+          >
+            <TagInput
+              id="members"
+              options={memberOptions}
+              placeholder="e.g. Jane Doe, John Smith"
+              value={
+                form.members
+                  ? form.members
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                  : []
+              }
+              onChange={(next) =>
+                setForm((f) => ({ ...f, members: next.join(", ") }))
+              }
+            />
+          </Field>
         </Section>
 
         <Section
@@ -752,33 +846,20 @@ export default function SubmitForm({
             </Field>
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field
-              label="Bandcamp"
-              htmlFor="bandcamp"
-              hint="Paste your Bandcamp link, or for a richer player, paste the embed code from Bandcamp's Share/Embed button."
-            >
-              <input
-                id="bandcamp"
-                type="text"
-                value={form.bandcamp}
-                onChange={set("bandcamp")}
-                placeholder="https://…  or  <iframe …>"
-                className={inputClass}
-              />
-            </Field>
-
-            <Field label="Spotify URL" htmlFor="spotify">
-              <input
-                id="spotify"
-                type="url"
-                value={form.spotify}
-                onChange={set("spotify")}
-                placeholder="https://"
-                className={inputClass}
-              />
-            </Field>
-          </div>
+          <Field
+            label="Bandcamp"
+            htmlFor="bandcamp"
+            hint="Paste your Bandcamp link, or for a richer player, paste the embed code from Bandcamp's Share/Embed button."
+          >
+            <input
+              id="bandcamp"
+              type="text"
+              value={form.bandcamp}
+              onChange={set("bandcamp")}
+              placeholder="https://…  or  <iframe …>"
+              className={inputClass}
+            />
+          </Field>
         </Section>
 
         <Section title="Bio & photo">
