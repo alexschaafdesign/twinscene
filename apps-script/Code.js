@@ -48,6 +48,8 @@ function doPost(e) {
       return handleShowImport_(p);
     }
 
+    if (p.formType === 'showEdit') return handleShowEdit_(p);
+
     if (p.formType === 'nonLocalBand') return handleNonLocalBand_(p);
 
     if (p.formType === 'dismissedBand') return handleDismissedBand_(p);
@@ -202,15 +204,38 @@ function handleShowImport_(p) {
   return jsonOutput_({ success: true });
 }
 
-function upsertShowRow_(fields, sourceKey) {
+// Columns the app manages beyond the original scraper schema. ID is the stable
+// edit key; EDITED is the manual-edit lock the scraper honours.
+var SHOW_MANAGED_COLUMNS = ['ID', 'EDITED'];
+
+// Guarantee the Shows tab has the managed columns (older sheets predate them).
+// Appends any missing one at the end so existing column positions never shift.
+function ensureShowColumns_() {
   var sheet = getShowsSheet_();
-  var lastCol = sheet.getLastColumn();
-  var headers = sheet
-    .getRange(1, 1, 1, lastCol)
+  var headers = showHeaders_(sheet);
+  SHOW_MANAGED_COLUMNS.forEach(function(name) {
+    if (headers.indexOf(name) === -1) {
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(name);
+      headers.push(name);
+    }
+  });
+}
+
+function showHeaders_(sheet) {
+  return sheet
+    .getRange(1, 1, 1, sheet.getLastColumn())
     .getValues()[0]
     .map(function(h) {
       return h.toString().trim().toUpperCase();
     });
+}
+
+function upsertShowRow_(fields, sourceKey) {
+  var sheet = getShowsSheet_();
+  ensureShowColumns_();
+  var headers = showHeaders_(sheet);
+  var idIdx = headers.indexOf('ID');
+  var editedIdx = headers.indexOf('EDITED');
   var row = headers.map(function(h) {
     return fields[h] != null ? fields[h] : '';
   });
@@ -218,16 +243,119 @@ function upsertShowRow_(fields, sourceKey) {
     var keyIdx = headers.indexOf('SOURCE_KEY');
     var last = sheet.getLastRow();
     if (keyIdx >= 0 && last > 1) {
-      var keys = sheet.getRange(2, keyIdx + 1, last - 1, 1).getValues();
-      for (var i = 0; i < keys.length; i++) {
-        if (keys[i][0].toString().trim() === sourceKey) {
+      var data = sheet.getRange(2, 1, last - 1, headers.length).getValues();
+      for (var i = 0; i < data.length; i++) {
+        if (data[i][keyIdx].toString().trim() === sourceKey) {
+          // Row was edited by hand: leave it untouched so a re-scrape never
+          // clobbers the manual changes.
+          if (editedIdx >= 0 && data[i][editedIdx].toString().trim()) {
+            return;
+          }
+          // Preserve the row's existing ID across re-scrapes.
+          if (idIdx >= 0) {
+            row[idIdx] = data[i][idIdx].toString().trim() || Utilities.getUuid();
+          }
           sheet.getRange(i + 2, 1, 1, headers.length).setValues([row]);
           return;
         }
       }
     }
   }
+  // New row: stamp a stable ID so it can be edited later.
+  if (idIdx >= 0 && !row[idIdx]) row[idIdx] = Utilities.getUuid();
   sheet.appendRow(row);
+}
+
+// Update a show's editable fields in place, located by its stable ID. Called
+// from the public /shows "Edit" flow (formType: showEdit).
+function handleShowEdit_(p) {
+  try {
+    var id = trim_(p.id);
+    if (!id) return jsonOutput_({ success: false, error: 'Missing show id' });
+
+    ensureShowColumns_();
+    var sheet = getShowsSheet_();
+    var last = sheet.getLastRow();
+    var headers = showHeaders_(sheet);
+    var idIdx = headers.indexOf('ID');
+    var editedIdx = headers.indexOf('EDITED');
+    if (idIdx < 0 || last < 2) {
+      return jsonOutput_({ success: false, error: 'No shows to edit' });
+    }
+
+    var updates = {
+      DATE: trim_(p.date),
+      VENUE: trim_(p.venue),
+      TITLE: trim_(p.title),
+      LINEUP: trim_(p.lineup),
+      BAND_SLUGS: trim_(p.bandSlugs),
+      NOTES: trim_(p.notes),
+      LINK: trim_(p.link),
+    };
+
+    var data = sheet.getRange(2, 1, last - 1, headers.length).getValues();
+    for (var i = 0; i < data.length; i++) {
+      if (data[i][idIdx].toString().trim() !== id) continue;
+
+      // Start from the existing row so untouched columns (ID, SOURCE,
+      // SOURCE_KEY, ADDED, legacy SLUG/BAND_NAME) are preserved.
+      var newRow = data[i].slice();
+      for (var h = 0; h < headers.length; h++) {
+        if (updates.hasOwnProperty(headers[h])) newRow[h] = updates[headers[h]];
+      }
+      // Lock the row so future scraper runs skip it.
+      if (editedIdx >= 0) newRow[editedIdx] = todayString_();
+      sheet.getRange(i + 2, 1, 1, headers.length).setValues([newRow]);
+
+      MailApp.sendEmail(
+        NOTIFY_EMAIL,
+        '[TCMS] Show edited: ' + trim_(p.venue),
+        [
+          'A show was edited via /shows.',
+          '',
+          'Title:  ' + trim_(p.title),
+          'Lineup: ' + (trim_(p.lineup) || '—'),
+          'Venue:  ' + trim_(p.venue),
+          'Date:   ' + trim_(p.date),
+          'Notes:  ' + (trim_(p.notes) || '—'),
+          'Link:   ' + (trim_(p.link) || '—'),
+          '',
+          'Edited by: ' + trim_(p.submitterName) + ' <' + trim_(p.submitterEmail) + '>',
+        ].join('\n')
+      );
+
+      return jsonOutput_({ success: true });
+    }
+
+    return jsonOutput_({ success: false, error: 'Show not found' });
+  } catch (err) {
+    return jsonOutput_({ success: false, error: String(err) });
+  }
+}
+
+// One-time: run from the Apps Script editor to give every pre-existing Shows
+// row a stable ID. New rows get one automatically via upsertShowRow_.
+function backfillShowIds() {
+  ensureShowColumns_();
+  var sheet = getShowsSheet_();
+  var last = sheet.getLastRow();
+  if (last < 2) {
+    Logger.log('backfillShowIds: no data rows — nothing to do.');
+    return;
+  }
+  var headers = showHeaders_(sheet);
+  var idIdx = headers.indexOf('ID');
+  var idRange = sheet.getRange(2, idIdx + 1, last - 1, 1);
+  var ids = idRange.getValues();
+  var n = 0;
+  for (var i = 0; i < ids.length; i++) {
+    if (!String(ids[i][0]).trim()) {
+      ids[i][0] = Utilities.getUuid();
+      n++;
+    }
+  }
+  if (n > 0) idRange.setValues(ids);
+  Logger.log('backfillShowIds: %s id(s) added', n);
 }
 
 function addBandToIndex_(fields) {
@@ -555,7 +683,7 @@ function getShowsSheet_() {
   var sheet = ss.getSheetByName('Shows');
   if (!sheet) {
     sheet = ss.insertSheet('Shows');
-    sheet.appendRow(['SLUG', 'BAND_NAME', 'DATE', 'VENUE', 'TITLE', 'LINEUP', 'BAND_SLUGS', 'NOTES', 'LINK', 'SOURCE', 'SOURCE_KEY', 'ADDED']);
+    sheet.appendRow(['SLUG', 'BAND_NAME', 'DATE', 'VENUE', 'TITLE', 'LINEUP', 'BAND_SLUGS', 'NOTES', 'LINK', 'SOURCE', 'SOURCE_KEY', 'ADDED', 'ID', 'EDITED']);
   }
   return sheet;
 }

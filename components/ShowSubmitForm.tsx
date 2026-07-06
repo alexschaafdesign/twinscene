@@ -173,15 +173,42 @@ function BandSearchSelect({
   );
 }
 
-export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
-  const [date, setDate] = useState("");
-  const [venue, setVenue] = useState("");
-  const [notes, setNotes] = useState("");
-  const [link, setLink] = useState("");
+export type ShowInitial = {
+  id: string;
+  date: string;
+  venue: string;
+  title: string;
+  lineup: string;
+  notes: string;
+  link: string;
+  bands: BandOption[];
+};
+
+export default function ShowSubmitForm({
+  bands,
+  mode = "add",
+  initial,
+}: {
+  bands: BandOption[];
+  mode?: "add" | "edit";
+  initial?: ShowInitial;
+}) {
+  const isEdit = mode === "edit";
+
+  const [date, setDate] = useState(initial?.date ?? "");
+  const [venue, setVenue] = useState(initial?.venue ?? "");
+  // Title/lineup are edited directly (edit mode only); in add mode the Apps
+  // Script derives them from the selected bands.
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [lineup, setLineup] = useState(initial?.lineup ?? "");
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [link, setLink] = useState(initial?.link ?? "");
   const [submitterName, setSubmitterName] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
 
-  const [selectedBands, setSelectedBands] = useState<BandOption[]>([]);
+  const [selectedBands, setSelectedBands] = useState<BandOption[]>(
+    initial?.bands ?? [],
+  );
   const [showNewBand, setShowNewBand] = useState(false);
   const [newBandName, setNewBandName] = useState("");
   const [newBandGenres, setNewBandGenres] = useState("");
@@ -238,9 +265,15 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
       e.submitterEmail = "Enter a valid email address";
     if (link.trim() && !isValidUrl(link.trim())) e.link = "Enter a valid URL";
 
-    const hasNewBand = showNewBand && !!newBandName.trim();
-    if (selectedBands.length === 0 && !hasNewBand) {
-      e.bands = "Add at least one band, or add a new one below.";
+    if (isEdit) {
+      // The listing renders the title, and bands may be free-text (e.g.
+      // scraped shows), so require a title rather than a directory band.
+      if (!title.trim()) e.title = "Required";
+    } else {
+      const hasNewBand = showNewBand && !!newBandName.trim();
+      if (selectedBands.length === 0 && !hasNewBand) {
+        e.bands = "Add at least one band, or add a new one below.";
+      }
     }
     return e;
   }
@@ -264,19 +297,33 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
     setErrorMsg("");
 
     try {
-      const payload = new URLSearchParams({
-        formType: "show",
-        date: date.trim(),
-        venue: venue.trim(),
-        notes: notes.trim(),
-        link: link.trim(),
-        submitterName: submitterName.trim(),
-        submitterEmail: submitterEmail.trim(),
-        bandSlugs: selectedBands.map((b) => b.slug).join(","),
-        bandNames: selectedBands.map((b) => b.name).join(","),
-      });
+      const payload = isEdit
+        ? new URLSearchParams({
+            formType: "showEdit",
+            id: initial?.id ?? "",
+            date: date.trim(),
+            venue: venue.trim(),
+            title: title.trim(),
+            lineup: lineup.trim(),
+            notes: notes.trim(),
+            link: link.trim(),
+            submitterName: submitterName.trim(),
+            submitterEmail: submitterEmail.trim(),
+            bandSlugs: selectedBands.map((b) => b.slug).join(","),
+          })
+        : new URLSearchParams({
+            formType: "show",
+            date: date.trim(),
+            venue: venue.trim(),
+            notes: notes.trim(),
+            link: link.trim(),
+            submitterName: submitterName.trim(),
+            submitterEmail: submitterEmail.trim(),
+            bandSlugs: selectedBands.map((b) => b.slug).join(","),
+            bandNames: selectedBands.map((b) => b.name).join(","),
+          });
 
-      if (showNewBand && newBandName.trim()) {
+      if (!isEdit && showNewBand && newBandName.trim()) {
         payload.set("newBandName", newBandName.trim());
         payload.set("newBandGenres", newBandGenres.trim());
         payload.set("newBandLocation", newBandLocation.trim());
@@ -303,9 +350,13 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
   if (status === "success") {
     return (
       <div className="rounded-lg border border-[#E8E0D0]/20 p-8 text-center">
-        <h2 className="text-xl font-medium">Show added!</h2>
+        <h2 className="text-xl font-medium">
+          {isEdit ? "Show updated!" : "Show added!"}
+        </h2>
         <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[#E8E0D0]/75">
-          It&apos;ll appear on the shows page shortly.
+          {isEdit
+            ? "Your changes will appear on the shows page shortly."
+            : "It'll appear on the shows page shortly."}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Link
@@ -314,13 +365,15 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
           >
             ← Upcoming Shows
           </Link>
-          <button
-            type="button"
-            onClick={resetForm}
-            className="rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-medium text-[#2A2420] transition hover:bg-[#E8E0D0]/90"
-          >
-            Add another show
-          </button>
+          {!isEdit && (
+            <button
+              type="button"
+              onClick={resetForm}
+              className="rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-medium text-[#2A2420] transition hover:bg-[#E8E0D0]/90"
+            >
+              Add another show
+            </button>
+          )}
         </div>
       </div>
     );
@@ -332,11 +385,12 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
     <div className="rounded-lg border border-[#E8E0D0]/15 p-5 sm:p-7">
       <div className="mb-6">
         <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
-          Add a Show
+          {isEdit ? "Edit Show" : "Add a Show"}
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#E8E0D0]/70">
-          List an upcoming show for a band in the directory. We review
-          submissions before they appear on the shows page.
+          {isEdit
+            ? "Update the details for this show. Changes go live after a quick review."
+            : "List an upcoming show for a band in the directory. We review submissions before they appear on the shows page."}
         </p>
       </div>
 
@@ -363,6 +417,41 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
             />
           </Field>
         </div>
+
+        {isEdit && (
+          <>
+            <Field
+              label="Title"
+              htmlFor="title"
+              required
+              error={errors.title}
+              hint="The show's headline as it appears in the list."
+            >
+              <input
+                id="title"
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+
+            <Field
+              label="Lineup"
+              htmlFor="lineup"
+              hint="Full lineup, comma-separated. Leave blank if it matches the title."
+            >
+              <input
+                id="lineup"
+                type="text"
+                value={lineup}
+                onChange={(e) => setLineup(e.target.value)}
+                placeholder="e.g. shugE, Average Joey, Ditch Pigeon"
+                className={inputClass}
+              />
+            </Field>
+          </>
+        )}
 
         <Field label="Notes" htmlFor="notes">
           <input
@@ -463,7 +552,7 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
             </div>
           )}
 
-          {!showNewBand ? (
+          {isEdit ? null : !showNewBand ? (
             <button
               type="button"
               onClick={() => setShowNewBand(true)}
@@ -570,7 +659,13 @@ export default function ShowSubmitForm({ bands }: { bands: BandOption[] }) {
           disabled={submitting}
           className="w-full rounded-md bg-[#E8E0D0] px-4 py-2.5 text-sm font-medium text-[#2A2420] transition hover:bg-[#E8E0D0]/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {submitting ? "Adding…" : "Add show"}
+          {submitting
+            ? isEdit
+              ? "Saving…"
+              : "Adding…"
+            : isEdit
+              ? "Save changes"
+              : "Add show"}
         </button>
       </form>
     </div>

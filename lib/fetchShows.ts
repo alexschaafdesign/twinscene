@@ -9,6 +9,7 @@ const SHOWS_CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=1656115359&single=true&output=csv";
 
 export type Show = {
+  id: string; // stable per-row id used to target edits ("" for un-backfilled rows)
   date: string; // raw string from sheet, e.g. "2026-07-15"
   venue: string;
   title: string; // marquee / headliner — the show's display title
@@ -146,6 +147,7 @@ export async function fetchShows(): Promise<Show[]> {
     const bandSlugsRaw = get(row, "BAND_SLUGS");
 
     shows.push({
+      id: get(row, "ID"),
       date,
       venue: get(row, "VENUE"),
       title: get(row, "TITLE") || legacyName,

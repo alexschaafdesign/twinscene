@@ -14,6 +14,21 @@ function ensureUrl(value: string): string {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
+/** Build the /shows/submit edit link, round-tripping the show's fields. */
+function editHref(show: Show): string {
+  const params = new URLSearchParams({
+    edit: show.id,
+    date: show.date,
+    venue: show.venue,
+    title: show.title,
+    lineup: show.lineup,
+    notes: show.notes,
+    link: show.link,
+    bandSlugs: show.bandSlugs.join(","),
+  });
+  return `/shows/submit?${params.toString()}`;
+}
+
 /**
  * Format an ISO "YYYY-MM-DD" date as e.g. "Saturday, July 12". Parsed and
  * formatted in UTC so a "2026-07-15" string never shifts a day across the
@@ -119,16 +134,26 @@ export default async function ShowsPage() {
                           </p>
                         )}
                       </div>
-                      {show.link && (
-                        <a
-                          href={ensureUrl(show.link)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="shrink-0 rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-sm text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10"
-                        >
-                          Tickets / Info →
-                        </a>
-                      )}
+                      <div className="flex shrink-0 items-center gap-3">
+                        {show.link && (
+                          <a
+                            href={ensureUrl(show.link)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-sm text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10"
+                          >
+                            Tickets / Info →
+                          </a>
+                        )}
+                        {show.id && (
+                          <Link
+                            href={editHref(show)}
+                            className="text-xs text-[#E8E0D0]/40 transition hover:text-[#E8E0D0]/80"
+                          >
+                            Edit
+                          </Link>
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}
