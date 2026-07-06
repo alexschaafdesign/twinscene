@@ -15,7 +15,7 @@ const SUBMISSION_COLUMNS = [
   'Started', 'Status', 'Bio', 'Website', 'Instagram', 'Bandcamp', 'Spotify',
   'Image URL', 'Submitter Name', 'Submitter Email', 'Notes', 'Review Status',
   // Appended (not inserted) so existing Submissions columns don't shift.
-  'Neighborhoods', 'Members',
+  'Neighborhoods', 'Members', 'Featured Links',
 ];
 
 // NOTE: the Index sheet's column order must match this array — writeToIndex_
@@ -25,7 +25,7 @@ const SUBMISSION_COLUMNS = [
 const INDEX_COLUMNS = [
   'NAME', 'SLUG', 'GENRES', 'LOCATION', 'BIO', 'STARTED', 'STATUS', 'IMAGE',
   'WEBSITE', 'INSTAGRAM', 'BANDCAMP', 'BANDCAMP_EMBED_URL', 'BANDCAMP_EMBED_HEIGHT', 'SPOTIFY', 'ADDED', 'CONTACT_EMAIL', 'CONTACT_METHOD',
-  'NEIGHBORHOODS', 'MEMBERS',
+  'NEIGHBORHOODS', 'MEMBERS', 'FEATURED_LINKS',
 ];
 
 function showNotifyEmail_() {
@@ -69,6 +69,7 @@ function doPost(e) {
       'Location': p.location || '',
       'Neighborhoods': p.neighborhoods || '',
       'Members': p.members || '',
+      'Featured Links': p.featuredLinks || '',
       'Started': p.started || '',
       'Contact Email': p.contactEmail || '',
       'Contact Method': p.contactMethod || '',
@@ -357,6 +358,10 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
     row[col('LOCATION')] = p.location || '';
     row[col('NEIGHBORHOODS')] = p.neighborhoods || '';
     row[col('MEMBERS')] = p.members || '';
+    row[col('FEATURED_LINKS')] = featuredLinksFor_(
+      p.featuredLinks,
+      row[col('FEATURED_LINKS')],
+    );
     row[col('BIO')] = p.bio || '';
     // STARTED and SPOTIFY are no longer collected by the form. Leave their
     // existing cell values untouched (don't blank them) on update.
@@ -387,6 +392,7 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
       case 'LOCATION': return p.location || '';
       case 'NEIGHBORHOODS': return p.neighborhoods || '';
       case 'MEMBERS': return p.members || '';
+      case 'FEATURED_LINKS': return featuredLinksFor_(p.featuredLinks, '');
       case 'BIO': return p.bio || '';
       case 'CONTACT_EMAIL': return p.contactEmail || '';
       case 'CONTACT_METHOD': return p.contactMethod || '';
@@ -850,6 +856,90 @@ function resolveBandcampEmbedUrl_(rawInput) {
  * @param {string|number} oldHeight  Embed height currently stored (correction only).
  * @return {{embedUrl: string, height: number}} Values to write (blank clears them).
  */
+/**
+ * Best-effort fetch of a page's preview image (og:image / twitter:image).
+ * Returns '' on any failure — many sites block bots or need JS, and a blank
+ * image must never fail the surrounding submission. Relative image URLs are
+ * resolved against the page's origin.
+ */
+function extractOgImage_(url) {
+  url = trim_(url);
+  if (!/^https?:\/\//i.test(url)) return '';
+  try {
+    var res = UrlFetchApp.fetch(url, {
+      muteHttpExceptions: true,
+      followRedirects: true,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (compatible; TwinSceneBot/1.0; +https://twinscene.org)',
+      },
+    });
+    if (res.getResponseCode() !== 200) return '';
+    var html = res.getContentText();
+    var m =
+      html.match(
+        /<meta[^>]+property=["']og:image(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/i,
+      ) ||
+      html.match(
+        /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+      ) ||
+      html.match(
+        /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i,
+      );
+    if (!m) return '';
+    var img = decodeHtmlEntities_(trim_(m[1]));
+    if (!img) return '';
+    if (img.indexOf('//') === 0) return 'https:' + img; // protocol-relative
+    if (img.indexOf('/') === 0) {
+      var origin = url.match(/^(https?:\/\/[^\/]+)/i);
+      return origin ? origin[1] + img : img; // root-relative
+    }
+    return img;
+  } catch (err) {
+    return '';
+  }
+}
+
+/**
+ * Resolve the FEATURED_LINKS cell for a submission/correction. Parses the
+ * form's JSON (array of {url, label}), fetches an og:image for each, and
+ * returns the enriched JSON string ([{url, label, image}]). To avoid a network
+ * fetch on every unrelated edit, an image is reused from the previously stored
+ * value when the URL is unchanged. Returns '' when there are no links.
+ */
+function featuredLinksFor_(newRaw, oldRaw) {
+  var incoming;
+  try {
+    incoming = JSON.parse(newRaw || '[]');
+  } catch (e) {
+    return '';
+  }
+  if (!Array.isArray(incoming) || incoming.length === 0) return '';
+
+  var oldImageByUrl = {};
+  try {
+    var old = JSON.parse(oldRaw || '[]');
+    if (Array.isArray(old)) {
+      old.forEach(function(l) {
+        if (l && l.url) oldImageByUrl[trim_(l.url)] = l.image || '';
+      });
+    }
+  } catch (e) {
+    // No reusable old values.
+  }
+
+  var out = [];
+  incoming.forEach(function(l) {
+    if (!l) return;
+    var url = trim_(l.url);
+    if (!url) return;
+    var image = oldImageByUrl[url];
+    if (!image) image = extractOgImage_(url);
+    out.push({ url: url, label: trim_(l.label), image: image || '' });
+  });
+  return out.length ? JSON.stringify(out) : '';
+}
+
 function bandcampEmbedFor_(newUrl, oldUrl, oldEmbed, oldHeight) {
   newUrl = trim_(newUrl);
   oldUrl = trim_(oldUrl);

@@ -54,7 +54,7 @@ type FormState = {
   neighborhoods: string; // comma-joined; parsed into a list like genres
   members: string; // comma-joined band member names; parsed into a list
   contactEmail: string;
-  contactMethod: string; // "" | "email" | "instagram" — preferred contact
+  contactMethod: string; // "" | "email" | "instagram" | "website" — preferred contact
   website: string;
   instagram: string;
   bandcamp: string;
@@ -75,6 +75,35 @@ const emptyShow = (): ShowInput => ({
   notes: "",
   link: "",
 });
+
+// Featured "linktree" links — a fixed set of highlight slots (url + label).
+const FEATURED_LINK_SLOTS = 3;
+
+type LinkInput = { url: string; label: string };
+
+/** Seed the fixed slots from the correction round-trip JSON, padded to 3. */
+function initialFeaturedLinkSlots(raw: string): LinkInput[] {
+  const slots: LinkInput[] = Array.from({ length: FEATURED_LINK_SLOTS }, () => ({
+    url: "",
+    label: "",
+  }));
+  try {
+    const parsed = JSON.parse(raw || "[]");
+    if (Array.isArray(parsed)) {
+      parsed.slice(0, FEATURED_LINK_SLOTS).forEach((l, i) => {
+        if (l && typeof l === "object") {
+          slots[i] = {
+            url: typeof l.url === "string" ? l.url : "",
+            label: typeof l.label === "string" ? l.label : "",
+          };
+        }
+      });
+    }
+  } catch {
+    // Malformed input just leaves the blank slots.
+  }
+  return slots;
+}
 
 function Field({
   label,
@@ -337,6 +366,7 @@ export default function SubmitForm({
   initialBandcamp = "",
   initialBio = "",
   initialImage = "",
+  initialFeaturedLinks = "",
   genreOptions = [],
   neighborhoodOptions = [],
   memberOptions = [],
@@ -355,6 +385,7 @@ export default function SubmitForm({
   initialBandcamp?: string;
   initialBio?: string;
   initialImage?: string;
+  initialFeaturedLinks?: string;
   genreOptions?: string[];
   neighborhoodOptions?: string[];
   memberOptions?: string[];
@@ -384,6 +415,10 @@ export default function SubmitForm({
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
   // Optional upcoming shows. Always at least one (possibly empty) row on screen.
   const [shows, setShows] = useState<ShowInput[]>([emptyShow()]);
+  // Featured "linktree" links — three fixed slots (url + label).
+  const [featuredLinks, setFeaturedLinks] = useState<LinkInput[]>(() =>
+    initialFeaturedLinkSlots(initialFeaturedLinks),
+  );
   const [status, setStatus] = useState<
     "idle" | "submitting" | "success" | "error"
   >("idle");
@@ -497,6 +532,12 @@ export default function SubmitForm({
     });
   }
 
+  function updateFeaturedLink(index: number, key: keyof LinkInput, value: string) {
+    setFeaturedLinks((prev) =>
+      prev.map((l, i) => (i === index ? { ...l, [key]: value } : l)),
+    );
+  }
+
   const isCorrect = mode === "correct";
   // Show the band's current photo only in correction mode, while it hasn't
   // been removed and no new file has been chosen (a new file takes precedence).
@@ -525,6 +566,8 @@ export default function SubmitForm({
       e.contactEmail = "Required — you chose email as your contact method";
     if (form.contactMethod === "instagram" && !form.instagram.trim())
       e.instagram = "Required — you chose Instagram as your contact method";
+    if (form.contactMethod === "website" && !form.website.trim())
+      e.website = "Required — you chose website as your contact method";
     // Validate the email format whenever one is given.
     if (form.contactEmail.trim() && !EMAIL_RE.test(form.contactEmail.trim()))
       e.contactEmail = "Enter a valid email address";
@@ -603,6 +646,14 @@ export default function SubmitForm({
         }
       }
 
+      // Featured links — keep only rows with a URL, in slot order. Always send
+      // the key (even when empty) so clearing every link on a correction wipes
+      // the stored value rather than leaving the old one.
+      const filledLinks = featuredLinks
+        .filter((l) => l.url.trim())
+        .map((l) => ({ url: l.url.trim(), label: l.label.trim() }));
+      payload.set("featuredLinks", JSON.stringify(filledLinks));
+
       // Form-encoded body keeps this a "simple" CORS request (no preflight),
       // matching the Birdhaus RSVP webhook pattern.
       const res = await fetch(url, { method: "POST", body: payload });
@@ -636,7 +687,7 @@ export default function SubmitForm({
         </p>
         <Link
           href={bandHref}
-          className="mt-6 inline-block rounded-md border border-ink/40 px-4 py-2 text-sm transition hover:bg-ink/10"
+          className="mt-6 inline-block rounded-md border border-ink/40 px-4 py-2 text-sm text-ink transition hover:bg-ink/10"
         >
           {submittedSlug ? `View ${form.bandName || "band"} →` : "← Back to directory"}
         </Link>
@@ -820,7 +871,7 @@ export default function SubmitForm({
               How do you want to be contacted?
             </span>
             <div className="flex gap-2">
-              {(["email", "instagram"] as const).map((m) => {
+              {(["email", "instagram", "website"] as const).map((m) => {
                 const active = form.contactMethod === m;
                 return (
                   <button
@@ -839,7 +890,11 @@ export default function SubmitForm({
                         : "border-ink/25 text-ink/70 hover:border-ink/60"
                     }`}
                   >
-                    {m === "email" ? "Email" : "Instagram"}
+                    {m === "email"
+                      ? "Email"
+                      : m === "instagram"
+                        ? "Instagram"
+                        : "Website"}
                   </button>
                 );
               })}
@@ -867,7 +922,12 @@ export default function SubmitForm({
           </Field>
 
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Website" htmlFor="website">
+            <Field
+              label="Website"
+              htmlFor="website"
+              required={form.contactMethod === "website"}
+              error={errors.website}
+            >
               <input
                 id="website"
                 type="url"
@@ -915,6 +975,54 @@ export default function SubmitForm({
               className={inputClass}
             />
           </Field>
+        </Section>
+
+        <Section
+          title="Featured links"
+          description="Up to three things you most want people to see — show tickets, a new release, a fundraiser, whatever. We'll try to pull in a preview image automatically."
+        >
+          <div className="space-y-4">
+            {featuredLinks.map((link, i) => (
+              <div key={i} className="grid gap-3 sm:grid-cols-[1fr_1fr]">
+                <div>
+                  <label
+                    htmlFor={`featured-${i}-url`}
+                    className="mb-1 block text-xs text-ink/70"
+                  >
+                    Link {i + 1}
+                  </label>
+                  <input
+                    id={`featured-${i}-url`}
+                    type="url"
+                    value={link.url}
+                    onChange={(e) =>
+                      updateFeaturedLink(i, "url", e.target.value)
+                    }
+                    placeholder="https://"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor={`featured-${i}-label`}
+                    className="mb-1 block text-xs text-ink/70"
+                  >
+                    What is it?
+                  </label>
+                  <input
+                    id={`featured-${i}-label`}
+                    type="text"
+                    value={link.label}
+                    onChange={(e) =>
+                      updateFeaturedLink(i, "label", e.target.value)
+                    }
+                    placeholder="e.g. Tickets to our EP release show"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </Section>
 
         <Section title="Bio & photo">

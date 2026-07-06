@@ -69,6 +69,7 @@ export default async function SubmitPage({
         initialBandcamp={param("bandcamp")}
         initialBio={param("bio")}
         initialImage={param("image")}
+        initialFeaturedLinks={param("featuredLinks")}
         genreOptions={genreOptions}
         neighborhoodOptions={neighborhoodOptions}
         memberOptions={memberOptions}

@@ -6,6 +6,11 @@
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=0&single=true&output=csv";
 
+// A band-curated "linktree" entry: the top things they want people to see
+// (show tickets, a new release, etc.). `image` is a best-effort og:image the
+// Apps Script pulls from the URL at submission time; blank when none resolved.
+export type FeaturedLink = { url: string; label: string; image: string };
+
 export type Band = {
   name: string;
   slug: string;
@@ -14,7 +19,7 @@ export type Band = {
   neighborhoods: string[]; // finer-grained areas within the city; may be empty
   members: string[]; // individual people in the band; may be empty
   contactEmail: string; // public contact address, shown on the profile
-  contactMethod: string; // "" | "email" | "instagram" — the band's preferred contact
+  contactMethod: string; // "" | "email" | "instagram" | "website" — the band's preferred contact
   bio: string;
   image: string;
   website: string;
@@ -22,8 +27,28 @@ export type Band = {
   bandcamp: string; // raw Bandcamp URL the submitter provided
   bandcampEmbedUrl: string; // resolved EmbeddedPlayer URL (blank if unresolved)
   bandcampEmbedHeight: number; // height to render the embed iframe at (px)
+  featuredLinks: FeaturedLink[]; // up to 3 band-curated highlight links
   added: string;
 };
+
+/** Parse the FEATURED_LINKS JSON cell into a validated FeaturedLink[]. */
+function parseFeaturedLinks(raw: string): FeaturedLink[] {
+  if (!raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((l): l is Record<string, unknown> => !!l && typeof l === "object")
+      .map((l) => ({
+        url: typeof l.url === "string" ? l.url : "",
+        label: typeof l.label === "string" ? l.label : "",
+        image: typeof l.image === "string" ? l.image : "",
+      }))
+      .filter((l) => l.url);
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Parse CSV text into rows of cells. Handles quoted fields, escaped quotes
@@ -171,6 +196,7 @@ export async function fetchBands(): Promise<Band[]> {
       bandcamp: get(row, "BANDCAMP"),
       bandcampEmbedUrl: get(row, "BANDCAMP EMBED URL"),
       bandcampEmbedHeight: Number.isNaN(embedHeight) ? 120 : embedHeight,
+      featuredLinks: parseFeaturedLinks(get(row, "FEATURED_LINKS")),
       added: get(row, "ADDED"),
     });
   }

@@ -37,8 +37,81 @@ export function editHref(band: Band): string {
     bandcamp: band.bandcamp,
     bio: band.bio,
     image: band.image,
+    // Round-trip only url + label; the image is re-resolved server-side.
+    featuredLinks: JSON.stringify(
+      band.featuredLinks.map((l) => ({ url: l.url, label: l.label })),
+    ),
   });
   return `/submit?${params.toString()}`;
+}
+
+/** Bare hostname (no www.) for a link, used as a fallback label. */
+function linkHost(url: string): string {
+  try {
+    return new URL(ensureUrl(url)).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+/** Band-curated highlight links, shown as image cards (or text-only cards). */
+function FeaturedLinks({ band }: { band: Band }) {
+  if (band.featuredLinks.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+        Featured
+      </h2>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {band.featuredLinks.map((link, i) => (
+          <a
+            key={i}
+            href={ensureUrl(link.url)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex flex-col overflow-hidden rounded-lg border border-[#E8E0D0]/15 transition hover:border-[#E8E0D0]/40"
+          >
+            {link.image ? (
+              <div className="aspect-[16/10] w-full overflow-hidden bg-[#E8E0D0]/5">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={link.image}
+                  alt=""
+                  className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                />
+              </div>
+            ) : (
+              <div className="flex aspect-[16/10] w-full items-center justify-center bg-[#E8E0D0]/5 text-[#E8E0D0]/25">
+                {/* ti-link (Tabler) */}
+                <svg {...iconProps} width={28} height={28}>
+                  <path d="M9 15l6 -6" />
+                  <path d="M11 6l.463 -.536a5 5 0 0 1 7.071 7.072l-.534 .464" />
+                  <path d="M13 18l-.397 .534a5.068 5.068 0 0 1 -7.127 0a4.972 4.972 0 0 1 0 -7.071l.524 -.463" />
+                </svg>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 px-3 py-2.5">
+              <span className="min-w-0 flex-1 truncate text-sm text-[#E8E0D0]/90 group-hover:text-[#E8E0D0]">
+                {link.label || linkHost(link.url)}
+              </span>
+              {/* ti-external-link (Tabler) */}
+              <svg
+                {...iconProps}
+                width={14}
+                height={14}
+                className="shrink-0 text-[#E8E0D0]/40"
+              >
+                <path d="M12 6h-6a2 2 0 0 0 -2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-6" />
+                <path d="M11 13l9 -9" />
+                <path d="M15 4h5v5" />
+              </svg>
+            </div>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function BandLinks({ band }: { band: Band }) {
@@ -82,6 +155,7 @@ function BandLinks({ band }: { band: Band }) {
 function ContactMethod({ band }: { band: Band }) {
   const usesInstagram = band.contactMethod === "instagram" && !!band.instagram;
   const usesEmail = band.contactMethod === "email" && !!band.contactEmail;
+  const usesWebsite = band.contactMethod === "website" && !!band.website;
 
   let content;
   if (usesInstagram) {
@@ -105,6 +179,20 @@ function ContactMethod({ band }: { band: Band }) {
         <span className="select-all break-all">{band.contactEmail}</span>
         <CopyButton text={band.contactEmail} />
       </div>
+    );
+  } else if (usesWebsite) {
+    content = (
+      <p className="text-sm text-[#E8E0D0]/85">
+        <span className="text-[#E8E0D0]/55">Website: </span>
+        <a
+          href={ensureUrl(band.website)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="break-all underline underline-offset-2 transition hover:text-[#E8E0D0]"
+        >
+          {band.website}
+        </a>
+      </p>
     );
   } else {
     content = <p className="text-sm italic text-[#E8E0D0]/45">Not set yet</p>;
@@ -184,6 +272,9 @@ export default function BandProfile({
             </div>
           </div>
         )}
+
+        {/* Featured links — band-curated highlights */}
+        <FeaturedLinks band={band} />
 
         {/* Bandcamp player — right below the bio */}
         {hasBandcamp && (

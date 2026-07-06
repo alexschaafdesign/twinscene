@@ -7,12 +7,14 @@ import type { Band } from "@/lib/fetchBands";
 import { iconProps, PlaceLine } from "@/components/band-shared";
 import { BandImage } from "@/components/band-shared-client";
 
-const LOCATION_TAGS = ["All", "Minneapolis", "St. Paul", "Twin Cities", "Other"];
+const LOCATION_TAGS = ["All", "Minneapolis", "St. Paul", "Other"];
 
-// How many genre pills to show before the rest collapse behind "See more".
+// How many genre / neighborhood pills to show before the rest collapse
+// behind "See more".
 const COLLAPSED_GENRE_COUNT = 12;
+const COLLAPSED_NEIGHBORHOOD_COUNT = 10;
 
-/** Does a band's location match one of the named location buckets? */
+/** Does a band's city match one of the top-level location buckets? */
 function matchesLocation(location: string, filter: string): boolean {
   if (filter === "All") return true;
   const loc = location.toLowerCase();
@@ -22,17 +24,14 @@ function matchesLocation(location: string, filter: string): boolean {
     loc.includes("st. paul") ||
     loc.includes("st paul") ||
     loc.includes("saint paul");
-  const isTwinCities = loc.includes("twin cities");
 
   switch (filter) {
     case "Minneapolis":
       return isMinneapolis;
     case "St. Paul":
       return isStPaul;
-    case "Twin Cities":
-      return isTwinCities;
     case "Other":
-      return !isMinneapolis && !isStPaul && !isTwinCities;
+      return !isMinneapolis && !isStPaul;
     default:
       return true;
   }
@@ -94,6 +93,11 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [showAllGenres, setShowAllGenres] = useState(false);
   const [location, setLocation] = useState("All");
+  // Neighborhood sub-filter (multi-select), scoped to the chosen city bucket.
+  const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<string[]>(
+    [],
+  );
+  const [showAllNeighborhoods, setShowAllNeighborhoods] = useState(false);
   // Default per breakpoint: gallery on larger screens, compact list on mobile.
   // Starts "gallery" to match SSR, then corrected on mount (see effect below).
   // Once the user picks a view, `viewChosen` stops the breakpoint override.
@@ -155,9 +159,63 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
     );
   }
 
+  // Neighborhoods available within the current city bucket, ordered by how many
+  // bands use each (most common first, then alphabetical). Scoped to the city
+  // so picking "St. Paul" surfaces St. Paul neighborhoods, not Minneapolis's.
+  const neighborhoodOptions = useMemo(() => {
+    const map = new Map<string, { label: string; count: number }>();
+    for (const band of bands) {
+      if (!matchesLocation(band.city, location)) continue;
+      for (const n of band.neighborhoods) {
+        const key = n.toLowerCase();
+        const existing = map.get(key);
+        if (existing) existing.count++;
+        else map.set(key, { label: n, count: 1 });
+      }
+    }
+    return [...map.values()].sort(
+      (a, b) => b.count - a.count || a.label.localeCompare(b.label),
+    );
+  }, [bands, location]);
+
+  // Collapsed view: the top N plus any selected neighborhood past the cutoff,
+  // so an active filter never hides itself.
+  const visibleNeighborhoods = useMemo(() => {
+    if (showAllNeighborhoods) return neighborhoodOptions;
+    const head = neighborhoodOptions.slice(0, COLLAPSED_NEIGHBORHOOD_COUNT);
+    const headLabels = new Set(head.map((n) => n.label));
+    const selectedExtras = neighborhoodOptions.filter(
+      (n) =>
+        !headLabels.has(n.label) && selectedNeighborhoods.includes(n.label),
+    );
+    return [...head, ...selectedExtras];
+  }, [neighborhoodOptions, showAllNeighborhoods, selectedNeighborhoods]);
+
+  const hiddenNeighborhoodCount =
+    neighborhoodOptions.length - visibleNeighborhoods.length;
+
+  function toggleNeighborhood(label: string) {
+    setSelectedNeighborhoods((prev) =>
+      prev.includes(label)
+        ? prev.filter((n) => n !== label)
+        : [...prev, label],
+    );
+  }
+
+  // Switching the city bucket clears neighborhood picks (they're city-specific)
+  // and re-collapses the list.
+  function chooseLocation(tag: string) {
+    setLocation(tag);
+    setSelectedNeighborhoods([]);
+    setShowAllNeighborhoods(false);
+  }
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const genreSet = new Set(selectedGenres.map((g) => g.toLowerCase()));
+    const neighborhoodSet = new Set(
+      selectedNeighborhoods.map((n) => n.toLowerCase()),
+    );
     return bands.filter((band) => {
       // Search across name, genres, city, neighborhoods, and members
       if (q) {
@@ -182,12 +240,20 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
       // Location bucket
       if (!matchesLocation(band.city, location)) return false;
 
+      // Neighborhood — match if the band has ANY of the selected neighborhoods.
+      if (neighborhoodSet.size > 0) {
+        const hit = band.neighborhoods.some((n) =>
+          neighborhoodSet.has(n.toLowerCase()),
+        );
+        if (!hit) return false;
+      }
+
       return true;
     });
-  }, [bands, query, selectedGenres, location]);
+  }, [bands, query, selectedGenres, location, selectedNeighborhoods]);
 
   // Key changes whenever filters change, remounting the grid to replay the fade.
-  const gridKey = `${query}|${selectedGenres.join(",")}|${location}`;
+  const gridKey = `${query}|${selectedGenres.join(",")}|${location}|${selectedNeighborhoods.join(",")}`;
 
   function surpriseMe() {
     if (filtered.length === 0) return;
@@ -284,7 +350,7 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
           )}
         </div>
 
-        {/* Location */}
+        {/* Location — top-level city bucket (single-select) */}
         <div className="flex flex-wrap items-center gap-1.5">
           {LOCATION_TAGS.map((tag) => {
             const active = location === tag;
@@ -292,7 +358,7 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
               <button
                 key={tag}
                 type="button"
-                onClick={() => setLocation(tag)}
+                onClick={() => chooseLocation(tag)}
                 className={`${filterPillBase} ${
                   active
                     ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
@@ -304,6 +370,58 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
             );
           })}
         </div>
+
+        {/* Neighborhoods — city-scoped sub-filter (multi-select), popular
+            ones surfaced with the rest behind "See more" */}
+        {neighborhoodOptions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-0.5 text-xs uppercase tracking-wide text-[#E8E0D0]/40">
+              Neighborhoods
+            </span>
+            {visibleNeighborhoods.map(({ label }) => {
+              const active = selectedNeighborhoods.includes(label);
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => toggleNeighborhood(label)}
+                  className={`${filterPillBase} ${
+                    active
+                      ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                      : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+            {(hiddenNeighborhoodCount > 0 || showAllNeighborhoods) && (
+              <button
+                type="button"
+                onClick={() => setShowAllNeighborhoods((v) => !v)}
+                className={`${filterPillBase} border-dashed border-[#E8E0D0]/40 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/70`}
+              >
+                {showAllNeighborhoods
+                  ? "See less"
+                  : `See more (${hiddenNeighborhoodCount})`}
+              </button>
+            )}
+            {selectedNeighborhoods.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedNeighborhoods([])}
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-[#E8E0D0]/60 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+              >
+                {/* ti-x (Tabler) */}
+                <svg {...iconProps} width={13} height={13}>
+                  <path d="M18 6l-12 12" />
+                  <path d="M6 6l12 12" />
+                </svg>
+                Clear {selectedNeighborhoods.length} selected
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
         <div className="mt-4 flex items-center justify-between gap-3">
