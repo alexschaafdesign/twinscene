@@ -410,14 +410,54 @@ export default function SubmitForm({
     return () => URL.revokeObjectURL(previewUrl);
   }, [previewUrl]);
 
+  // Drop a single field's error (used as the user edits, so the inline error
+  // and the summary above the submit button clear the moment it's addressed).
+  function clearError(key: keyof FormState) {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }
+
   const set =
     (key: keyof FormState) =>
     (
       e: React.ChangeEvent<
         HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
       >,
-    ) =>
+    ) => {
       setForm((f) => ({ ...f, [key]: e.target.value }));
+      clearError(key);
+    };
+
+  // After a failed submit, bring the first invalid field into view and focus
+  // it. Fields are located by their <label for> (which exists even when the
+  // input is conditionally rendered, e.g. the City "Other" box). The topmost by
+  // viewport position wins, so it matches reading order regardless of the order
+  // errors were collected in.
+  function focusFirstError(ids: string[]) {
+    requestAnimationFrame(() => {
+      const located = ids
+        .map((id) => ({
+          id,
+          label: document.querySelector<HTMLElement>(`label[for="${id}"]`),
+        }))
+        .filter(
+          (t): t is { id: string; label: HTMLElement } => t.label !== null,
+        )
+        .sort(
+          (a, b) =>
+            a.label.getBoundingClientRect().top -
+            b.label.getBoundingClientRect().top,
+        );
+      const first = located[0];
+      if (!first) return;
+      first.label.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById(first.id)?.focus({ preventScroll: true });
+    });
+  }
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -505,7 +545,12 @@ export default function SubmitForm({
     }
     setImageError(imgErr);
 
-    if (Object.keys(found).length > 0 || imgErr) return;
+    if (Object.keys(found).length > 0 || imgErr) {
+      const ids = Object.keys(found);
+      if (imgErr) ids.push("bandPhoto");
+      focusFirstError(ids);
+      return;
+    }
 
     const url = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
     if (!url) {
@@ -600,6 +645,9 @@ export default function SubmitForm({
   }
 
   const submitting = status === "submitting";
+  // Count of outstanding validation problems, for the summary above the submit
+  // button. Clears live as fields are fixed (see clearError).
+  const invalidCount = Object.keys(errors).length + (imageError ? 1 : 0);
 
   return (
     <div className="rounded-lg border border-ink/15 bg-paper p-5 sm:p-7">
@@ -645,9 +693,10 @@ export default function SubmitForm({
                   ? form.genres.split(",").map((s) => s.trim()).filter(Boolean)
                   : []
               }
-              onChange={(next) =>
-                setForm((f) => ({ ...f, genres: next.join(", ") }))
-              }
+              onChange={(next) => {
+                setForm((f) => ({ ...f, genres: next.join(", ") }));
+                clearError("genres");
+              }}
               hasError={!!errors.genres}
             />
           </Field>
@@ -668,6 +717,7 @@ export default function SubmitForm({
                       onClick={() => {
                         setCityIsOther(false);
                         setForm((f) => ({ ...f, location: c }));
+                        clearError("location");
                       }}
                       className={`rounded-md border px-3 py-1.5 text-sm transition ${
                         active
@@ -1108,6 +1158,17 @@ export default function SubmitForm({
         {status === "error" && (
           <p className="rounded-md border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-sm text-danger">
             {errorMsg}
+          </p>
+        )}
+
+        {invalidCount > 0 && (
+          <p
+            role="alert"
+            className="rounded-md border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-sm text-danger"
+          >
+            {invalidCount === 1
+              ? "Please fix the highlighted field above before submitting."
+              : `Please fix the ${invalidCount} highlighted fields above before submitting.`}
           </p>
         )}
 
