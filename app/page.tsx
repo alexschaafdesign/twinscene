@@ -28,46 +28,95 @@ export default async function Home() {
         </p>
       </div>
 
-      <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
-        <h1 className="m-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="Twin Scene"
-            className="mx-auto block w-full max-w-2xl"
-          />
-        </h1>
-        <p className="mt-4 text-center text-lg font-medium text-[#E8E0D0]">
-          welcome to the Twin Cities music scene
-        </p>
-        <p className="mt-1 text-center text-sm text-[#E8E0D0]/70">
-          Created and maintained by Alex at{" "}
-          <a
-            href="https://thebirdhaus.org"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-[#E8E0D0]"
-          >
-            the Birdhaus
-          </a>
-        </p>
-        <div className="mt-4 flex justify-center gap-3">
-          {SHOWS_ENABLED && (
-            <Link
-              href="/shows"
-              className="shrink-0 rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10"
-            >
-              Shows
-            </Link>
-          )}
-          <Link
-            href="/submit"
-            className="shrink-0 rounded-md border border-[#E8E0D0] px-4 py-2 text-sm font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0] hover:text-[#2A2420]"
-          >
-            Add your band →
-          </Link>
+      <header className="mb-8">
+        <div className="grid grid-cols-1 items-center gap-8 sm:grid-cols-2 sm:gap-10">
+          <div className="text-center sm:text-right">
+            <p className="mt-0 text-2xl font-medium text-[#E8E0D0]">
+              welcome to the Twin Cities music scene
+            </p>
+            <p className="mt-2 text-sm text-[#E8E0D0]/70">
+              Created and maintained by Alex at{" "}
+              <a
+                href="https://thebirdhaus.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-[#E8E0D0]"
+              >
+                the Birdhaus
+              </a>
+            </p>
+
+            <div className="mt-5 flex flex-wrap justify-center gap-3 sm:justify-end">
+              {SHOWS_ENABLED && (
+                <Link
+                  href="/shows"
+                  className="shrink-0 rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10"
+                >
+                  Shows
+                </Link>
+              )}
+              <Link
+                href="/submit"
+                className="shrink-0 rounded-md border border-[#E8E0D0] px-4 py-2 text-sm font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0] hover:text-[#2A2420]"
+              >
+                Add your band →
+              </Link>
+            </div>
+          </div>
+
+          <h1 className="m-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Twin Scene"
+              className="mx-auto block w-full max-w-xs sm:mx-0"
+            />
+          </h1>
         </div>
       </header>
+
+      {/* Section nav. Only Bands is live; Shows/Venues are placeholders until
+          their sections ship (Shows is gated behind SHOWS_ENABLED). */}
+      <nav className="mb-10 border-b border-[#E8E0D0]/20">
+        <ul className="-mb-px flex flex-wrap items-end gap-x-6 gap-y-2">
+          <li>
+            <span
+              aria-current="page"
+              className="inline-block border-b-2 border-[#E8E0D0] px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]"
+            >
+              Bands
+            </span>
+          </li>
+          <li>
+            {SHOWS_ENABLED ? (
+              <Link
+                href="/shows"
+                className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+              >
+                Shows
+              </Link>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/35">
+                Shows
+                <span className="rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-[#E8E0D0]/50">
+                  soon
+                </span>
+              </span>
+            )}
+          </li>
+          <li>
+            <span className="inline-flex items-center gap-1.5 px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/35">
+              Venues
+              <span className="rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-[#E8E0D0]/50">
+                soon
+              </span>
+            </span>
+          </li>
+          <li className="ml-auto pb-3 text-xs italic text-[#E8E0D0]/45">
+            More sections coming soon
+          </li>
+        </ul>
+      </nav>
 
       <BandGrid bands={bands} />
     </main>
