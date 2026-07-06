@@ -30,6 +30,22 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+/**
+ * Normalize a band name for duplicate detection: lowercase, drop a leading
+ * "the", strip punctuation, collapse whitespace. Mirrors normalize() in
+ * lib/bandMatcher.ts so the form flags the same "same band" cases the scraper
+ * treats as matches (e.g. "The Foo!" vs "foo").
+ */
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/^the\s+/, "")
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Read a file as base64, stripping the "data:image/...;base64," prefix. */
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -370,6 +386,7 @@ export default function SubmitForm({
   genreOptions = [],
   neighborhoodOptions = [],
   memberOptions = [],
+  existingBands = [],
 }: {
   mode?: Mode;
   initialSlug?: string;
@@ -389,6 +406,7 @@ export default function SubmitForm({
   genreOptions?: string[];
   neighborhoodOptions?: string[];
   memberOptions?: string[];
+  existingBands?: { name: string; slug: string }[];
 }) {
   const [form, setForm] = useState<FormState>({
     bandName: initialName,
@@ -433,6 +451,11 @@ export default function SubmitForm({
       !!initialLocation &&
       !KNOWN_CITIES.includes(initialLocation as (typeof KNOWN_CITIES)[number]),
   );
+  // Duplicate guard (add mode only): the slug of a same-named band the user has
+  // explicitly confirmed is nonetheless a *different* band. Tracking the slug
+  // (not a bool) auto-expires the confirmation if the name later collides with a
+  // different band — no reset effect needed.
+  const [overriddenSlug, setOverriddenSlug] = useState<string | null>(null);
 
   // Build a revocable object URL for the thumbnail preview, and revoke it
   // whenever the selected file changes or the component unmounts.
@@ -539,6 +562,25 @@ export default function SubmitForm({
   }
 
   const isCorrect = mode === "correct";
+
+  // Duplicate detection (add mode only): flag when the typed name matches a band
+  // already in the directory, by normalized name or resulting slug. Best-effort
+  // — the user can override it (see the warning below the Band name field).
+  const dupMatch = useMemo(() => {
+    if (isCorrect) return null;
+    const typed = normalizeName(form.bandName);
+    if (!typed) return null;
+    const typedSlug = slugify(form.bandName);
+    return (
+      existingBands.find(
+        (b) => normalizeName(b.name) === typed || b.slug === typedSlug,
+      ) ?? null
+    );
+  }, [isCorrect, form.bandName, existingBands]);
+
+  // The override applies only to the currently-matched band.
+  const duplicateConfirmed = !!dupMatch && overriddenSlug === dupMatch.slug;
+
   // Show the band's current photo only in correction mode, while it hasn't
   // been removed and no new file has been chosen (a new file takes precedence).
   const showExistingImage =
@@ -589,6 +631,13 @@ export default function SubmitForm({
       const ids = Object.keys(found);
       if (imgErr) ids.push("bandPhoto");
       focusFirstError(ids);
+      return;
+    }
+
+    // Block a likely duplicate unless the user explicitly confirmed it's a
+    // distinct band. Scrolls to the Band name field, where the notice sits.
+    if (dupMatch && !duplicateConfirmed) {
+      focusFirstError(["bandName"]);
       return;
     }
 
@@ -723,6 +772,41 @@ export default function SubmitForm({
               onChange={set("bandName")}
               className={inputClass}
             />
+            {dupMatch && (
+              <div
+                role="alert"
+                className="mt-2 rounded-md border border-[#B45309]/40 bg-[#B45309]/10 px-3.5 py-3 text-sm text-[#7c4406]"
+              >
+                <p className="font-semibold">
+                  “{dupMatch.name}” is already in the directory.
+                </p>
+                <p className="mt-1 text-[#7c4406]/90">
+                  If that&apos;s your band,{" "}
+                  <Link
+                    href={`/bands/${dupMatch.slug}`}
+                    target="_blank"
+                    className="font-medium underline underline-offset-2 hover:no-underline"
+                  >
+                    view its profile
+                  </Link>{" "}
+                  and use “Edit this band” there instead of adding it again.
+                </p>
+                <label className="mt-2.5 flex cursor-pointer items-start gap-2 font-medium">
+                  <input
+                    type="checkbox"
+                    checked={duplicateConfirmed}
+                    onChange={(e) =>
+                      setOverriddenSlug(e.target.checked ? dupMatch.slug : null)
+                    }
+                    className="mt-0.5 accent-[#7c4406]"
+                  />
+                  <span>
+                    This is a different band that happens to share the name — add
+                    it anyway
+                  </span>
+                </label>
+              </div>
+            )}
           </Field>
 
           <Field

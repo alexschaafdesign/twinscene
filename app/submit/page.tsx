@@ -45,6 +45,9 @@ export default async function SubmitPage({
     new Set(bands.flatMap((b) => b.members)),
   ).sort((a, b) => a.localeCompare(b));
 
+  // Name + slug of every band, for the add-form's duplicate check.
+  const existingBands = bands.map((b) => ({ name: b.name, slug: b.slug }));
+
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-14">
       <Link
@@ -73,6 +76,7 @@ export default async function SubmitPage({
         genreOptions={genreOptions}
         neighborhoodOptions={neighborhoodOptions}
         memberOptions={memberOptions}
+        existingBands={existingBands}
       />
     </main>
   );
