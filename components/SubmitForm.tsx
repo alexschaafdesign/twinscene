@@ -107,6 +107,34 @@ function Field({
 }
 
 /**
+ * A titled group of related fields. A hairline top rule plus a small uppercase
+ * label give the long form a subtle visual rhythm without heavy boxes.
+ */
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-t border-[#E8E0D0]/10 pt-6">
+      <div className="mb-4">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-[#E8E0D0]/45">
+          {title}
+        </h2>
+        {description && (
+          <p className="mt-1 text-xs text-[#E8E0D0]/45">{description}</p>
+        )}
+      </div>
+      <div className="space-y-5">{children}</div>
+    </section>
+  );
+}
+
+/**
  * Tag-input with autocomplete for genres. Selected genres render as removable
  * chips; typing filters `options`, and an "Add '…'" entry lets the user create
  * a genre that isn't in the list yet. Value is the array of selected genres.
@@ -569,320 +597,332 @@ export default function SubmitForm({
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="space-y-5">
-        <Field
-          label="Band name"
-          htmlFor="bandName"
-          required
-          error={errors.bandName}
-        >
-          <input
-            id="bandName"
-            type="text"
-            value={form.bandName}
-            onChange={set("bandName")}
-            className={inputClass}
-          />
-        </Field>
+      <form onSubmit={handleSubmit} noValidate className="space-y-8">
+        <Section title="The basics">
+          <Field
+            label="Band name"
+            htmlFor="bandName"
+            required
+            error={errors.bandName}
+          >
+            <input
+              id="bandName"
+              type="text"
+              value={form.bandName}
+              onChange={set("bandName")}
+              className={inputClass}
+            />
+          </Field>
 
-        {/* Temporarily hidden in correction mode — privately maintained. */}
-        {!isCorrect && (
+          <Field
+            label="Genre(s)"
+            htmlFor="genres"
+            required
+            error={errors.genres}
+            hint="Pick from existing genres or type your own — be as specific or weird as you want."
+          >
+            <GenreTagInput
+              id="genres"
+              options={genreOptions}
+              value={
+                form.genres
+                  ? form.genres.split(",").map((s) => s.trim()).filter(Boolean)
+                  : []
+              }
+              onChange={(next) =>
+                setForm((f) => ({ ...f, genres: next.join(", ") }))
+              }
+              hasError={!!errors.genres}
+            />
+          </Field>
+
           <div className="grid gap-5 sm:grid-cols-2">
             <Field
-              label="Your name"
-              htmlFor="submitterName"
+              label="Location"
+              htmlFor="location"
               required
-              error={errors.submitterName}
-              hint="Not for publication"
+              error={errors.location}
             >
               <input
-                id="submitterName"
+                id="location"
                 type="text"
-                value={form.submitterName}
-                onChange={set("submitterName")}
+                value={form.location}
+                onChange={set("location")}
+                placeholder="e.g. Minneapolis"
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Year started" htmlFor="started">
+              <input
+                id="started"
+                type="number"
+                inputMode="numeric"
+                value={form.started}
+                onChange={set("started")}
+                placeholder="e.g. 2019"
+                className={inputClass}
+              />
+            </Field>
+          </div>
+        </Section>
+
+        <Section
+          title="Links & contact"
+          description="Where fans and bookers can find and reach you."
+        >
+          <div>
+            <span className="mb-1 block text-sm text-[#E8E0D0]/85">
+              How do you want to be contacted?
+            </span>
+            <div className="flex gap-2">
+              {(["email", "instagram"] as const).map((m) => {
+                const active = form.contactMethod === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    // Clicking the active choice again clears it (the choice is optional).
+                    onClick={() =>
+                      setForm((f) => ({
+                        ...f,
+                        contactMethod: active ? "" : m,
+                      }))
+                    }
+                    className={`rounded-md border px-3 py-1.5 text-sm transition ${
+                      active
+                        ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                        : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                    }`}
+                  >
+                    {m === "email" ? "Email" : "Instagram"}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-1 text-xs text-[#E8E0D0]/45">
+              Optional — choosing one makes that field required below.
+            </p>
+          </div>
+
+          <Field
+            label="Contact email"
+            htmlFor="contactEmail"
+            required={form.contactMethod === "email"}
+            error={errors.contactEmail}
+            hint="Shown publicly on your profile so people can reach you."
+          >
+            <input
+              id="contactEmail"
+              type="email"
+              value={form.contactEmail}
+              onChange={set("contactEmail")}
+              placeholder="band@example.com"
+              className={inputClass}
+            />
+          </Field>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field label="Website" htmlFor="website">
+              <input
+                id="website"
+                type="url"
+                value={form.website}
+                onChange={set("website")}
+                placeholder="https://"
                 className={inputClass}
               />
             </Field>
 
             <Field
-              label="Your email"
-              htmlFor="submitterEmail"
-              required
-              error={errors.submitterEmail}
-              hint="For follow-up, not published"
+              label="Instagram handle"
+              htmlFor="instagram"
+              required={form.contactMethod === "instagram"}
+              error={errors.instagram}
+              hint="Just the handle, no @"
             >
               <input
-                id="submitterEmail"
-                type="email"
-                value={form.submitterEmail}
-                onChange={set("submitterEmail")}
+                id="instagram"
+                type="text"
+                value={form.instagram}
+                onChange={set("instagram")}
+                placeholder="yourband"
                 className={inputClass}
               />
             </Field>
           </div>
-        )}
 
-        <Field
-          label="Genre(s)"
-          htmlFor="genres"
-          required
-          error={errors.genres}
-          hint="Pick from existing genres or type your own — be as specific or weird as you want."
-        >
-          <GenreTagInput
-            id="genres"
-            options={genreOptions}
-            value={
-              form.genres
-                ? form.genres.split(",").map((s) => s.trim()).filter(Boolean)
-                : []
-            }
-            onChange={(next) =>
-              setForm((f) => ({ ...f, genres: next.join(", ") }))
-            }
-            hasError={!!errors.genres}
-          />
-        </Field>
-
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field
-            label="Location"
-            htmlFor="location"
-            required
-            error={errors.location}
-          >
-            <input
-              id="location"
-              type="text"
-              value={form.location}
-              onChange={set("location")}
-              placeholder="e.g. Minneapolis"
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Year started" htmlFor="started">
-            <input
-              id="started"
-              type="number"
-              inputMode="numeric"
-              value={form.started}
-              onChange={set("started")}
-              placeholder="e.g. 2019"
-              className={inputClass}
-            />
-          </Field>
-        </div>
-
-        <div>
-          <span className="mb-1 block text-sm text-[#E8E0D0]/85">
-            How do you want to be contacted?
-          </span>
-          <div className="flex gap-2">
-            {(["email", "instagram"] as const).map((m) => {
-              const active = form.contactMethod === m;
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  // Clicking the active choice again clears it (the choice is optional).
-                  onClick={() =>
-                    setForm((f) => ({
-                      ...f,
-                      contactMethod: active ? "" : m,
-                    }))
-                  }
-                  className={`rounded-md border px-3 py-1.5 text-sm transition ${
-                    active
-                      ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
-                      : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
-                  }`}
-                >
-                  {m === "email" ? "Email" : "Instagram"}
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-1 text-xs text-[#E8E0D0]/45">
-            Optional — choosing one makes that field required below.
-          </p>
-        </div>
-
-        <Field
-          label="Contact email"
-          htmlFor="contactEmail"
-          required={form.contactMethod === "email"}
-          error={errors.contactEmail}
-          hint="Shown publicly on your profile so people can reach you."
-        >
-          <input
-            id="contactEmail"
-            type="email"
-            value={form.contactEmail}
-            onChange={set("contactEmail")}
-            placeholder="band@example.com"
-            className={inputClass}
-          />
-        </Field>
-
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Website" htmlFor="website">
-            <input
-              id="website"
-              type="url"
-              value={form.website}
-              onChange={set("website")}
-              placeholder="https://"
-              className={inputClass}
-            />
-          </Field>
-
-          <Field
-            label="Instagram handle"
-            htmlFor="instagram"
-            required={form.contactMethod === "instagram"}
-            error={errors.instagram}
-            hint="Just the handle, no @"
-          >
-            <input
-              id="instagram"
-              type="text"
-              value={form.instagram}
-              onChange={set("instagram")}
-              placeholder="yourband"
-              className={inputClass}
-            />
-          </Field>
-        </div>
-
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field
-            label="Bandcamp"
-            htmlFor="bandcamp"
-            hint="Paste your Bandcamp link, or for a richer player, paste the embed code from Bandcamp's Share/Embed button."
-          >
-            <input
-              id="bandcamp"
-              type="text"
-              value={form.bandcamp}
-              onChange={set("bandcamp")}
-              placeholder="https://…  or  <iframe …>"
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Spotify URL" htmlFor="spotify">
-            <input
-              id="spotify"
-              type="url"
-              value={form.spotify}
-              onChange={set("spotify")}
-              placeholder="https://"
-              className={inputClass}
-            />
-          </Field>
-        </div>
-
-        <Field label="Short bio" htmlFor="bio">
-          <textarea
-            id="bio"
-            value={form.bio}
-            onChange={set("bio")}
-            maxLength={BIO_MAX}
-            rows={4}
-            className={`${inputClass} resize-y`}
-          />
-          <p className="mt-1 text-right text-xs text-[#E8E0D0]/45">
-            {form.bio.length}/{BIO_MAX}
-          </p>
-        </Field>
-
-        <Field
-          label={
-            isCorrect
-              ? "Band photo (optional — only needed if you want to update the current photo)"
-              : "Band photo"
-          }
-          htmlFor="bandPhoto"
-          required={!isCorrect}
-          error={imageError}
-          hint="This will appear on your directory card. JPG or PNG, at least 800px wide recommended."
-        >
-          <input
-            id="bandPhoto"
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            required={!isCorrect}
-            onChange={handleFileChange}
-            className={`${inputClass} file:mr-3 file:rounded file:border-0 file:bg-[#E8E0D0]/15 file:px-3 file:py-1 file:text-sm file:text-[#E8E0D0]`}
-          />
-          {previewUrl && (
-            <div className="relative mt-3 inline-block">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewUrl}
-                alt="Selected band photo preview"
-                className="h-60 w-60 rounded-md border border-[#E8E0D0]/20 object-cover"
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              label="Bandcamp"
+              htmlFor="bandcamp"
+              hint="Paste your Bandcamp link, or for a richer player, paste the embed code from Bandcamp's Share/Embed button."
+            >
+              <input
+                id="bandcamp"
+                type="text"
+                value={form.bandcamp}
+                onChange={set("bandcamp")}
+                placeholder="https://…  or  <iframe …>"
+                className={inputClass}
               />
-              <button
-                type="button"
-                aria-label="Remove selected photo"
-                onClick={clearImageFile}
-                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 text-sm leading-none text-[#E8E0D0]/80 transition hover:text-[#E8E0D0]"
-              >
-                ×
-              </button>
-            </div>
-          )}
-          {showExistingImage && (
-            <div className="mt-3">
-              <p className="mb-1 text-xs text-[#E8E0D0]/60">Current photo:</p>
-              <div className="relative inline-block">
+            </Field>
+
+            <Field label="Spotify URL" htmlFor="spotify">
+              <input
+                id="spotify"
+                type="url"
+                value={form.spotify}
+                onChange={set("spotify")}
+                placeholder="https://"
+                className={inputClass}
+              />
+            </Field>
+          </div>
+        </Section>
+
+        <Section title="Bio & photo">
+          <Field label="Short bio" htmlFor="bio">
+            <textarea
+              id="bio"
+              value={form.bio}
+              onChange={set("bio")}
+              maxLength={BIO_MAX}
+              rows={4}
+              className={`${inputClass} resize-y`}
+            />
+            <p className="mt-1 text-right text-xs text-[#E8E0D0]/45">
+              {form.bio.length}/{BIO_MAX}
+            </p>
+          </Field>
+
+          <Field
+            label={
+              isCorrect
+                ? "Band photo (optional — only needed if you want to update the current photo)"
+                : "Band photo"
+            }
+            htmlFor="bandPhoto"
+            required={!isCorrect}
+            error={imageError}
+            hint="This will appear on your directory card. JPG or PNG, at least 800px wide recommended."
+          >
+            <input
+              id="bandPhoto"
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              required={!isCorrect}
+              onChange={handleFileChange}
+              className={`${inputClass} file:mr-3 file:rounded file:border-0 file:bg-[#E8E0D0]/15 file:px-3 file:py-1 file:text-sm file:text-[#E8E0D0]`}
+            />
+            {previewUrl && (
+              <div className="relative mt-3 inline-block">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={initialImage}
-                  alt="Current band photo"
+                  src={previewUrl}
+                  alt="Selected band photo preview"
                   className="h-60 w-60 rounded-md border border-[#E8E0D0]/20 object-cover"
                 />
                 <button
                   type="button"
-                  aria-label="Remove current photo"
-                  onClick={() => setRemoveExistingImage(true)}
+                  aria-label="Remove selected photo"
+                  onClick={clearImageFile}
                   className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 text-sm leading-none text-[#E8E0D0]/80 transition hover:text-[#E8E0D0]"
                 >
                   ×
                 </button>
               </div>
+            )}
+            {showExistingImage && (
+              <div className="mt-3">
+                <p className="mb-1 text-xs text-[#E8E0D0]/60">Current photo:</p>
+                <div className="relative inline-block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={initialImage}
+                    alt="Current band photo"
+                    className="h-60 w-60 rounded-md border border-[#E8E0D0]/20 object-cover"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remove current photo"
+                    onClick={() => setRemoveExistingImage(true)}
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 text-sm leading-none text-[#E8E0D0]/80 transition hover:text-[#E8E0D0]"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            )}
+          </Field>
+        </Section>
+
+        <Section
+          title={isCorrect ? "Anything else" : "About you"}
+          description={
+            isCorrect
+              ? undefined
+              : "So we can follow up on your submission — never shown publicly."
+          }
+        >
+          {/* Temporarily hidden in correction mode — privately maintained. */}
+          {!isCorrect && (
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Your name"
+                htmlFor="submitterName"
+                required
+                error={errors.submitterName}
+              >
+                <input
+                  id="submitterName"
+                  type="text"
+                  value={form.submitterName}
+                  onChange={set("submitterName")}
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field
+                label="Your email"
+                htmlFor="submitterEmail"
+                required
+                error={errors.submitterEmail}
+              >
+                <input
+                  id="submitterEmail"
+                  type="email"
+                  value={form.submitterEmail}
+                  onChange={set("submitterEmail")}
+                  className={inputClass}
+                />
+              </Field>
             </div>
           )}
-        </Field>
 
-        <Field
-          label="Additional notes"
-          htmlFor="notes"
-          hint="Anything else we should know, or what you're correcting."
-        >
-          <textarea
-            id="notes"
-            value={form.notes}
-            onChange={set("notes")}
-            rows={3}
-            className={`${inputClass} resize-y`}
-          />
-        </Field>
+          <Field
+            label="Additional notes"
+            htmlFor="notes"
+            hint="Anything else we should know, or what you're correcting."
+          >
+            <textarea
+              id="notes"
+              value={form.notes}
+              onChange={set("notes")}
+              rows={3}
+              className={`${inputClass} resize-y`}
+            />
+          </Field>
+        </Section>
 
         {/* Upcoming shows — feature-flagged; hidden while shows are disabled. */}
         {SHOWS_ENABLED && (
-        <div>
-          <h2 className="text-sm font-medium text-[#E8E0D0]/85">
-            Upcoming shows
-          </h2>
-          <p className="mt-1 text-xs text-[#E8E0D0]/45">
-            Let people know where to catch you live.
-          </p>
-
-          <div className="mt-3 space-y-3">
+        <Section
+          title="Upcoming shows"
+          description="Let people know where to catch you live."
+        >
+          <div className="space-y-3">
             {shows.map((show, i) => (
               <div
                 key={i}
@@ -976,7 +1016,7 @@ export default function SubmitForm({
           >
             + Add another show
           </button>
-        </div>
+        </Section>
         )}
 
         {status === "error" && (
