@@ -17,6 +17,7 @@ export type Show = {
   bandSlugs: string[]; // directory slugs this show links to (0..n)
   notes: string;
   link: string;
+  flyerUrl: string; // scraped poster image URL ("" when none)
   source: string; // "manual" | "pilllar" | …
   sourceKey: string; // stable dedup key for scraped shows ("" for manual)
   added: string;
@@ -159,6 +160,7 @@ export async function fetchShows(): Promise<Show[]> {
           : [],
       notes: get(row, "NOTES"),
       link: get(row, "LINK"),
+      flyerUrl: get(row, "FLYER"),
       source: get(row, "SOURCE"),
       sourceKey: get(row, "SOURCE_KEY"),
       added: get(row, "ADDED"),

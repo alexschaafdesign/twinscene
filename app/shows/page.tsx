@@ -114,25 +114,44 @@ export default async function ShowsPage() {
                     className="rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] p-4"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                      <div className="min-w-0">
-                        <p className="font-medium text-[#E8E0D0]">
-                          {show.title}
-                        </p>
-                        {show.venue && (
-                          <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
-                            {show.venue}
-                          </p>
+                      <div className="flex min-w-0 items-start gap-3">
+                        {show.flyerUrl && (
+                          <a
+                            href={ensureUrl(show.flyerUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0"
+                            aria-label={`${show.title} flyer`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element -- external flyer art */}
+                            <img
+                              src={show.flyerUrl}
+                              alt=""
+                              loading="lazy"
+                              className="h-20 w-20 rounded-md border border-[#E8E0D0]/15 object-cover"
+                            />
+                          </a>
                         )}
-                        {show.lineup && show.lineup !== show.title && (
-                          <p className="mt-1 text-sm text-[#E8E0D0]/60">
-                            {show.lineup}
+                        <div className="min-w-0">
+                          <p className="font-medium text-[#E8E0D0]">
+                            {show.title}
                           </p>
-                        )}
-                        {show.notes && (
-                          <p className="mt-1 text-sm text-[#E8E0D0]/50">
-                            {show.notes}
-                          </p>
-                        )}
+                          {show.venue && (
+                            <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
+                              {show.venue}
+                            </p>
+                          )}
+                          {show.lineup && show.lineup !== show.title && (
+                            <p className="mt-1 text-sm text-[#E8E0D0]/60">
+                              {show.lineup}
+                            </p>
+                          )}
+                          {show.notes && (
+                            <p className="mt-1 text-sm text-[#E8E0D0]/50">
+                              {show.notes}
+                            </p>
+                          )}
+                        </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-3">
                         {show.link && (

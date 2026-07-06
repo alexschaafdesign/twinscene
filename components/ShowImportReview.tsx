@@ -247,6 +247,7 @@ function ShowCard({
         bandSlugs: links.map((l) => l.slug).join(","),
         notes: notes.trim(),
         link: link.trim(),
+        flyerUrl: show.flyerUrl ?? "",
       });
       const res = await fetch(url, { method: "POST", body: payload });
       const data = await res.json();

@@ -195,6 +195,7 @@ function handleShowImport_(p) {
       BAND_SLUGS: trim_(p.bandSlugs),
       NOTES: trim_(p.notes),
       LINK: trim_(p.link),
+      FLYER: trim_(p.flyerUrl),
       SOURCE: trim_(p.source) || 'scrape',
       SOURCE_KEY: trim_(p.sourceKey),
       ADDED: todayString_(),
@@ -205,8 +206,9 @@ function handleShowImport_(p) {
 }
 
 // Columns the app manages beyond the original scraper schema. ID is the stable
-// edit key; EDITED is the manual-edit lock the scraper honours.
-var SHOW_MANAGED_COLUMNS = ['ID', 'EDITED'];
+// edit key; EDITED is the manual-edit lock the scraper honours; FLYER is the
+// scraped poster image URL surfaced on /shows.
+var SHOW_MANAGED_COLUMNS = ['ID', 'EDITED', 'FLYER'];
 
 // Guarantee the Shows tab has the managed columns (older sheets predate them).
 // Appends any missing one at the end so existing column positions never shift.
@@ -683,7 +685,7 @@ function getShowsSheet_() {
   var sheet = ss.getSheetByName('Shows');
   if (!sheet) {
     sheet = ss.insertSheet('Shows');
-    sheet.appendRow(['SLUG', 'BAND_NAME', 'DATE', 'VENUE', 'TITLE', 'LINEUP', 'BAND_SLUGS', 'NOTES', 'LINK', 'SOURCE', 'SOURCE_KEY', 'ADDED', 'ID', 'EDITED']);
+    sheet.appendRow(['SLUG', 'BAND_NAME', 'DATE', 'VENUE', 'TITLE', 'LINEUP', 'BAND_SLUGS', 'NOTES', 'LINK', 'SOURCE', 'SOURCE_KEY', 'ADDED', 'ID', 'EDITED', 'FLYER']);
   }
   return sheet;
 }

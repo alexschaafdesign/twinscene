@@ -59,6 +59,7 @@ export async function autoImportShow(
       bandSlugs,
       notes: composeNotes(show),
       link: show.ticketUrl ?? "",
+      flyerUrl: show.flyerUrl ?? "",
     });
 
     const res = await fetch(submitUrl, { method: "POST", body: payload });
