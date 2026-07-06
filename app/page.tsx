@@ -23,8 +23,7 @@ export default async function Home() {
         </span>
         <p className="m-0">
           This site is in early beta — lots of in-progress sections and
-          half-finished ideas. We&apos;ll announce when it&apos;s fully released
-          to the public!
+          half-finished ideas. Hit up alex@thebirdhaus.org with any comments/suggestions!
         </p>
       </div>
 
@@ -109,7 +108,7 @@ export default async function Home() {
       <div className="mb-6 flex flex-col items-center gap-3 text-center">
         <p className="max-w-xl text-sm leading-relaxed text-[#E8E0D0]/75">
           <span className="font-semibold text-[#E8E0D0]">Bands</span> — search
-          below, you might already be on here. Otherwise, add yourself!
+          below, you might already be on here (i took most of the photos/initial info from your Instagram page, feel free to update/edit). Otherwise, add yourself!
         </p>
         <Link
           href="/submit"
