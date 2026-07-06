@@ -551,14 +551,11 @@ export default function SubmitForm({
   function validate(): Partial<Record<keyof FormState, string>> {
     const e: Partial<Record<keyof FormState, string>> = {};
     if (!form.bandName.trim()) e.bandName = "Required";
-    // Temporarily skip submitter name/email in correction mode — the directory
-    // is privately maintained by one or two people, so it's needless friction.
-    if (!isCorrect) {
-      if (!form.submitterName.trim()) e.submitterName = "Required";
-      if (!form.submitterEmail.trim()) e.submitterEmail = "Required";
-      else if (!EMAIL_RE.test(form.submitterEmail.trim()))
-        e.submitterEmail = "Enter a valid email address";
-    }
+    // Submitter name/email required for both new bands and corrections.
+    if (!form.submitterName.trim()) e.submitterName = "Required";
+    if (!form.submitterEmail.trim()) e.submitterEmail = "Required";
+    else if (!EMAIL_RE.test(form.submitterEmail.trim()))
+      e.submitterEmail = "Enter a valid email address";
     if (!form.genres.trim()) e.genres = "Required";
     if (!form.location.trim()) e.location = "Required";
     // Contact method is optional, but choosing one makes that field required.
@@ -1103,47 +1100,40 @@ export default function SubmitForm({
         </Section>
 
         <Section
-          title={isCorrect ? "Anything else" : "About you"}
-          description={
-            isCorrect
-              ? undefined
-              : "So we can follow up on your submission — never shown publicly."
-          }
+          title="About you"
+          description="So we can follow up on your submission — never shown publicly."
         >
-          {/* Temporarily hidden in correction mode — privately maintained. */}
-          {!isCorrect && (
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field
-                label="Your name"
-                htmlFor="submitterName"
-                required
-                error={errors.submitterName}
-              >
-                <input
-                  id="submitterName"
-                  type="text"
-                  value={form.submitterName}
-                  onChange={set("submitterName")}
-                  className={inputClass}
-                />
-              </Field>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              label="Your name"
+              htmlFor="submitterName"
+              required
+              error={errors.submitterName}
+            >
+              <input
+                id="submitterName"
+                type="text"
+                value={form.submitterName}
+                onChange={set("submitterName")}
+                className={inputClass}
+              />
+            </Field>
 
-              <Field
-                label="Your email"
-                htmlFor="submitterEmail"
-                required
-                error={errors.submitterEmail}
-              >
-                <input
-                  id="submitterEmail"
-                  type="email"
-                  value={form.submitterEmail}
-                  onChange={set("submitterEmail")}
-                  className={inputClass}
-                />
-              </Field>
-            </div>
-          )}
+            <Field
+              label="Your email"
+              htmlFor="submitterEmail"
+              required
+              error={errors.submitterEmail}
+            >
+              <input
+                id="submitterEmail"
+                type="email"
+                value={form.submitterEmail}
+                onChange={set("submitterEmail")}
+                className={inputClass}
+              />
+            </Field>
+          </div>
 
           <Field
             label="Additional notes"
