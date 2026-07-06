@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { ScraperLogRow } from "@/lib/fetchScraperLog";
 import type { Band } from "@/lib/fetchBands";
 import type { NonLocalBand } from "@/lib/fetchNonLocalBands";
+import type { DismissedBand } from "@/lib/fetchDismissedBands";
 
 type ScraperInfo = { id: string; name: string };
 
@@ -63,6 +64,7 @@ export default function AdminPanel({
   log,
   bands,
   nonLocalBands,
+  dismissedBands,
   secret,
   logConfigured,
 }: {
@@ -70,6 +72,7 @@ export default function AdminPanel({
   log: ScraperLogRow[];
   bands: Band[];
   nonLocalBands: NonLocalBand[];
+  dismissedBands: DismissedBand[];
   secret: string;
   logConfigured: boolean;
 }) {
@@ -169,9 +172,21 @@ export default function AdminPanel({
     }
   }
 
-  // Clear a band from this approval queue (visual only — no POST).
+  // Remove a band from the approval queue for good: hide it now and log it so
+  // it stays hidden on future loads, including when later shows list the same
+  // band. A failed POST is fine — it's hidden this session regardless.
   function removeFromList(name: string) {
     setDismissed((prev) => new Set(prev).add(name));
+    if (submitUrl) {
+      void fetch(submitUrl, {
+        method: "POST",
+        body: new URLSearchParams({
+          formType: "dismissedBand",
+          bandName: name,
+          bandSlug: slugify(name),
+        }),
+      }).catch(() => {});
+    }
   }
 
   // Names already in the directory, for filtering out bands we already have.
@@ -182,14 +197,20 @@ export default function AdminPanel({
   const nonLocalNames = new Set(
     nonLocalBands.map((b) => b.name.toLowerCase().trim()),
   );
+  // Names previously dismissed from the queue, so they stay hidden across
+  // reloads even if a later show lists the same band.
+  const dismissedNames = new Set(
+    dismissedBands.map((b) => b.name.toLowerCase().trim()),
+  );
 
-  // Discovered names that are neither in the directory nor already flagged
-  // non-local (case-insensitive), minus any dismissed from the queue this
-  // session.
+  // Discovered names that aren't in the directory, aren't flagged non-local,
+  // and haven't been dismissed before (all case-insensitive), minus any
+  // dismissed from the queue this session.
   const trulyNew = (log[0]?.newBandNames ?? []).filter(
     (name) =>
       !directoryNames.has(name.toLowerCase().trim()) &&
-      !nonLocalNames.has(name.toLowerCase().trim()),
+      !nonLocalNames.has(name.toLowerCase().trim()) &&
+      !dismissedNames.has(name.toLowerCase().trim()),
   );
   const newBands = trulyNew.filter((n) => !dismissed.has(n));
 
@@ -371,6 +392,13 @@ export default function AdminPanel({
                         className="ml-2 cursor-pointer text-xs text-[#E8E0D0]/30 hover:text-[#E8E0D0]/60"
                       >
                         Not local
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeFromList(name)}
+                        className="ml-2 cursor-pointer text-xs text-[#E8E0D0]/30 hover:text-[#E8E0D0]/60"
+                      >
+                        Remove
                       </button>
                     </div>
                   )}

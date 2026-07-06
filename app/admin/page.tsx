@@ -9,6 +9,10 @@ import {
   fetchNonLocalBands,
   type NonLocalBand,
 } from "@/lib/fetchNonLocalBands";
+import {
+  fetchDismissedBands,
+  type DismissedBand,
+} from "@/lib/fetchDismissedBands";
 import AdminPanel from "@/components/AdminPanel";
 
 // Reads the secret and no-store data at request time — never cache.
@@ -35,14 +39,16 @@ export default async function AdminPage({
     );
   }
 
-  const [log, bands, nonLocalBands]: [
+  const [log, bands, nonLocalBands, dismissedBands]: [
     ScraperLogRow[],
     Band[],
     NonLocalBand[],
+    DismissedBand[],
   ] = await Promise.all([
     fetchScraperLog(),
     fetchBands(),
     fetchNonLocalBands(),
+    fetchDismissedBands(),
   ]);
 
   // Only pass serializable data to the client (scrape functions can't cross).
@@ -57,6 +63,7 @@ export default async function AdminPage({
       log={log}
       bands={bands}
       nonLocalBands={nonLocalBands}
+      dismissedBands={dismissedBands}
       secret={provided}
       logConfigured={SCRAPER_LOG_CONFIGURED}
     />

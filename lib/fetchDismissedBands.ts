@@ -1,16 +1,20 @@
-// Data layer for the "Non-Local Bands" log.
-// Fetches a published Google Sheet (CSV) — the "Non-Local Bands" tab written by
-// the Apps Script handleNonLocalBand_ handler — and parses it into NonLocalBand
-// objects. Like fetchScraperLog.ts, the fetch uses `cache: 'no-store'` plus a
-// cache-busting timestamp so the admin page always reflects the latest data.
+// Data layer for the "Dismissed Bands" log.
+// Fetches a published Google Sheet (CSV) — the "Dismissed Bands" tab written by
+// the Apps Script handleDismissedBand_ handler — and parses it into
+// DismissedBand objects. Mirrors lib/fetchNonLocalBands.ts: the fetch uses
+// `cache: 'no-store'` plus a cache-busting timestamp so the admin page always
+// reflects the latest data.
+//
+// The "Dismissed Bands" tab is created automatically the first time a band is
+// dismissed, and is published to the web (File → Share → Publish to web → that
+// tab → CSV) so reads work.
+const DISMISSED_CSV_URL =
+  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=832751827&single=true&output=csv";
 
-const NON_LOCAL_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=2050025979&single=true&output=csv";
+/** The "Dismissed Bands" tab is published with its real gid, so reads are live. */
+export const DISMISSED_CONFIGURED = true;
 
-/** The "Non-Local Bands" tab is published with its real gid, so reads are live. */
-export const NON_LOCAL_CONFIGURED = true;
-
-export type NonLocalBand = {
+export type DismissedBand = {
   name: string;
   slug: string;
 };
@@ -18,7 +22,7 @@ export type NonLocalBand = {
 /**
  * Parse CSV text into rows of cells. Handles quoted fields, escaped quotes
  * (""), and newlines/commas inside quotes. Kept in sync with the parser in
- * lib/fetchScraperLog.ts.
+ * lib/fetchNonLocalBands.ts.
  */
 function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
@@ -75,21 +79,21 @@ function parseCSV(text: string): string[][] {
   return rows;
 }
 
-export async function fetchNonLocalBands(): Promise<NonLocalBand[]> {
-  // The tab isn't published yet — behave as if there are no non-local bands.
-  if (!NON_LOCAL_CONFIGURED) return [];
+export async function fetchDismissedBands(): Promise<DismissedBand[]> {
+  // The tab isn't published yet — behave as if there are no dismissed bands.
+  if (!DISMISSED_CONFIGURED) return [];
 
   let text: string;
   try {
-    const url = `${NON_LOCAL_CSV_URL}&t=${Date.now()}`;
+    const url = `${DISMISSED_CSV_URL}&t=${Date.now()}`;
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) {
-      console.error(`fetchNonLocalBands: CSV request failed (${res.status})`);
+      console.error(`fetchDismissedBands: CSV request failed (${res.status})`);
       return [];
     }
     text = await res.text();
   } catch (err) {
-    console.error("fetchNonLocalBands: failed to fetch CSV", err);
+    console.error("fetchDismissedBands: failed to fetch CSV", err);
     return [];
   }
 
@@ -109,7 +113,7 @@ export async function fetchNonLocalBands(): Promise<NonLocalBand[]> {
     return (r[idx] ?? "").trim();
   };
 
-  const bands: NonLocalBand[] = [];
+  const bands: DismissedBand[] = [];
   for (const r of rows.slice(1)) {
     const name = get(r, "NAME");
     if (!name) continue; // skip blank rows

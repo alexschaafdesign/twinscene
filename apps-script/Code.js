@@ -50,6 +50,8 @@ function doPost(e) {
 
     if (p.formType === 'nonLocalBand') return handleNonLocalBand_(p);
 
+    if (p.formType === 'dismissedBand') return handleDismissedBand_(p);
+
     if (p.formType === 'scraperLog') return handleScraperLog_(p);
 
 
@@ -698,6 +700,28 @@ function handleNonLocalBand_(p) {
   var name = (p.bandName || '').toString().trim();
   var slug = (p.bandSlug || '').toString().trim();
   getNonLocalSheet_().appendRow([new Date(), name, slug]);
+  return jsonOutput_({ success: true });
+}
+
+var DISMISSED_SHEET_NAME = 'Dismissed Bands';
+var DISMISSED_HEADERS = ['TIMESTAMP', 'NAME', 'SLUG'];
+
+function getDismissedSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(DISMISSED_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(DISMISSED_SHEET_NAME);
+    sheet.appendRow(DISMISSED_HEADERS);
+  } else if (sheet.getLastRow() === 0) {
+    sheet.appendRow(DISMISSED_HEADERS);
+  }
+  return sheet;
+}
+
+function handleDismissedBand_(p) {
+  var name = (p.bandName || '').toString().trim();
+  var slug = (p.bandSlug || '').toString().trim();
+  getDismissedSheet_().appendRow([new Date(), name, slug]);
   return jsonOutput_({ success: true });
 }
 

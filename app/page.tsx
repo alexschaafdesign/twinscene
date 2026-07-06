@@ -9,6 +9,14 @@ import { SHOWS_ENABLED } from "@/lib/features";
 export default async function Home() {
   const bands = await fetchBands();
 
+  // Private-branch convenience: build a one-click admin link with the secret
+  // baked in. This runs server-side, but the resulting href is rendered into
+  // the page HTML — only acceptable because this is an unlisted preview branch.
+  const secret = process.env.SCRAPE_SECRET;
+  const adminHref = secret
+    ? `/admin?secret=${encodeURIComponent(secret)}`
+    : "/admin";
+
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
       <div
@@ -25,6 +33,12 @@ export default async function Home() {
           This site is in early beta — lots of in-progress sections and
           half-finished ideas. Hit up alex@thebirdhaus.org with any comments/suggestions!
         </p>
+        <Link
+          href={adminHref}
+          className="mt-0.5 shrink-0 self-start rounded border border-[#E8E0D0]/20 px-2 py-0.5 text-xs font-medium text-[#E8E0D0]/55 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+        >
+          Admin
+        </Link>
       </div>
 
       <header className="mb-8">
