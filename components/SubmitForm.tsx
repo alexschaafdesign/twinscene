@@ -11,7 +11,7 @@ const BIO_MAX = 750;
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
 
 const inputClass =
-  "w-full rounded-md border border-[#E8E0D0]/20 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#E8E0D0]";
+  "w-full rounded-md border border-[#2A2420]/20 bg-transparent px-3.5 py-2 text-sm text-[#2A2420] placeholder:text-[#2A2420]/35 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#2A2420]";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -95,16 +95,16 @@ function Field({
     <div>
       <label
         htmlFor={htmlFor}
-        className="mb-1 block text-sm text-[#E8E0D0]/85"
+        className="mb-1 block text-sm text-[#2A2420]/85"
       >
         {label}
-        {required && <span className="text-[#E8E0D0]/50"> *</span>}
+        {required && <span className="text-[#2A2420]/50"> *</span>}
       </label>
       {children}
       {hint && !error && (
-        <p className="mt-1 text-xs text-[#E8E0D0]/45">{hint}</p>
+        <p className="mt-1 text-xs text-[#2A2420]/45">{hint}</p>
       )}
-      {error && <p className="mt-1 text-xs text-[#E5A0A0]">{error}</p>}
+      {error && <p className="mt-1 text-xs text-[#B42318]">{error}</p>}
     </div>
   );
 }
@@ -123,13 +123,13 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-[#E8E0D0]/10 pt-6">
+    <section className="border-t border-[#2A2420]/10 pt-6">
       <div className="mb-4">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-[#E8E0D0]/45">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-[#2A2420]/45">
           {title}
         </h2>
         {description && (
-          <p className="mt-1 text-xs text-[#E8E0D0]/45">{description}</p>
+          <p className="mt-1 text-xs text-[#2A2420]/45">{description}</p>
         )}
       </div>
       <div className="space-y-5">{children}</div>
@@ -258,13 +258,13 @@ function TagInput({
       <div
         onClick={() => inputRef.current?.focus()}
         className={`flex min-h-[2.6rem] w-full flex-wrap items-center gap-1.5 rounded-md border ${
-          hasError ? "border-[#E5A0A0]/60" : "border-[#E8E0D0]/20"
-        } bg-transparent px-2 py-1.5 text-sm transition focus-within:border-transparent focus-within:ring-2 focus-within:ring-[#E8E0D0]`}
+          hasError ? "border-[#B42318]/60" : "border-[#2A2420]/20"
+        } bg-transparent px-2 py-1.5 text-sm transition focus-within:border-transparent focus-within:ring-2 focus-within:ring-[#2A2420]`}
       >
         {value.map((tag, i) => (
           <span
             key={`${tag}-${i}`}
-            className="inline-flex items-center gap-1 rounded bg-[#E8E0D0]/15 px-2 py-0.5 text-xs text-[#E8E0D0]"
+            className="inline-flex items-center gap-1 rounded bg-[#2A2420]/15 px-2 py-0.5 text-xs text-[#2A2420]"
           >
             {tag}
             <button
@@ -274,7 +274,7 @@ function TagInput({
                 e.stopPropagation();
                 removeTag(i);
               }}
-              className="text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
+              className="text-[#2A2420]/60 transition hover:text-[#2A2420]"
             >
               ×
             </button>
@@ -292,12 +292,12 @@ function TagInput({
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={value.length === 0 ? placeholder : ""}
-          className="min-w-[8rem] flex-1 bg-transparent text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 focus:outline-none"
+          className="min-w-[8rem] flex-1 bg-transparent text-[#2A2420] placeholder:text-[#2A2420]/35 focus:outline-none"
         />
       </div>
 
       {open && items.length > 0 && (
-        <ul className="absolute z-10 mt-1 max-h-[200px] w-full overflow-auto rounded-md border border-[#E8E0D0]/20 bg-[#2A2420] py-1 shadow-lg">
+        <ul className="absolute z-10 mt-1 max-h-[200px] w-full overflow-auto rounded-md border border-[#2A2420]/20 bg-[#F7F3E9] py-1 shadow-lg">
           {items.map((item, i) => (
             <li key={item.type === "add" ? `__add__${item.value}` : item.value}>
               <button
@@ -308,9 +308,9 @@ function TagInput({
                   e.preventDefault();
                   addTag(item.value);
                 }}
-                className={`block w-full px-3 py-2 text-left text-sm text-[#E8E0D0] ${
-                  i === activeIndex ? "bg-[#E8E0D0]/10" : ""
-                } ${item.type === "add" ? "italic text-[#E8E0D0]/80" : ""}`}
+                className={`block w-full px-3 py-2 text-left text-sm text-[#2A2420] ${
+                  i === activeIndex ? "bg-[#2A2420]/10" : ""
+                } ${item.type === "add" ? "italic text-[#2A2420]/80" : ""}`}
               >
                 {item.type === "add" ? `+ Add '${item.value}'` : item.value}
               </button>
@@ -580,18 +580,18 @@ export default function SubmitForm({
   if (status === "success") {
     const bandHref = submittedSlug ? `/bands/${submittedSlug}` : "/";
     return (
-      <div className="rounded-lg border border-[#E8E0D0]/20 p-8 text-center">
-        <h2 className="text-xl font-medium">
+      <div className="rounded-lg border border-[#2A2420]/15 bg-[#F7F3E9] p-8 text-center">
+        <h2 className="text-xl font-medium text-[#2A2420]">
           {isCorrect ? "Thanks for the updates!" : "Thanks!"}
         </h2>
-        <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[#E8E0D0]/75">
+        <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed text-[#2A2420]/75">
           {isCorrect
             ? "If the changes don't appear immediately, give it a minute or so."
             : "Your band's been added — if it doesn't appear immediately, give it a minute or so."}
         </p>
         <Link
           href={bandHref}
-          className="mt-6 inline-block rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm transition hover:bg-[#E8E0D0]/10"
+          className="mt-6 inline-block rounded-md border border-[#2A2420]/40 px-4 py-2 text-sm transition hover:bg-[#2A2420]/10"
         >
           {submittedSlug ? `View ${form.bandName || "band"} →` : "← Back to directory"}
         </Link>
@@ -602,12 +602,12 @@ export default function SubmitForm({
   const submitting = status === "submitting";
 
   return (
-    <div className="rounded-lg border border-[#E8E0D0]/15 p-5 sm:p-7">
+    <div className="rounded-lg border border-[#2A2420]/15 bg-[#F7F3E9] p-5 sm:p-7">
       <div className="mb-6">
-        <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
+        <h1 className="text-2xl font-medium tracking-tight text-[#2A2420] sm:text-3xl">
           {heading}
         </h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#E8E0D0]/70">
+        <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#2A2420]/70">
           {subhead}
         </p>
       </div>
@@ -671,8 +671,8 @@ export default function SubmitForm({
                       }}
                       className={`rounded-md border px-3 py-1.5 text-sm transition ${
                         active
-                          ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
-                          : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                          ? "border-[#2A2420] bg-[#2A2420] text-[#F7F3E9]"
+                          : "border-[#2A2420]/25 text-[#2A2420]/70 hover:border-[#2A2420]/60"
                       }`}
                     >
                       {c}
@@ -695,8 +695,8 @@ export default function SubmitForm({
                   }}
                   className={`rounded-md border px-3 py-1.5 text-sm transition ${
                     cityIsOther
-                      ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
-                      : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                      ? "border-[#2A2420] bg-[#2A2420] text-[#F7F3E9]"
+                      : "border-[#2A2420]/25 text-[#2A2420]/70 hover:border-[#2A2420]/60"
                   }`}
                 >
                   Other
@@ -766,7 +766,7 @@ export default function SubmitForm({
           description="Where fans and bookers can find and reach you."
         >
           <div>
-            <span className="mb-1 block text-sm text-[#E8E0D0]/85">
+            <span className="mb-1 block text-sm text-[#2A2420]/85">
               How do you want to be contacted?
             </span>
             <div className="flex gap-2">
@@ -785,8 +785,8 @@ export default function SubmitForm({
                     }
                     className={`rounded-md border px-3 py-1.5 text-sm transition ${
                       active
-                        ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
-                        : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                        ? "border-[#2A2420] bg-[#2A2420] text-[#F7F3E9]"
+                        : "border-[#2A2420]/25 text-[#2A2420]/70 hover:border-[#2A2420]/60"
                     }`}
                   >
                     {m === "email" ? "Email" : "Instagram"}
@@ -794,7 +794,7 @@ export default function SubmitForm({
                 );
               })}
             </div>
-            <p className="mt-1 text-xs text-[#E8E0D0]/45">
+            <p className="mt-1 text-xs text-[#2A2420]/45">
               Optional — choosing one makes that field required below.
             </p>
           </div>
@@ -872,7 +872,7 @@ export default function SubmitForm({
               rows={4}
               className={`${inputClass} resize-y`}
             />
-            <p className="mt-1 text-right text-xs text-[#E8E0D0]/45">
+            <p className="mt-1 text-right text-xs text-[#2A2420]/45">
               {form.bio.length}/{BIO_MAX}
             </p>
           </Field>
@@ -895,7 +895,7 @@ export default function SubmitForm({
               accept="image/*"
               required={!isCorrect}
               onChange={handleFileChange}
-              className={`${inputClass} file:mr-3 file:rounded file:border-0 file:bg-[#E8E0D0]/15 file:px-3 file:py-1 file:text-sm file:text-[#E8E0D0]`}
+              className={`${inputClass} file:mr-3 file:rounded file:border-0 file:bg-[#2A2420]/15 file:px-3 file:py-1 file:text-sm file:text-[#2A2420]`}
             />
             {previewUrl && (
               <div className="relative mt-3 inline-block">
@@ -903,13 +903,13 @@ export default function SubmitForm({
                 <img
                   src={previewUrl}
                   alt="Selected band photo preview"
-                  className="h-60 w-60 rounded-md border border-[#E8E0D0]/20 object-cover"
+                  className="h-60 w-60 rounded-md border border-[#2A2420]/20 object-cover"
                 />
                 <button
                   type="button"
                   aria-label="Remove selected photo"
                   onClick={clearImageFile}
-                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 text-sm leading-none text-[#E8E0D0]/80 transition hover:text-[#E8E0D0]"
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2420]/20 bg-[#F7F3E9]/90 text-sm leading-none text-[#2A2420]/80 transition hover:text-[#2A2420]"
                 >
                   ×
                 </button>
@@ -917,19 +917,19 @@ export default function SubmitForm({
             )}
             {showExistingImage && (
               <div className="mt-3">
-                <p className="mb-1 text-xs text-[#E8E0D0]/60">Current photo:</p>
+                <p className="mb-1 text-xs text-[#2A2420]/60">Current photo:</p>
                 <div className="relative inline-block">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={initialImage}
                     alt="Current band photo"
-                    className="h-60 w-60 rounded-md border border-[#E8E0D0]/20 object-cover"
+                    className="h-60 w-60 rounded-md border border-[#2A2420]/20 object-cover"
                   />
                   <button
                     type="button"
                     aria-label="Remove current photo"
                     onClick={() => setRemoveExistingImage(true)}
-                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 text-sm leading-none text-[#E8E0D0]/80 transition hover:text-[#E8E0D0]"
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2420]/20 bg-[#F7F3E9]/90 text-sm leading-none text-[#2A2420]/80 transition hover:text-[#2A2420]"
                   >
                     ×
                   </button>
@@ -1007,13 +1007,13 @@ export default function SubmitForm({
             {shows.map((show, i) => (
               <div
                 key={i}
-                className="relative rounded-md bg-[rgba(232,224,208,0.05)] p-4 pr-10"
+                className="relative rounded-md bg-[rgba(42,36,32,0.05)] p-4 pr-10"
               >
                 <button
                   type="button"
                   aria-label="Remove this show"
                   onClick={() => removeShow(i)}
-                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E0D0]/20 text-sm leading-none text-[#E8E0D0]/70 transition hover:text-[#E8E0D0]"
+                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2420]/20 text-sm leading-none text-[#2A2420]/70 transition hover:text-[#2A2420]"
                 >
                   ×
                 </button>
@@ -1022,7 +1022,7 @@ export default function SubmitForm({
                   <div>
                     <label
                       htmlFor={`show-${i}-date`}
-                      className="mb-1 block text-xs text-[#E8E0D0]/70"
+                      className="mb-1 block text-xs text-[#2A2420]/70"
                     >
                       Date
                     </label>
@@ -1031,14 +1031,14 @@ export default function SubmitForm({
                       type="date"
                       value={show.date}
                       onChange={(e) => updateShow(i, "date", e.target.value)}
-                      className={`${inputClass} [color-scheme:dark]`}
+                      className={`${inputClass} [color-scheme:light]`}
                     />
                   </div>
 
                   <div>
                     <label
                       htmlFor={`show-${i}-venue`}
-                      className="mb-1 block text-xs text-[#E8E0D0]/70"
+                      className="mb-1 block text-xs text-[#2A2420]/70"
                     >
                       Venue
                     </label>
@@ -1055,7 +1055,7 @@ export default function SubmitForm({
                   <div>
                     <label
                       htmlFor={`show-${i}-notes`}
-                      className="mb-1 block text-xs text-[#E8E0D0]/70"
+                      className="mb-1 block text-xs text-[#2A2420]/70"
                     >
                       Notes
                     </label>
@@ -1072,7 +1072,7 @@ export default function SubmitForm({
                   <div>
                     <label
                       htmlFor={`show-${i}-link`}
-                      className="mb-1 block text-xs text-[#E8E0D0]/70"
+                      className="mb-1 block text-xs text-[#2A2420]/70"
                     >
                       Link
                     </label>
@@ -1093,7 +1093,7 @@ export default function SubmitForm({
           <button
             type="button"
             onClick={addShow}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[#E8E0D0]/30 px-3 py-1.5 text-sm text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-[#2A2420]/30 px-3 py-1.5 text-sm text-[#2A2420]/80 transition hover:bg-[#2A2420]/10 hover:text-[#2A2420]"
           >
             + Add another show
           </button>
@@ -1101,7 +1101,7 @@ export default function SubmitForm({
         )}
 
         {status === "error" && (
-          <p className="rounded-md border border-[#E5A0A0]/40 bg-[#E5A0A0]/10 px-3.5 py-2.5 text-sm text-[#E5A0A0]">
+          <p className="rounded-md border border-[#B42318]/40 bg-[#B42318]/10 px-3.5 py-2.5 text-sm text-[#B42318]">
             {errorMsg}
           </p>
         )}
@@ -1109,7 +1109,7 @@ export default function SubmitForm({
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-md bg-[#E8E0D0] px-4 py-2.5 text-sm font-medium text-[#2A2420] transition hover:bg-[#E8E0D0]/90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="w-full rounded-md bg-[#2A2420] px-4 py-2.5 text-sm font-medium text-[#F7F3E9] transition hover:bg-[#2A2420]/90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting
             ? "Submitting…"

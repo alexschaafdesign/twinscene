@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
-import { Instrument_Sans } from "next/font/google";
+import { Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
 
-// Instrument Sans is a variable font, so we don't pin specific weights here —
-// the full 400–700 range (including the 400/500 the design uses) is available.
-const instrumentSans = Instrument_Sans({
+// The app's typeface, exposed as the generic `--font-app` CSS variable so
+// swapping fonts later is a one-line change here (globals.css reads the var).
+// Bricolage Grotesque is variable, so we don't pin weights — the full range is
+// available to the 400/500/600 the design uses.
+const appFont = Bricolage_Grotesque({
   subsets: ["latin"],
-  variable: "--font-instrument-sans",
+  variable: "--font-app",
 });
 
 export const metadata: Metadata = {
@@ -21,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${instrumentSans.variable} h-full`}>
+    <html lang="en" className={`${appFont.variable} h-full`}>
       <body className="min-h-full antialiased">{children}</body>
     </html>
   );
