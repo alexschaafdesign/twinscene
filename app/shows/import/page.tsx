@@ -92,6 +92,7 @@ export default async function ImportShowsPage({
       const headliner = show.headliner ?? show.allBands[0] ?? "";
       const sourceKey = `pilllar:${show.date ?? "nodate"}:${slugify(headliner)}`;
 
+      const suggestedSlugs = new Set<string>();
       const suggested = matched.bandMatches
         .filter((m) => m.match)
         .map((m) => ({
@@ -99,12 +100,20 @@ export default async function ImportShowsPage({
           name: m.match!.name,
           scrapedName: m.name,
           confidence: m.confidence as "auto" | "review",
-        }));
+        }))
+        // Dedupe by slug: a lineup can list the same matched act twice.
+        .filter((s) => !suggestedSlugs.has(s.slug) && suggestedSlugs.add(s.slug));
 
       // Scraped acts with no directory match — offered for one-click adding.
-      const unmatched = matched.bandMatches
-        .filter((m) => m.confidence === "none")
-        .map((m) => m.name);
+      // Deduped: a lineup can list the same act twice, which would otherwise
+      // produce duplicate React keys and a repeated "add" row.
+      const unmatched = [
+        ...new Set(
+          matched.bandMatches
+            .filter((m) => m.confidence === "none")
+            .map((m) => m.name),
+        ),
+      ];
 
       return {
         sourceKey,
