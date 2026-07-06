@@ -34,7 +34,11 @@ export default async function Home() {
             <p className="mt-0 text-2xl font-medium text-[#E8E0D0]">
               welcome to the Twin Cities music scene
             </p>
-            <p className="mt-2 text-sm text-[#E8E0D0]/70">
+            <p className="mt-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#E8E0D0]/65">
+              No algorithms <span className="text-[#E8E0D0]/30">/</span> No ads{" "}
+              <span className="text-[#E8E0D0]/30">/</span> No corporate overlords
+            </p>
+            <p className="mt-3 text-sm text-[#E8E0D0]/70">
               Created and maintained by Alex at{" "}
               <a
                 href="https://thebirdhaus.org"
@@ -45,23 +49,6 @@ export default async function Home() {
                 the Birdhaus
               </a>
             </p>
-
-            <div className="mt-5 flex flex-wrap justify-center gap-3 sm:justify-end">
-              {SHOWS_ENABLED && (
-                <Link
-                  href="/shows"
-                  className="shrink-0 rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10"
-                >
-                  Shows
-                </Link>
-              )}
-              <Link
-                href="/submit"
-                className="shrink-0 rounded-md border border-[#E8E0D0] px-4 py-2 text-sm font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0] hover:text-[#2A2420]"
-              >
-                Add your band →
-              </Link>
-            </div>
           </div>
 
           <h1 className="m-0">
@@ -117,6 +104,20 @@ export default async function Home() {
           </li>
         </ul>
       </nav>
+
+      {/* Intro + primary CTA, sitting directly above the search field. */}
+      <div className="mb-6 flex flex-col items-center gap-3 text-center">
+        <p className="max-w-xl text-sm leading-relaxed text-[#E8E0D0]/75">
+          <span className="font-semibold text-[#E8E0D0]">Bands</span> — search
+          below, you might already be on here. Otherwise, add yourself!
+        </p>
+        <Link
+          href="/submit"
+          className="inline-flex items-center gap-1 rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-semibold text-[#2A2420] shadow-sm transition hover:bg-white"
+        >
+          + Add your band
+        </Link>
+      </div>
 
       <BandGrid bands={bands} />
     </main>
