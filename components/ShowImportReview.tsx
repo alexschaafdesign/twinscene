@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 export type SuggestedMatch = {
@@ -43,11 +42,14 @@ function slugify(name: string): string {
 }
 
 /**
- * A scraped act that isn't in the directory. "Add to directory" opens the
- * prefilled add-band form in a new tab (so you can add a photo, genres, bio,
- * etc. before submitting) and optimistically links the band to this show — the
- * add-mode slug matches slugify(name), so the link resolves once the band is
- * approved. Remove the chip above if you end up not adding it.
+ * A scraped act that isn't in the directory. "Add to directory" normally opens
+ * the prefilled add-band form in a new tab so you can add a photo, genres, bio,
+ * etc. before submitting.
+ *
+ * TEMP: for bulk entry, this now submits the band to the directory directly
+ * with only the Band name filled in (no new tab), then links it to the show —
+ * the add-mode slug matches slugify(name), so the link resolves once the band
+ * is approved. Revert this component to restore the open-the-form behavior.
  */
 function UnmatchedBand({
   name,
@@ -56,30 +58,75 @@ function UnmatchedBand({
   name: string;
   onAdded: (band: BandOption) => void;
 }) {
-  const [linked, setLinked] = useState(false);
-  const href = `/submit?${new URLSearchParams({ name }).toString()}`;
+  const [status, setStatus] = useState<RowStatus>("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  async function addBand() {
+    if (status === "submitting" || status === "done") return;
+    const url = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
+    if (!url) {
+      setStatus("error");
+      setErrorMsg("Submission endpoint isn't configured.");
+      return;
+    }
+    setStatus("submitting");
+    setErrorMsg("");
+    try {
+      // Mirror SubmitForm's add payload, but with only the band name filled in.
+      const payload = new URLSearchParams({
+        bandName: name,
+        submitterName: "",
+        submitterEmail: "",
+        genres: "",
+        location: "",
+        neighborhoods: "",
+        members: "",
+        contactEmail: "",
+        contactMethod: "",
+        website: "",
+        instagram: "",
+        bandcamp: "",
+        bio: "",
+        notes: "",
+        existingSlug: "",
+        mode: "add",
+        bandSlug: slugify(name),
+        removeImage: "false",
+        featuredLinks: "[]",
+      });
+      const res = await fetch(url, { method: "POST", body: payload });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Add failed");
+      onAdded({ slug: slugify(name), name });
+      setStatus("done");
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(err instanceof Error ? err.message : "Add failed");
+    }
+  }
+
+  const busy = status === "submitting";
 
   return (
-    <li className="flex items-center gap-2 text-sm">
+    <li className="flex flex-wrap items-center gap-2 text-sm">
       <span style={{ color: "rgba(232,224,208,0.5)" }}>{name}</span>
-      <Link
-        href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={() => {
-          if (!linked) {
-            onAdded({ slug: slugify(name), name });
-            setLinked(true);
-          }
-        }}
-        className="cursor-pointer text-xs text-[#E8E0D0]/50 underline underline-offset-2 hover:text-[#E8E0D0]"
-      >
-        + Add to directory
-      </Link>
-      {linked && (
+      {status !== "done" && (
+        <button
+          type="button"
+          onClick={addBand}
+          disabled={busy}
+          className="cursor-pointer text-xs text-[#E8E0D0]/50 underline underline-offset-2 transition hover:text-[#E8E0D0] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {busy ? "Adding…" : "+ Add to directory"}
+        </button>
+      )}
+      {status === "done" && (
         <span className="rounded bg-[#6FBF73]/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#8FD693]">
-          ✓ linked
+          ✓ added & linked
         </span>
+      )}
+      {status === "error" && (
+        <span className="text-xs text-[#E5A0A0]">{errorMsg}</span>
       )}
     </li>
   );
