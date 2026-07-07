@@ -9,13 +9,15 @@ import { SHOWS_ENABLED } from "@/lib/features";
 export default async function Home() {
   const bands = await fetchBands();
 
-  // One-click admin link with the secret baked in. It's only rendered when
-  // SHOWS_ENABLED (dev/preview) — never in production, where the flag is off —
-  // so the secret never ships in the public site's HTML.
+  // Admin link. Off production we bake the secret in for one-click access
+  // (local/preview only); in production we never embed it — the link is a plain
+  // /admin that prompts for the secret — so the public site's HTML can't leak it.
   const secret = process.env.SCRAPE_SECRET;
-  const adminHref = secret
-    ? `/admin?secret=${encodeURIComponent(secret)}`
-    : "/admin";
+  const isProduction = process.env.VERCEL_ENV === "production";
+  const adminHref =
+    secret && !isProduction
+      ? `/admin?secret=${encodeURIComponent(secret)}`
+      : "/admin";
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
