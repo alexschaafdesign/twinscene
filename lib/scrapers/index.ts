@@ -9,6 +9,7 @@ import type { ScrapedShow } from "./types";
 import { scrapePilllar } from "./pilllar";
 import { scrapeZhora } from "./zhora";
 import { scrapeCloudland } from "./cloudland";
+import { scrapeFirstAvenue } from "./firstavenue";
 
 export type { ScrapedShow };
 
@@ -33,6 +34,11 @@ export const SCRAPERS: Record<string, Scraper> = {
     id: "cloudland",
     name: "Cloudland Theater",
     scrape: scrapeCloudland,
+  },
+  firstavenue: {
+    id: "firstavenue",
+    name: "First Avenue",
+    scrape: scrapeFirstAvenue,
   },
 };
 
