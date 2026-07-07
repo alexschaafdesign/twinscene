@@ -50,6 +50,8 @@ function doPost(e) {
 
     if (p.formType === 'showEdit') return handleShowEdit_(p);
 
+    if (p.formType === 'showLinkBand') return handleShowLinkBand_(p);
+
     if (p.formType === 'nonLocalBand') return handleNonLocalBand_(p);
 
     if (p.formType === 'dismissedBand') return handleDismissedBand_(p);
@@ -329,6 +331,45 @@ function handleShowEdit_(p) {
       return jsonOutput_({ success: true });
     }
 
+    return jsonOutput_({ success: false, error: 'Show not found' });
+  } catch (err) {
+    return jsonOutput_({ success: false, error: String(err) });
+  }
+}
+
+// Add one directory band slug to a show's BAND_SLUGS, located by ID. Used by the
+// admin "relink" sweep to attach a band that wasn't in the directory when the
+// show was scraped. Deliberately light: touches only the BAND_SLUGS cell, so it
+// neither wipes other fields nor sets the EDITED lock (a re-scrape can still
+// refresh the show, and it'll keep the link since the band now matches).
+function handleShowLinkBand_(p) {
+  try {
+    var id = trim_(p.id);
+    var slug = trim_(p.bandSlug);
+    if (!id || !slug) {
+      return jsonOutput_({ success: false, error: 'Missing id or bandSlug' });
+    }
+    ensureShowColumns_();
+    var sheet = getShowsSheet_();
+    var last = sheet.getLastRow();
+    var headers = showHeaders_(sheet);
+    var idIdx = headers.indexOf('ID');
+    var slugsIdx = headers.indexOf('BAND_SLUGS');
+    if (idIdx < 0 || slugsIdx < 0 || last < 2) {
+      return jsonOutput_({ success: false, error: 'Shows sheet not ready' });
+    }
+    var data = sheet.getRange(2, 1, last - 1, headers.length).getValues();
+    for (var i = 0; i < data.length; i++) {
+      if (data[i][idIdx].toString().trim() !== id) continue;
+      var slugs = data[i][slugsIdx]
+        .toString()
+        .split(',')
+        .map(function(x) { return x.trim(); })
+        .filter(String);
+      if (slugs.indexOf(slug) === -1) slugs.push(slug);
+      sheet.getRange(i + 2, slugsIdx + 1, 1, 1).setValue(slugs.join(','));
+      return jsonOutput_({ success: true, bandSlugs: slugs.join(',') });
+    }
     return jsonOutput_({ success: false, error: 'Show not found' });
   } catch (err) {
     return jsonOutput_({ success: false, error: String(err) });

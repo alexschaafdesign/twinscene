@@ -9,6 +9,7 @@ import { createMatcher } from "@/lib/bandMatcher";
 import ShowImportReview, {
   type ImportShow,
 } from "@/components/ShowImportReview";
+import RelinkPanel, { type LinkSuggestion } from "@/components/RelinkPanel";
 
 // Admin-only tool: scrapes live and reads no-store data, so never cache it.
 export const dynamic = "force-dynamic";
@@ -70,6 +71,7 @@ export default async function ImportShowsPage({
 
   let shows: ImportShow[] = [];
   let bandOptions: { slug: string; name: string }[] = [];
+  let linkSuggestions: LinkSuggestion[] = [];
   let error = "";
   const scrapeErrors: string[] = [];
   try {
@@ -90,10 +92,41 @@ export default async function ImportShowsPage({
       .map((b) => ({ slug: b.slug, name: b.name }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    const { matchShow } = createMatcher(bands);
+    const { matchShow, matchBand } = createMatcher(bands);
     const importedKeys = new Set(
       existing.map((s) => s.sourceKey).filter(Boolean),
     );
+
+    // Relink sweep: scheduled shows whose lineup names a band that's now in the
+    // directory but isn't linked yet (its slug not already in bandSlugs).
+    for (const s of existing) {
+      if (!s.id) continue; // need a stable id to target the row
+      const linked = new Set(s.bandSlugs);
+      const seen = new Set<string>();
+      for (const name of s.lineup.split(",").map((n) => n.trim())) {
+        if (!name) continue;
+        const m = matchBand(name);
+        if (
+          m.match &&
+          m.confidence !== "none" &&
+          !linked.has(m.match.slug) &&
+          !seen.has(m.match.slug)
+        ) {
+          seen.add(m.match.slug);
+          linkSuggestions.push({
+            showId: s.id,
+            showTitle: s.title || name,
+            date: s.date,
+            venue: s.venue,
+            scrapedName: name,
+            bandSlug: m.match.slug,
+            bandName: m.match.name,
+            confidence: m.confidence,
+          });
+        }
+      }
+    }
+    linkSuggestions.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
 
     const mapShow = (scraperId: string, show: ScrapedShow): ImportShow => {
       const matched = matchShow(show);
@@ -188,6 +221,8 @@ export default async function ImportShowsPage({
           profile).
         </p>
       </header>
+
+      <RelinkPanel suggestions={linkSuggestions} />
 
       {scrapeErrors.length > 0 && (
         <ul className="mb-6 space-y-1 rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-3.5 py-2.5 text-sm text-[#E8E0D0]/90">
