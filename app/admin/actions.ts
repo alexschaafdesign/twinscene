@@ -2,10 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-
-// Name of the admin login cookie. Its value is the SCRAPE_SECRET itself, so the
-// page can validate it against the env var without a separate session store.
-export const ADMIN_COOKIE = "admin_auth";
+import { ADMIN_COOKIE } from "./constants";
 
 // The password the login form accepts. Prefer a memorable ADMIN_PASSWORD; fall
 // back to SCRAPE_SECRET so login works even before ADMIN_PASSWORD is set.

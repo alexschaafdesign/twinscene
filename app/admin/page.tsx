@@ -15,7 +15,8 @@ import {
 } from "@/lib/fetchDismissedBands";
 import { cookies } from "next/headers";
 import AdminPanel from "@/components/AdminPanel";
-import { ADMIN_COOKIE, loginAdmin } from "./actions";
+import { loginAdmin } from "./actions";
+import { ADMIN_COOKIE } from "./constants";
 
 // Reads the cookie/secret and no-store data at request time — never cache.
 export const dynamic = "force-dynamic";
