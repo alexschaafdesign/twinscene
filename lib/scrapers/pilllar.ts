@@ -10,21 +10,11 @@
 // and attach the most recent flyer image seen before each date.
 
 import * as cheerio from "cheerio";
+import type { ScrapedShow } from "./types";
 
-export type ScrapedShow = {
-  venue: string;
-  date: string | null; // YYYY-MM-DD
-  headliner: string | null;
-  supporting: string[];
-  allBands: string[];
-  flyerUrl: string | null;
-  ticketUrl: string | null;
-  doorsTime: string | null;
-  musicTime: string | null;
-  advancePrice: number | null;
-  dosPrice: number | null;
-  sourceUrl: string;
-};
+// Re-exported so existing importers (e.g. bandMatcher) that reference the type
+// via this module keep working; the canonical definition lives in ./types.
+export type { ScrapedShow };
 
 const VENUE = "Pilllar Forum";
 const SOURCE_URL = "https://www.pilllar.com/pages/events";

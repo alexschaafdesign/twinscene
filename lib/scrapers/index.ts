@@ -5,7 +5,9 @@
 // by id rather than importing each one directly, so adding a venue is a matter
 // of writing its scraper and registering it here.
 
-import { scrapePilllar, type ScrapedShow } from "./pilllar";
+import type { ScrapedShow } from "./types";
+import { scrapePilllar } from "./pilllar";
+import { scrapeZhora } from "./zhora";
 
 export type { ScrapedShow };
 
@@ -20,6 +22,11 @@ export const SCRAPERS: Record<string, Scraper> = {
     id: "pilllar",
     name: "Pilllar Forum",
     scrape: scrapePilllar,
+  },
+  zhora: {
+    id: "zhora",
+    name: "Zhora Darling",
+    scrape: scrapeZhora,
   },
 };
 

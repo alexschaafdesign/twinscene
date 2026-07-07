@@ -11,6 +11,7 @@ export type SuggestedMatch = {
 };
 
 export type ImportShow = {
+  source: string; // scraper id, sent through on confirm (e.g. "pilllar", "zhora")
   sourceKey: string;
   date: string;
   venue: string;
@@ -238,7 +239,7 @@ function ShowCard({
     try {
       const payload = new URLSearchParams({
         formType: "showImport",
-        source: "pilllar",
+        source: show.source,
         sourceKey: show.sourceKey,
         date: date.trim(),
         venue: venue.trim(),

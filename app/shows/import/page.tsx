@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { fetchBands } from "@/lib/fetchBands";
 import { SHOWS_ENABLED } from "@/lib/features";
 import { fetchShows } from "@/lib/fetchShows";
-import { scrapePilllar } from "@/lib/scrapers/pilllar";
+import { getAllScrapers, type ScrapedShow } from "@/lib/scrapers";
 import { createMatcher } from "@/lib/bandMatcher";
 import ShowImportReview, {
   type ImportShow,
@@ -71,11 +71,19 @@ export default async function ImportShowsPage({
   let shows: ImportShow[] = [];
   let bandOptions: { slug: string; name: string }[] = [];
   let error = "";
+  const scrapeErrors: string[] = [];
   try {
-    const [bands, existing, scraped] = await Promise.all([
+    const scrapers = getAllScrapers();
+    const [bands, existing, ...scrapeResults] = await Promise.all([
       fetchBands(),
       fetchShows(),
-      scrapePilllar(),
+      // One failing venue must not blank the whole page.
+      ...scrapers.map((s) =>
+        s.scrape().then(
+          (value) => ({ ok: true as const, value }),
+          (reason) => ({ ok: false as const, reason }),
+        ),
+      ),
     ]);
 
     bandOptions = bands
@@ -87,10 +95,10 @@ export default async function ImportShowsPage({
       existing.map((s) => s.sourceKey).filter(Boolean),
     );
 
-    shows = scraped.map((show) => {
+    const mapShow = (scraperId: string, show: ScrapedShow): ImportShow => {
       const matched = matchShow(show);
       const headliner = show.headliner ?? show.allBands[0] ?? "";
-      const sourceKey = `pilllar:${show.date ?? "nodate"}:${slugify(headliner)}`;
+      const sourceKey = `${scraperId}:${show.date ?? "nodate"}:${slugify(headliner)}`;
 
       const suggestedSlugs = new Set<string>();
       const suggested = matched.bandMatches
@@ -116,6 +124,7 @@ export default async function ImportShowsPage({
       ];
 
       return {
+        source: scraperId,
         sourceKey,
         date: show.date ?? "",
         venue: show.venue,
@@ -131,7 +140,31 @@ export default async function ImportShowsPage({
         unmatched,
         alreadyImported: importedKeys.has(sourceKey),
       };
+    };
+
+    // Flatten every scraper's shows into one list, collecting per-venue errors
+    // so a single failing venue still lets the others through.
+    const collected: ImportShow[] = [];
+    scrapeResults.forEach((result, i) => {
+      const scraper = scrapers[i];
+      if (!result.ok) {
+        scrapeErrors.push(
+          `${scraper.name}: ${
+            result.reason instanceof Error
+              ? result.reason.message
+              : String(result.reason)
+          }`,
+        );
+        return;
+      }
+      for (const show of result.value) collected.push(mapShow(scraper.id, show));
     });
+
+    // Soonest first; undated shows sort last.
+    collected.sort((a, b) =>
+      (a.date || "9999").localeCompare(b.date || "9999"),
+    );
+    shows = collected;
   } catch (err) {
     error = err instanceof Error ? err.message : "Failed to scrape shows";
   }
@@ -146,14 +179,23 @@ export default async function ImportShowsPage({
           <span aria-hidden>←</span> Upcoming Shows
         </Link>
         <h1 className="mt-6 text-2xl font-medium tracking-tight sm:text-3xl">
-          Import Shows — Pilllar Forum
+          Import Shows
         </h1>
         <p className="mt-2 text-sm text-[#E8E0D0]/70">
-          Every scraped show. Edit any field, confirm which directory bands it
-          links to, then add it to the schedule. Confirmed shows appear on the
-          shows page (and on each linked band&apos;s profile).
+          Every scraped show across all venues. Edit any field, confirm which
+          directory bands it links to, then add it to the schedule. Confirmed
+          shows appear on the shows page (and on each linked band&apos;s
+          profile).
         </p>
       </header>
+
+      {scrapeErrors.length > 0 && (
+        <ul className="mb-6 space-y-1 rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-3.5 py-2.5 text-sm text-[#E8E0D0]/90">
+          {scrapeErrors.map((e) => (
+            <li key={e}>⚠ {e}</li>
+          ))}
+        </ul>
+      )}
 
       {error ? (
         <p className="rounded-md border border-[#E5A0A0]/40 bg-[#E5A0A0]/10 px-3.5 py-2.5 text-sm text-[#E5A0A0]">
