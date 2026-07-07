@@ -28,6 +28,12 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* Guard against a few px of horizontal scroll on mobile: any element that
+     edges slightly past the viewport (a stray margin, a wide embed) is clipped
+     rather than opening a horizontal scrollbar. `clip` (not `hidden`) avoids
+     turning the root into a scroll container, so it won't break sticky/anchor
+     scrolling. Vertical scrolling is unaffected. */
+  overflow-x: clip;
 }
 
 body {

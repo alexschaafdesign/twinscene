@@ -96,7 +96,7 @@ function doPost(e) {
 
     const result = writeToIndex_(p, imageUrl, hasNewImage);
     appendShows_(p.bandSlug || '', p.bandName || '', p.shows);
-    // sendNotification_(p, imageUrl, result);
+    sendNotification_(p, imageUrl, result);
 
     return jsonOutput_({ success: true, slug: result.slug, action: result.action });
   } catch (err) {
@@ -522,6 +522,7 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
   if (rowNum) {
     const range = sheet.getRange(rowNum, 1, 1, INDEX_COLUMNS.length);
     const row = range.getValues()[0];
+    const before = row.slice(); // snapshot old values to diff against, below.
     const oldBandcamp = row[col('BANDCAMP')];
     const oldEmbed = row[col('BANDCAMP_EMBED_URL')];
     const oldEmbedHeight = row[col('BANDCAMP_EMBED_HEIGHT')];
@@ -551,7 +552,11 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
       row[col('IMAGE')] = '';
     }
     range.setValues([row]);
-    return { action: 'updated', slug: row[col('SLUG')] };
+    return {
+      action: 'updated',
+      slug: row[col('SLUG')],
+      changes: diffIndexRow_(before, row, col, hasNewImage, p.removeImage === 'true'),
+    };
   }
 
   const newImage = hasNewImage ? imageUrl : '';
@@ -580,7 +585,7 @@ function writeToIndex_(p, imageUrl, hasNewImage) {
     }
   });
   sheet.appendRow(newRow);
-  return { action: 'created', slug: p.bandSlug || '' };
+  return { action: 'created', slug: p.bandSlug || '', changes: null };
 }
 
 function findIndexRowBySlug_(slug) {
@@ -598,34 +603,85 @@ function findIndexRowBySlug_(slug) {
   return null;
 }
 
+// Human-readable Index columns to diff on an edit, in the order they should be
+// shown in the notification. Derived columns (embed URL/height) and the image
+// are handled separately below.
+var DIFF_FIELDS = [
+  ['NAME', 'Name'],
+  ['GENRES', 'Genres'],
+  ['LOCATION', 'Location'],
+  ['NEIGHBORHOODS', 'Neighborhoods'],
+  ['MEMBERS', 'Members'],
+  ['BIO', 'Bio'],
+  ['WEBSITE', 'Website'],
+  ['INSTAGRAM', 'Instagram'],
+  ['BANDCAMP', 'Bandcamp'],
+  ['FEATURED_LINKS', 'Featured links'],
+  ['CONTACT_EMAIL', 'Contact email'],
+  ['CONTACT_METHOD', 'Contact method'],
+];
+
+/** Shorten long cell values so the email stays scannable. */
+function truncateForEmail_(v) {
+  var s = (v == null ? '' : v).toString().replace(/\s+/g, ' ').trim();
+  return s.length > 120 ? s.slice(0, 117) + '…' : s;
+}
+
+/**
+ * Compare the old and new Index row values and return a list of
+ * { label, from, to } for each changed field, plus a photo change if any.
+ */
+function diffIndexRow_(before, after, col, hasNewImage, removedImage) {
+  var changes = [];
+  DIFF_FIELDS.forEach(function(pair) {
+    var i = col(pair[0]);
+    var oldVal = (before[i] == null ? '' : before[i]).toString().trim();
+    var newVal = (after[i] == null ? '' : after[i]).toString().trim();
+    if (oldVal !== newVal) {
+      changes.push({ label: pair[1], from: oldVal, to: newVal });
+    }
+  });
+  if (hasNewImage) {
+    changes.push({ label: 'Photo', from: '(previous)', to: after[col('IMAGE')] });
+  } else if (removedImage) {
+    changes.push({ label: 'Photo', from: '(previous)', to: '(removed)' });
+  }
+  return changes;
+}
+
 function sendNotification_(p, imageUrl, result) {
-  const photoLine = imageUrl
-    ? 'Photo: ' + imageUrl
-    : 'Photo: (none — existing photo kept)';
+  const isUpdate = result.action === 'updated';
+
+  let whatChanged;
+  if (!isUpdate) {
+    whatChanged = ['New band added to the directory.'];
+  } else if (result.changes && result.changes.length) {
+    whatChanged = ['What changed:'].concat(
+      result.changes.map(function(c) {
+        return '  • ' + c.label + ': "' + truncateForEmail_(c.from) +
+          '" → "' + truncateForEmail_(c.to) + '"';
+      })
+    );
+  } else {
+    whatChanged = ['No field values changed (re-submitted with identical data).'];
+  }
 
   const body = [
     'This submission has been published live automatically.',
     '',
     'Action: ' + result.action + ' (slug: ' + result.slug + ')',
-    'Mode: ' + (p.mode || 'add'),
     'Band: ' + (p.bandName || ''),
-    'Genres: ' + (p.genres || ''),
-    'Location: ' + (p.location || ''),
-    'Started: ' + (p.started || ''),
-    'Status: ' + (p.status || ''),
-    'Website: ' + (p.website || ''),
-    'Instagram: ' + (p.instagram || ''),
-    'Bandcamp: ' + (p.bandcamp || ''),
-    'Spotify: ' + (p.spotify || ''),
-    'Bio: ' + (p.bio || ''),
-    photoLine,
     'Submitted by: ' + (p.submitterName || '') + ' <' + (p.submitterEmail || '') + '>',
-    'Notes: ' + (p.notes || ''),
-  ].join('\n');
+    '',
+  ].concat(whatChanged).concat([
+    '',
+    'Notes: ' + (p.notes || '—'),
+  ]).join('\n');
 
+  const verb = isUpdate ? 'Edited' : 'Added';
   MailApp.sendEmail(
     NOTIFY_EMAIL,
-    '[TCMS] Published: ' + (p.bandName || 'unknown'),
+    '[TCMS] ' + verb + ': ' + (p.bandName || 'unknown'),
     body,
   );
 }
