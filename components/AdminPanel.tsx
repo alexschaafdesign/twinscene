@@ -316,33 +316,35 @@ export default function AdminPanel({
       {/* 2. QUEUED FOR REVIEW ─────────────────────────────────────────── */}
       <section className="mb-12">
         <h2 className={`${SECTION_HEADING} mb-4`}>Queued for review</h2>
-        <div className="space-y-3">
-          {scrapers.map((scraper) => {
-            const latest = latestFor(scraper.id, scraper.name);
-            const queued = latest?.entry.queued;
-            return (
-              <div
-                key={scraper.id}
-                className={`${CARD} flex flex-wrap items-center justify-between gap-3`}
-              >
-                <div>
-                  <p className="text-sm text-[#E8E0D0]">{scraper.name}</p>
-                  <p className="mt-0.5 text-xs text-[#E8E0D0]/55">
-                    {queued != null
-                      ? `${queued} show${queued === 1 ? "" : "s"} queued`
-                      : "no recent run"}
-                  </p>
-                </div>
-                <a
-                  href={`/shows/import?${q}`}
-                  className={BTN}
-                >
-                  Review imports →
-                </a>
+        {(() => {
+          const perVenue = scrapers.map((scraper) => ({
+            name: scraper.name,
+            queued: latestFor(scraper.id, scraper.name)?.entry.queued ?? null,
+          }));
+          const total = perVenue.reduce((n, v) => n + (v.queued ?? 0), 0);
+          return (
+            <div
+              className={`${CARD} flex flex-wrap items-center justify-between gap-3`}
+            >
+              <div className="min-w-0">
+                <p className="text-sm text-[#E8E0D0]">
+                  {total} show{total === 1 ? "" : "s"} queued across all venues
+                </p>
+                <p className="mt-0.5 text-xs text-[#E8E0D0]/55">
+                  {perVenue
+                    .map(
+                      (v) =>
+                        `${v.name}: ${v.queued != null ? v.queued : "—"}`,
+                    )
+                    .join(" · ")}
+                </p>
               </div>
-            );
-          })}
-        </div>
+              <a href={`/shows/import?${q}`} className={BTN}>
+                Review imports →
+              </a>
+            </div>
+          );
+        })()}
       </section>
 
       {/* 3. NEW BANDS DISCOVERED ──────────────────────────────────────── */}
