@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { runAllScrapers } from "@/lib/scrapers/runAll";
+import { SHOWS_ENABLED } from "@/lib/features";
 
 // cheerio needs the Node.js runtime, and the scrape must never be cached.
 export const runtime = "nodejs";
@@ -13,6 +14,12 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   if (!request.headers.get("x-vercel-cron")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Gated by the feature flag: with Shows off (production default) the daily
+  // scrape stays inert — no auto-import, no digest email — until it's enabled.
+  if (!SHOWS_ENABLED) {
+    return NextResponse.json({ skipped: "shows disabled" });
   }
 
   try {
