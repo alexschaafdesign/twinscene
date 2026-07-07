@@ -6,7 +6,7 @@ import { SHOWS_ENABLED } from "@/lib/features";
 
 type Mode = "add" | "correct";
 
-const BIO_MAX = 750;
+const BIO_MAX = 1500;
 
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
 
@@ -593,6 +593,10 @@ export default function SubmitForm({
   function validate(): Partial<Record<keyof FormState, string>> {
     const e: Partial<Record<keyof FormState, string>> = {};
     if (!form.bandName.trim()) e.bandName = "Required";
+    // TEMP: all fields except Band name made optional for bulk band entry.
+    // Revert this function to restore the full validation below.
+    return e;
+    /* eslint-disable no-unreachable */
     // Submitter name/email required for both new bands and corrections.
     if (!form.submitterName.trim()) e.submitterName = "Required";
     if (!form.submitterEmail.trim()) e.submitterEmail = "Required";
@@ -611,6 +615,7 @@ export default function SubmitForm({
     if (form.contactEmail.trim() && !EMAIL_RE.test(form.contactEmail.trim()))
       e.contactEmail = "Enter a valid email address";
     return e;
+    /* eslint-enable no-unreachable */
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -618,11 +623,11 @@ export default function SubmitForm({
     const found = validate();
     setErrors(found);
 
-    // A photo is required when adding a band, but optional for corrections.
+    // A photo is normally required when adding a band, but optional for
+    // corrections. TEMP: photo made optional everywhere for bulk band entry
+    // (restore the `if (!isCorrect) imgErr = "Required";` line to revert).
     let imgErr = "";
-    if (!imageFile) {
-      if (!isCorrect) imgErr = "Required";
-    } else if (imageFile.size > MAX_IMAGE_BYTES) {
+    if (imageFile && imageFile.size > MAX_IMAGE_BYTES) {
       imgErr = "Image too large — please use a file under 8MB";
     }
     setImageError(imgErr);
