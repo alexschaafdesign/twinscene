@@ -4,20 +4,20 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
-# Dev environments (two worktrees)
+# Shows feature flag
 
-The Shows directory (scrapers, `app/shows/**`, `lib/shows/**`, `lib/scrapers/**`) is an
-in-progress feature gated behind `NEXT_PUBLIC_SHOWS_ENABLED` (`lib/features.ts`). It's
-developed in a separate git worktree so the stable build is never affected:
+The Shows feature (scrapers, `app/shows/**`, `lib/scrapers/**`, the shows admin,
+plus the shows bits woven into the home page, band profiles, and `SubmitForm`) is
+in progress and gated behind `NEXT_PUBLIC_SHOWS_ENABLED` (`lib/features.ts`). It all
+lives on `main` — no separate branch — and the flag alone decides whether it's
+visible:
 
-| Worktree | Branch | `NEXT_PUBLIC_SHOWS_ENABLED` | Dev port | Purpose |
-|---|---|---|---|---|
-| `~/twinscene` | `main` | `false` | 3000 | Stable build, Shows hidden |
-| `~/twinscene-shows` | `shows` | `true` | 3001 | All Shows development |
-
-- Each worktree has its own untracked `.env.local` (the flag value differs) and its own
-  `node_modules`. `.env.local` does not copy across worktrees automatically.
-- Commit Shows work on the `shows` branch only; `main` stays clean until `shows` is merged.
-- Keep the branch fresh: from `~/twinscene-shows`, run `git merge main` periodically.
-- Run each server on its own port: `npm run dev` (3000) and `npm run dev -- -p 3001`.
-- Tear down: `git worktree remove ~/twinscene-shows` (then `git branch -D shows` to abandon).
+- **Production:** leave `NEXT_PUBLIC_SHOWS_ENABLED` unset (falsy) so Shows stays
+  hidden — the nav link, `/shows*` routes, band-profile shows, the home-page admin
+  link, and the daily scrape cron all no-op.
+- **Local dev:** enable it in `.env.local` with `NEXT_PUBLIC_SHOWS_ENABLED=true`.
+- The flag is `NEXT_PUBLIC_`, so it's inlined at build time — a production build
+  without it tree-shakes the Shows UI out entirely.
+- When gating a new Shows surface, import `SHOWS_ENABLED` from `@/lib/features` and
+  guard on it (mirror the existing routes/components) so nothing leaks with the
+  flag off.
