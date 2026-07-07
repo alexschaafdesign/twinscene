@@ -13,10 +13,43 @@ import {
   fetchDismissedBands,
   type DismissedBand,
 } from "@/lib/fetchDismissedBands";
+import { cookies } from "next/headers";
 import AdminPanel from "@/components/AdminPanel";
+import { ADMIN_COOKIE, loginAdmin } from "./actions";
 
-// Reads the secret and no-store data at request time — never cache.
+// Reads the cookie/secret and no-store data at request time — never cache.
 export const dynamic = "force-dynamic";
+
+/** Password prompt shown when the visitor isn't logged in. */
+function AdminLogin({ error }: { error: boolean }) {
+  return (
+    <main className="mx-auto flex w-full max-w-sm flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
+      <h1 className="text-xl font-medium">TCMS Admin</h1>
+      <p className="mt-2 text-sm text-[#E8E0D0]/60">
+        Enter the admin password to continue.
+      </p>
+      <form action={loginAdmin} className="mt-6 flex flex-col gap-3">
+        <input
+          type="password"
+          name="password"
+          autoFocus
+          autoComplete="current-password"
+          placeholder="Password"
+          className="w-full rounded-md border border-[#E8E0D0]/25 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
+        />
+        <button
+          type="submit"
+          className="rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm transition hover:bg-[#E8E0D0]/10"
+        >
+          Enter
+        </button>
+        {error && (
+          <p className="text-sm text-[#F5A3A3]">Incorrect password.</p>
+        )}
+      </form>
+    </main>
+  );
+}
 
 export default async function AdminPage({
   searchParams,
@@ -26,17 +59,13 @@ export default async function AdminPage({
   const sp = await searchParams;
   const secret = process.env.SCRAPE_SECRET;
   const provided = typeof sp.secret === "string" ? sp.secret : "";
+  const cookieVal = (await cookies()).get(ADMIN_COOKIE)?.value;
 
-  // Gate on SCRAPE_SECRET. Return a plain Unauthorized response, not a redirect.
-  if (!secret || provided !== secret) {
-    return (
-      <main className="mx-auto w-full max-w-3xl px-5 py-20 text-center text-[#E8E0D0] sm:px-8">
-        <h1 className="text-xl font-medium">Unauthorized</h1>
-        <p className="mt-3 text-sm text-[#E8E0D0]/60">
-          Append <code>?secret=…</code> to access the admin tools.
-        </p>
-      </main>
-    );
+  // Authenticated via the login cookie or a matching ?secret= (kept for
+  // bookmarks/back-compat). Otherwise show the password form.
+  const authed = !!secret && (cookieVal === secret || provided === secret);
+  if (!authed) {
+    return <AdminLogin error={sp.error === "1"} />;
   }
 
   const [log, bands, nonLocalBands, dismissedBands]: [
@@ -64,7 +93,7 @@ export default async function AdminPage({
       bands={bands}
       nonLocalBands={nonLocalBands}
       dismissedBands={dismissedBands}
-      secret={provided}
+      secret={secret}
       logConfigured={SCRAPER_LOG_CONFIGURED}
     />
   );
