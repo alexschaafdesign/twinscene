@@ -231,7 +231,7 @@ export default function BandProfile({
       */}
       <div className="space-y-6 md:col-start-2 md:row-span-2 md:row-start-1">
         <div>
-          <h1 className="text-3xl font-medium leading-tight sm:text-4xl">
+          <h1 className="text-3xl font-medium leading-tight break-words sm:text-4xl">
             {band.name}
           </h1>
           <PlaceLine band={band} className="mt-2 text-sm" />
@@ -250,7 +250,7 @@ export default function BandProfile({
         </div>
 
         {/* Bio — right below the name */}
-        <p className="whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/85">
+        <p className="whitespace-pre-line break-words text-sm leading-relaxed text-[#E8E0D0]/85">
           {band.bio || "No bio yet."}
         </p>
 
