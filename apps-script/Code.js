@@ -96,7 +96,12 @@ function doPost(e) {
 
     const result = writeToIndex_(p, imageUrl, hasNewImage);
     appendShows_(p.bandSlug || '', p.bandName || '', p.shows);
-    sendNotification_(p, imageUrl, result);
+    // TEMP: bulk quick-adds (name-only, from the show-import review) skip the
+    // notification email to shave a round-trip off each add. Remove the guard
+    // to restore notifications for every submission.
+    if (p.quickAdd !== 'true') {
+      sendNotification_(p, imageUrl, result);
+    }
 
     return jsonOutput_({ success: true, slug: result.slug, action: result.action });
   } catch (err) {

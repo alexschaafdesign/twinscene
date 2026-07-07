@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { postToAppsScript } from "@/lib/postToAppsScript";
 
 export type SuggestedMatch = {
   slug: string;
@@ -93,9 +94,11 @@ function UnmatchedBand({
         bandSlug: slugify(name),
         removeImage: "false",
         featuredLinks: "[]",
+        // TEMP: skip the per-band notification email for these bulk quick-adds
+        // (Apps Script honors quickAdd to avoid an extra round-trip per add).
+        quickAdd: "true",
       });
-      const res = await fetch(url, { method: "POST", body: payload });
-      const data = await res.json();
+      const data = await postToAppsScript(url, payload);
       if (!data.success) throw new Error(data.error || "Add failed");
       onAdded({ slug: slugify(name), name });
       setStatus("done");
@@ -299,8 +302,7 @@ function ShowCard({
         link: link.trim(),
         flyerUrl: show.flyerUrl ?? "",
       });
-      const res = await fetch(url, { method: "POST", body: payload });
-      const data = await res.json();
+      const data = await postToAppsScript(url, payload);
       if (!data.success) throw new Error(data.error || "Import failed");
       setStatus("done");
     } catch (err) {

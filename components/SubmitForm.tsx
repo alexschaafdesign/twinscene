@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SHOWS_ENABLED } from "@/lib/features";
+import { postToAppsScript } from "@/lib/postToAppsScript";
 
 type Mode = "add" | "correct";
 
@@ -596,7 +597,6 @@ export default function SubmitForm({
     // TEMP: all fields except Band name made optional for bulk band entry.
     // Revert this function to restore the full validation below.
     return e;
-    /* eslint-disable no-unreachable */
     // Submitter name/email required for both new bands and corrections.
     if (!form.submitterName.trim()) e.submitterName = "Required";
     if (!form.submitterEmail.trim()) e.submitterEmail = "Required";
@@ -615,7 +615,6 @@ export default function SubmitForm({
     if (form.contactEmail.trim() && !EMAIL_RE.test(form.contactEmail.trim()))
       e.contactEmail = "Enter a valid email address";
     return e;
-    /* eslint-enable no-unreachable */
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -706,9 +705,9 @@ export default function SubmitForm({
       payload.set("featuredLinks", JSON.stringify(filledLinks));
 
       // Form-encoded body keeps this a "simple" CORS request (no preflight),
-      // matching the Birdhaus RSVP webhook pattern.
-      const res = await fetch(url, { method: "POST", body: payload });
-      const data = await res.json();
+      // matching the Birdhaus RSVP webhook pattern. postToAppsScript parses the
+      // reply defensively and retries the occasional non-JSON error page.
+      const data = await postToAppsScript(url, payload);
       if (!data.success) {
         throw new Error(data.error || "Submission failed");
       }
