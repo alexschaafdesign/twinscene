@@ -166,9 +166,11 @@ function LabeledField({
 function ShowCard({
   show,
   bands,
+  hidden,
 }: {
   show: ImportShow;
   bands: BandOption[];
+  hidden?: boolean;
 }) {
   const [date, setDate] = useState(show.date);
   const [venue, setVenue] = useState(show.venue);
@@ -261,7 +263,11 @@ function ShowCard({
   }
 
   return (
-    <li className="rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] p-4">
+    <li
+      className={`rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] p-4${
+        hidden ? " hidden" : ""
+      }`}
+    >
       {expanded && show.flyerUrl && (
         <div
           role="dialog"
@@ -467,6 +473,15 @@ function ShowCard({
   );
 }
 
+type Filter = "review" | "scheduled" | "all";
+
+/** Whether a show belongs in the given filter view. */
+function inFilter(show: ImportShow, filter: Filter): boolean {
+  if (filter === "review") return !show.alreadyImported;
+  if (filter === "scheduled") return show.alreadyImported;
+  return true;
+}
+
 export default function ShowImportReview({
   shows,
   bandOptions,
@@ -474,10 +489,32 @@ export default function ShowImportReview({
   shows: ImportShow[];
   bandOptions: BandOption[];
 }) {
+  const [filter, setFilter] = useState<Filter>("review");
+
   const pending = useMemo(
     () => shows.filter((s) => !s.alreadyImported).length,
     [shows],
   );
+  const scheduled = shows.length - pending;
+  const counts: Record<Filter, number> = {
+    review: pending,
+    scheduled,
+    all: shows.length,
+  };
+
+  const tabs: { key: Filter; label: string }[] = [
+    { key: "review", label: "Needs review" },
+    { key: "scheduled", label: "On schedule" },
+    { key: "all", label: "All" },
+  ];
+
+  const plural = (n: number) => (n === 1 ? "" : "s");
+  const summary =
+    filter === "all"
+      ? `${shows.length} show${plural(shows.length)} scraped · ${pending} not yet on the schedule`
+      : filter === "review"
+        ? `${pending} show${plural(pending)} not yet on the schedule`
+        : `${scheduled} show${plural(scheduled)} on the schedule`;
 
   if (shows.length === 0) {
     return (
@@ -489,16 +526,49 @@ export default function ShowImportReview({
 
   return (
     <div>
-      <p className="mb-4 text-xs text-[#E8E0D0]/50">
-        {shows.length} show{shows.length === 1 ? "" : "s"} scraped · {pending}{" "}
-        not yet on the schedule
-      </p>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {tabs.map((t) => {
+          const active = filter === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setFilter(t.key)}
+              aria-pressed={active}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
+                active
+                  ? "bg-[#E8E0D0] text-[#2A2420]"
+                  : "border border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+              }`}
+            >
+              {t.label}{" "}
+              <span className={active ? "opacity-60" : "opacity-50"}>
+                {counts[t.key]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <p className="mb-4 text-xs text-[#E8E0D0]/50">{summary}</p>
+
+      {counts[filter] === 0 ? (
+        <p className="py-12 text-center text-sm text-[#E8E0D0]/50">
+          {filter === "review"
+            ? "Nothing to review — every scraped show is on the schedule."
+            : "No shows on the schedule yet."}
+        </p>
+      ) : null}
+
+      {/* Every card stays mounted (non-matching ones are hidden) so per-show
+          edits are preserved when switching tabs. */}
       <ul className="space-y-3">
         {shows.map((show, i) => (
           <ShowCard
             key={`${show.sourceKey}-${i}`}
             show={show}
             bands={bandOptions}
+            hidden={!inFilter(show, filter)}
           />
         ))}
       </ul>
