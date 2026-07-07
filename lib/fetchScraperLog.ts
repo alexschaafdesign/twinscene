@@ -1,12 +1,12 @@
 // Data layer for the scraper digest log.
-// Fetches a published Google Sheet (CSV) — the "Scraper Log" tab written by the
-// Apps Script handleScraperLog_ handler — and parses it into ScraperLogRow
-// objects. Like fetchShows.ts, the fetch uses `cache: 'no-store'` plus a
-// cache-busting timestamp so the admin page always reflects the latest runs.
-
-// TODO: replace YOUR_SCRAPER_LOG_GID with the real gid once the "Scraper Log"
-// tab is published to the web (File → Share → Publish to web → that tab → CSV).
-const SCRAPER_LOG_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=1124015887&single=true&output=csv';
+// Fetches the live "Scraper Log" tab (written by the Apps Script
+// handleScraperLog_ handler) as CSV via the gviz endpoint and parses it into
+// ScraperLogRow objects. Like fetchShows.ts, the fetch uses `cache: 'no-store'`
+// plus a cache-busting timestamp so the admin page always reflects the latest
+// runs. gviz reads the live sheet (no publish-to-web cache lag) — see the note
+// in fetchBands.ts; gid=1124015887 targets the "Scraper Log" tab.
+const SCRAPER_LOG_CSV_URL =
+  'https://docs.google.com/spreadsheets/d/19a_z884uoSZ4KvAOjAFsZaDikRZLHhdRLKBGxkuns90/gviz/tq?tqx=out:csv&gid=1124015887&headers=1';
 
 /** Whether the log CSV URL has had its real gid filled in yet. */
 export const SCRAPER_LOG_CONFIGURED = true;

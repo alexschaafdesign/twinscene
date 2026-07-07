@@ -1,13 +1,13 @@
 // Data layer for the "Non-Local Bands" log.
-// Fetches a published Google Sheet (CSV) — the "Non-Local Bands" tab written by
-// the Apps Script handleNonLocalBand_ handler — and parses it into NonLocalBand
-// objects. Like fetchScraperLog.ts, the fetch uses `cache: 'no-store'` plus a
-// cache-busting timestamp so the admin page always reflects the latest data.
-
+// Fetches the live "Non-Local Bands" tab (written by the Apps Script
+// handleNonLocalBand_ handler) as CSV via the gviz endpoint and parses it into
+// NonLocalBand objects. Like fetchScraperLog.ts, the fetch uses
+// `cache: 'no-store'` plus a cache-busting timestamp so the admin page always
+// reflects the latest data. gid=2050025979 targets the "Non-Local Bands" tab.
 const NON_LOCAL_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=2050025979&single=true&output=csv";
+  "https://docs.google.com/spreadsheets/d/19a_z884uoSZ4KvAOjAFsZaDikRZLHhdRLKBGxkuns90/gviz/tq?tqx=out:csv&gid=2050025979&headers=1";
 
-/** The "Non-Local Bands" tab is published with its real gid, so reads are live. */
+/** The gviz endpoint reads the live sheet, so non-local reads are always on. */
 export const NON_LOCAL_CONFIGURED = true;
 
 export type NonLocalBand = {

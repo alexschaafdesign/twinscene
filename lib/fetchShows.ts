@@ -1,12 +1,15 @@
 // Data layer for upcoming shows.
-// Fetches a published Google Sheet (CSV) — the "Shows" tab of the same
-// spreadsheet as the band directory — and parses it into Show objects.
-// Like fetchBands.ts, the fetch uses `cache: 'no-store'` plus a cache-busting
-// timestamp so the list always reflects the latest sheet data.
+// Fetches the live "Shows" tab of the band-directory spreadsheet as CSV and
+// parses it into Show objects. Like fetchBands.ts, the fetch uses
+// `cache: 'no-store'` plus a cache-busting timestamp so the list always
+// reflects the latest sheet data.
 
-// Same base spreadsheet as CSV_URL in fetchBands.ts, but the Shows tab's gid.
+// Same spreadsheet as fetchBands.ts, read through the live gviz endpoint (not
+// the cached publish-to-web feed) so edits show up almost immediately. Uses the
+// raw spreadsheet id; headers=1 keeps the header row out of the data; gid
+// targets the "Shows" tab.
 const SHOWS_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=1656115359&single=true&output=csv";
+  "https://docs.google.com/spreadsheets/d/19a_z884uoSZ4KvAOjAFsZaDikRZLHhdRLKBGxkuns90/gviz/tq?tqx=out:csv&gid=1656115359&headers=1";
 
 export type Show = {
   id: string; // stable per-row id used to target edits ("" for un-backfilled rows)

@@ -1,17 +1,17 @@
 // Data layer for the "Dismissed Bands" log.
-// Fetches a published Google Sheet (CSV) — the "Dismissed Bands" tab written by
-// the Apps Script handleDismissedBand_ handler — and parses it into
+// Fetches the live "Dismissed Bands" tab (written by the Apps Script
+// handleDismissedBand_ handler) as CSV via the gviz endpoint and parses it into
 // DismissedBand objects. Mirrors lib/fetchNonLocalBands.ts: the fetch uses
 // `cache: 'no-store'` plus a cache-busting timestamp so the admin page always
 // reflects the latest data.
 //
 // The "Dismissed Bands" tab is created automatically the first time a band is
-// dismissed, and is published to the web (File → Share → Publish to web → that
-// tab → CSV) so reads work.
+// dismissed; gviz reads the live sheet, so no publish-to-web step is needed.
+// gid=832751827 targets the "Dismissed Bands" tab.
 const DISMISSED_CSV_URL =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vSeDcefYYw19XAqsyo5d_VKSbS8LkwtUgHzV5ZZCcfYforhoZDdR-CpbCK4__z0nmajAbb0MK_9xVoQ/pub?gid=832751827&single=true&output=csv";
+  "https://docs.google.com/spreadsheets/d/19a_z884uoSZ4KvAOjAFsZaDikRZLHhdRLKBGxkuns90/gviz/tq?tqx=out:csv&gid=832751827&headers=1";
 
-/** The "Dismissed Bands" tab is published with its real gid, so reads are live. */
+/** The gviz endpoint reads the live sheet, so dismissed reads are always on. */
 export const DISMISSED_CONFIGURED = true;
 
 export type DismissedBand = {
