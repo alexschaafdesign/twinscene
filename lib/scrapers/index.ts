@@ -8,6 +8,7 @@
 import type { ScrapedShow } from "./types";
 import { scrapePilllar } from "./pilllar";
 import { scrapeZhora } from "./zhora";
+import { scrapeCloudland } from "./cloudland";
 
 export type { ScrapedShow };
 
@@ -27,6 +28,11 @@ export const SCRAPERS: Record<string, Scraper> = {
     id: "zhora",
     name: "Zhora Darling",
     scrape: scrapeZhora,
+  },
+  cloudland: {
+    id: "cloudland",
+    name: "Cloudland Theater",
+    scrape: scrapeCloudland,
   },
 };
 
