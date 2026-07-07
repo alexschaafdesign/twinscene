@@ -8,6 +8,7 @@ import { fetchBands } from "@/lib/fetchBands";
 import { createMatcher, type MatchedShow } from "@/lib/bandMatcher";
 import { getAllScrapers, type Scraper } from "@/lib/scrapers";
 import { autoImportShow } from "@/lib/scrapers/autoImport";
+import { AUTO_IMPORT_ALL_SHOWS } from "@/lib/features";
 
 export type ScraperDigest = {
   id: string;
@@ -91,8 +92,12 @@ export async function runScrapers(
     }
 
     const shows = result.value;
-    const autoShows = shows.filter(isAutoShow);
-    const reviewShows = shows.filter((s) => !isAutoShow(s));
+    // With AUTO_IMPORT_ALL_SHOWS on, everything imports and nothing is queued;
+    // otherwise only high-confidence shows import and the rest await review.
+    const autoShows = AUTO_IMPORT_ALL_SHOWS ? shows : shows.filter(isAutoShow);
+    const reviewShows = AUTO_IMPORT_ALL_SHOWS
+      ? []
+      : shows.filter((s) => !isAutoShow(s));
 
     // Auto-import the high-confidence shows (only when we have somewhere to
     // send them). Count only the ones the Apps Script accepted.
