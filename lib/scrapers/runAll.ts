@@ -6,7 +6,7 @@
 
 import { fetchBands } from "@/lib/fetchBands";
 import { createMatcher, type MatchedShow } from "@/lib/bandMatcher";
-import { getAllScrapers } from "@/lib/scrapers";
+import { getAllScrapers, type Scraper } from "@/lib/scrapers";
 import { autoImportShow } from "@/lib/scrapers/autoImport";
 
 export type ScraperDigest = {
@@ -37,14 +37,28 @@ function isAutoShow(show: MatchedShow): boolean {
 }
 
 export async function runAllScrapers(): Promise<DigestSummary> {
+  // The full run (cron / "Run all") emails the digest.
+  return runScrapers(getAllScrapers(), { notify: true });
+}
+
+/**
+ * Run a specific set of scrapers: scrape, auto-import high-confidence shows,
+ * queue the rest, log the digest. `runAllScrapers` is this over every scraper;
+ * the per-venue admin "Run now" is this over one, so both import and log
+ * identically (only the scope differs). `notify` controls the digest email —
+ * on for the daily run, off for a manual single-venue run.
+ */
+export async function runScrapers(
+  scrapers: Scraper[],
+  opts: { notify?: boolean } = {},
+): Promise<DigestSummary> {
+  const notify = opts.notify ?? false;
   const submitUrl = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
 
   // Fetch the directory and build the fuzzy matcher once, shared across every
   // scraper's shows.
   const bands = await fetchBands();
   const { matchShow } = createMatcher(bands);
-
-  const scrapers = getAllScrapers();
 
   // One failing scraper must not block the others.
   const results = await Promise.allSettled(
@@ -128,6 +142,7 @@ export async function runAllScrapers(): Promise<DigestSummary> {
         body: new URLSearchParams({
           formType: "scraperLog",
           summary: JSON.stringify(summary),
+          notify: notify ? "true" : "false",
         }),
       });
     } catch {

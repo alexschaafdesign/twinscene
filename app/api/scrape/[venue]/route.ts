@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getScraper } from "@/lib/scrapers";
-import { fetchBands } from "@/lib/fetchBands";
-import { createMatcher, type MatchedShow } from "@/lib/bandMatcher";
+import { runScrapers } from "@/lib/scrapers/runAll";
 
-// cheerio needs the Node.js runtime, and the scrape must never be cached.
+// The scrape must never be cached, and it uses the Node.js runtime.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -26,16 +25,12 @@ export async function GET(
   }
 
   try {
-    const bands = await fetchBands();
-    const { matchShow } = createMatcher(bands);
-    const scraped = await scraper.scrape();
-    const shows: MatchedShow[] = scraped.map(matchShow);
-
-    return NextResponse.json({
-      scraper: scraper.name,
-      scraped: shows.length,
-      shows,
-    });
+    // Real per-venue run: scrapes, auto-imports high-confidence shows, queues
+    // the rest, and logs the digest — so the admin's "Last run" is accurate.
+    const summary = await runScrapers([scraper]);
+    const entry = summary.scrapers[0];
+    if (entry?.error) throw new Error(entry.error);
+    return NextResponse.json(summary);
   } catch (err) {
     const message =
       err instanceof Error ? err.message : `Failed to scrape ${scraper.name}`;

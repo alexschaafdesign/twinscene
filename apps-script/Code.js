@@ -842,12 +842,16 @@ function handleScraperLog_(p) {
     newBandNames.forEach(function(name) { lines.push('  - ' + name); });
   }
 
-  MailApp.sendEmail(
-    NOTIFY_EMAIL,
-    '[TCMS] Daily scrape: ' + totalImported + ' shows imported, ' +
-    totalQueued + ' queued, ' + totalNewBands + ' new bands',
-    lines.join('\n')
-  );
+  // Manual single-venue runs (notify=false) still log the row above but skip the
+  // digest email; the daily run / "Run all" (notify=true) emails.
+  if (p.notify !== 'false') {
+    MailApp.sendEmail(
+      NOTIFY_EMAIL,
+      '[TCMS] Daily scrape: ' + totalImported + ' shows imported, ' +
+      totalQueued + ' queued, ' + totalNewBands + ' new bands',
+      lines.join('\n')
+    );
+  }
 
   return jsonOutput_({ success: true });
 }

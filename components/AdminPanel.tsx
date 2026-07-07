@@ -121,12 +121,13 @@ export default function AdminPanel({
     setRunStates((s) => ({ ...s, [id]: { status: "loading", message: "" } }));
     try {
       const res = await fetch(`/api/scrape/${id}?${q}`);
-      const data = await res.json();
+      const data = (await res.json()) as Digest & { error?: string };
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setRunStates((s) => ({
-        ...s,
-        [id]: { status: "done", message: `Done — ${data.scraped} shows scraped` },
-      }));
+      const entry = data.scrapers?.[0];
+      const message = entry
+        ? `Done — ${entry.total} scraped, ${entry.autoImported} imported, ${entry.queued} queued`
+        : "Done";
+      setRunStates((s) => ({ ...s, [id]: { status: "done", message } }));
     } catch (err) {
       setRunStates((s) => ({
         ...s,
