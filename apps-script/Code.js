@@ -58,6 +58,8 @@ function doPost(e) {
 
     if (p.formType === 'scraperLog') return handleScraperLog_(p);
 
+    if (p.formType === 'venue') return handleVenueSubmission_(p);
+
 
     let imageUrl = '';
     if (p.imageBase64) {
@@ -404,6 +406,127 @@ function backfillShowIds() {
   }
   if (n > 0) idRange.setValues(ids);
   Logger.log('backfillShowIds: %s id(s) added', n);
+}
+
+// Columns the app manages beyond the sheet's original hand-entered schema.
+// SLUG is the stable per-venue key upserts/edits are located by; ADDED is a
+// creation-date stamp. Appended (not inserted) so the sheet's existing column
+// order never shifts — mirrors ensureShowColumns_'s approach for Shows.
+var VENUE_MANAGED_COLUMNS = ['SLUG', 'ADDED'];
+
+function getVenueSheet_() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Venue');
+  if (!sheet) throw new Error('Venue sheet not found');
+  return sheet;
+}
+
+function venueHeaders_(sheet) {
+  return sheet
+    .getRange(1, 1, 1, sheet.getLastColumn())
+    .getValues()[0]
+    .map(function(h) { return h.toString().trim().toUpperCase(); });
+}
+
+function ensureVenueColumns_() {
+  var sheet = getVenueSheet_();
+  var headers = venueHeaders_(sheet);
+  VENUE_MANAGED_COLUMNS.forEach(function(name) {
+    if (headers.indexOf(name) === -1) {
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(name);
+      headers.push(name);
+    }
+  });
+}
+
+function findVenueRowBySlug_(slug) {
+  if (!slug) return null;
+  var sheet = getVenueSheet_();
+  var headers = venueHeaders_(sheet);
+  var slugIdx = headers.indexOf('SLUG');
+  var last = sheet.getLastRow();
+  if (slugIdx < 0 || last < 2) return null;
+  var values = sheet.getRange(2, slugIdx + 1, last - 1, 1).getValues();
+  var target = String(slug).trim();
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][0]).trim() === target) return i + 2;
+  }
+  return null;
+}
+
+// Add or update a row on the "Venue" tab, located by its stable SLUG (like
+// findIndexRowBySlug_ does for bands). Reads/writes by header name rather
+// than a fixed column-order array (like the Shows-tab helpers above), since
+// the live Venue sheet's column order predates this feature and isn't
+// guaranteed to match any particular sequence here.
+function handleVenueSubmission_(p) {
+  try {
+    var name = trim_(p.venueName);
+    if (!name) return jsonOutput_({ success: false, error: 'Missing venue name' });
+
+    var mode = p.mode === 'correct' ? 'correct' : 'add';
+    var newSlug = slugify_(name);
+    var existingSlug = trim_(p.existingSlug);
+    var targetSlug = (mode === 'correct' && existingSlug) ? existingSlug : newSlug;
+
+    ensureVenueColumns_();
+    var sheet = getVenueSheet_();
+    var headers = venueHeaders_(sheet);
+
+    var fields = {
+      NAME: name,
+      LOCATION: trim_(p.location),
+      NEIGHBORHOOD: trim_(p.neighborhood),
+      CAPACITY: trim_(p.capacity),
+      CONTACT: trim_(p.contact),
+      NOTES: trim_(p.notes),
+      PARKING: trim_(p.parking),
+      ACCESSIBILITY: trim_(p.accessibility),
+      OWNER: trim_(p.owner),
+      TYPE: trim_(p.type),
+    };
+
+    var rowNum = findVenueRowBySlug_(targetSlug);
+    var isUpdate = !!rowNum;
+    var resultSlug;
+
+    if (isUpdate) {
+      var range = sheet.getRange(rowNum, 1, 1, headers.length);
+      var row = range.getValues()[0];
+      headers.forEach(function(h, i) {
+        // Leave SLUG and ADDED untouched on update — the slug is a stable
+        // permalink key that a name change shouldn't break.
+        if (Object.prototype.hasOwnProperty.call(fields, h)) row[i] = fields[h];
+      });
+      range.setValues([row]);
+      resultSlug = row[headers.indexOf('SLUG')] || targetSlug;
+    } else {
+      var newRow = headers.map(function(h) {
+        if (h === 'SLUG') return newSlug;
+        if (h === 'ADDED') return todayString_();
+        return Object.prototype.hasOwnProperty.call(fields, h) ? fields[h] : '';
+      });
+      sheet.appendRow(newRow);
+      resultSlug = newSlug;
+    }
+
+    MailApp.sendEmail(
+      NOTIFY_EMAIL,
+      '[TCMS] Venue ' + (isUpdate ? 'updated' : 'added') + ': ' + name,
+      [
+        'Name:  ' + name,
+        'City:  ' + (trim_(p.location) || '—'),
+        'Neighborhood: ' + (trim_(p.neighborhood) || '—'),
+        'Type:  ' + (trim_(p.type) || '—'),
+        'Capacity: ' + (trim_(p.capacity) || '—'),
+        '',
+        'Submitted by: ' + trim_(p.submitterName) + ' <' + trim_(p.submitterEmail) + '>',
+      ].join('\n')
+    );
+
+    return jsonOutput_({ success: true, slug: resultSlug });
+  } catch (err) {
+    return jsonOutput_({ success: false, error: String(err) });
+  }
 }
 
 function addBandToIndex_(fields) {

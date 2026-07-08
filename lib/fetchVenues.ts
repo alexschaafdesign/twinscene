@@ -8,6 +8,7 @@ const VENUES_CSV_URL =
 
 export type Venue = {
   name: string; // "NAME" column
+  slug: string; // "SLUG" column; falls back to slugify(name) for older rows
   city: string; // "LOCATION" column — mirrors Band.city
   neighborhood: string; // "NEIGHBORHOOD" column — one value, unlike Band.neighborhoods
   capacity: number | null; // "CAPACITY" column; null if blank/non-numeric
@@ -21,6 +22,19 @@ export type Venue = {
   // enum, since the vocabulary is still being shaped there — "" if blank.
   type: string;
 };
+
+/**
+ * Lowercase, collapse non-alphanumeric runs into single hyphens, trim
+ * hyphens. Kept in sync with slugify() in lib/fetchBands.ts and slugify_() in
+ * apps-script/Code.js.
+ */
+export function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
 /**
  * Parse CSV text into rows of cells. Handles quoted fields, escaped quotes
@@ -140,8 +154,10 @@ export async function fetchVenues(): Promise<Venue[]> {
     const name = get(row, "NAME");
     if (!name) continue; // skip blank rows
 
+    const slugRaw = get(row, "SLUG");
     venues.push({
       name,
+      slug: slugRaw || slugify(name),
       city: get(row, "LOCATION"),
       neighborhood: get(row, "NEIGHBORHOOD"),
       capacity: parseCapacity(get(row, "CAPACITY")),

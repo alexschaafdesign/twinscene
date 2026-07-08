@@ -88,8 +88,8 @@ export default async function Home() {
         )}
       </div>
 
-      {/* Section nav. Bands and Playlists are live; Shows is gated behind
-          SHOWS_ENABLED; Venues is a placeholder until it ships. */}
+      {/* Section nav. Bands, Playlists, and Venues are live; Shows is gated
+          behind SHOWS_ENABLED. */}
       <nav className="mb-6 border-b border-[#E8E0D0]/20">
         <ul className="-mb-px flex flex-wrap items-end gap-x-6 gap-y-2">
           <li>
@@ -126,12 +126,12 @@ export default async function Home() {
             </Link>
           </li>
           <li>
-            <span className="inline-flex items-center gap-1.5 px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/35">
+            <Link
+              href="/venues"
+              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+            >
               Venues
-              <span className="rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-[#E8E0D0]/50">
-                soon
-              </span>
-            </span>
+            </Link>
           </li>
           <li className="ml-auto pb-3 text-xs italic text-[#E8E0D0]/45">
             More sections coming soon

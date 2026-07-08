@@ -1,0 +1,74 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { fetchVenues, matchVenue } from "@/lib/fetchVenues";
+import { fetchShows } from "@/lib/fetchShows";
+import { SHOWS_ENABLED } from "@/lib/features";
+import VenueProfile from "@/components/VenueProfile";
+import { venueEditHref, venueLocationLabel } from "@/components/venue-shared";
+import { iconProps } from "@/components/band-shared";
+
+type Props = {
+  params: Promise<{ slug: string }>;
+};
+
+async function getVenue(slug: string) {
+  const venues = await fetchVenues();
+  return { venues, venue: venues.find((v) => v.slug === slug) ?? null };
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const { venue } = await getVenue(slug);
+  if (!venue) return {};
+
+  const place = venueLocationLabel(venue);
+  const description =
+    venue.notes ||
+    `${venue.name}${place ? ` — ${place}` : ""} on Twin Scene, the Twin Cities music directory.`;
+
+  return {
+    title: venue.name,
+    description,
+  };
+}
+
+export default async function VenueProfilePage({ params }: Props) {
+  const { slug } = await params;
+  const { venues, venue } = await getVenue(slug);
+  if (!venue) notFound();
+
+  const shows = SHOWS_ENABLED ? await fetchShows() : [];
+  const venueShows = shows.filter(
+    (s) => matchVenue(venues, s.venue)?.slug === venue.slug,
+  );
+
+  return (
+    <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <Link
+          href="/venues"
+          className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
+        >
+          <span aria-hidden>←</span> Back to venues
+        </Link>
+
+        <Link
+          href={venueEditHref(venue)}
+          className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
+        >
+          {/* ti-edit (Tabler) */}
+          <svg {...iconProps} width={15} height={15}>
+            <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" />
+            <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" />
+            <path d="M16 5l3 3" />
+          </svg>
+          <span className="md:hidden">Edit</span>
+          <span className="hidden md:inline">Edit this venue</span>
+        </Link>
+      </div>
+
+      <VenueProfile venue={venue} shows={venueShows} />
+    </main>
+  );
+}
