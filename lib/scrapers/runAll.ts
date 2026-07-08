@@ -28,6 +28,57 @@ export type DigestSummary = {
   totalNewBands: number;
 };
 
+// The import endpoint is a Google Apps Script web app that serializes sheet
+// writes with a lock, so it can't absorb hundreds of simultaneous POSTs (they
+// fail with lock/invocation errors). Cap how many imports are in flight at once
+// and retry the ones that lose the lock race — imports upsert by sourceKey, so
+// a retry is harmless.
+const IMPORT_CONCURRENCY = 4;
+const IMPORT_RETRIES = 2;
+
+/** Sleep helper for retry backoff. */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Import one show, retrying a few times on failure with a short backoff. */
+async function importWithRetry(
+  show: MatchedShow,
+  scraperId: string,
+  submitUrl: string,
+): Promise<{ success: boolean; error?: string }> {
+  let last: { success: boolean; error?: string } = {
+    success: false,
+    error: "not attempted",
+  };
+  for (let attempt = 0; attempt <= IMPORT_RETRIES; attempt++) {
+    last = await autoImportShow(show, scraperId, submitUrl);
+    if (last.success) return last;
+    if (attempt < IMPORT_RETRIES) await delay(300 * (attempt + 1));
+  }
+  return last;
+}
+
+/** Run `fn` over `items` with at most `limit` in flight at once. */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  );
+  return results;
+}
+
 /** A show auto-imports when it links no bands, or every band match is 'auto'. */
 function isAutoShow(show: MatchedShow): boolean {
   if (show.allBands.length === 0) return true;
@@ -103,8 +154,10 @@ export async function runScrapers(
     // send them). Count only the ones the Apps Script accepted.
     let autoImported = 0;
     if (submitUrl && autoShows.length > 0) {
-      const outcomes = await Promise.all(
-        autoShows.map((show) => autoImportShow(show, scraper.id, submitUrl)),
+      const outcomes = await mapWithConcurrency(
+        autoShows,
+        IMPORT_CONCURRENCY,
+        (show) => importWithRetry(show, scraper.id, submitUrl),
       );
       autoImported = outcomes.filter((o) => o.success).length;
     }
