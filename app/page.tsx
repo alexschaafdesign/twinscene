@@ -119,22 +119,19 @@ export default async function Home() {
           </li>
           <li>
             <Link
-              href="/playlists"
-              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
-            >
-              Playlists
-            </Link>
-          </li>
-          <li>
-            <Link
               href="/venues"
               className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
             >
               Venues
             </Link>
           </li>
-          <li className="ml-auto pb-3 text-xs italic text-[#E8E0D0]/45">
-            More sections coming soon
+          <li>
+            <Link
+              href="/playlists"
+              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+            >
+              Playlists
+            </Link>
           </li>
         </ul>
       </nav>
