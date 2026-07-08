@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { fetchBands } from "@/lib/fetchBands";
+import { fetchShows } from "@/lib/fetchShows";
 import BandGrid from "@/components/BandGrid";
 import { SHOWS_ENABLED } from "@/lib/features";
 
@@ -7,7 +8,17 @@ import { SHOWS_ENABLED } from "@/lib/features";
 // it lives at the root. Individual profiles are at /bands/[slug]; a dedicated
 // /bands index can be added later alongside sibling sections (/venues, …).
 export default async function Home() {
-  const bands = await fetchBands();
+  // Shows are gated behind SHOWS_ENABLED (see AGENTS.md); off, the "upcoming
+  // shows" band filter simply doesn't render. fetchShows() already excludes
+  // past dates, so a band's slug showing up here means it has something
+  // upcoming.
+  const [bands, shows] = await Promise.all([
+    fetchBands(),
+    SHOWS_ENABLED ? fetchShows() : Promise.resolve([]),
+  ]);
+  const bandsWithUpcomingShows = [
+    ...new Set(shows.flatMap((s) => s.bandSlugs)),
+  ];
 
   // Admin link. Off production we bake the secret in for one-click access
   // (local/preview only); in production we never embed it — the link is a plain
@@ -77,8 +88,8 @@ export default async function Home() {
         )}
       </div>
 
-      {/* Section nav. Only Bands is live; Shows/Venues are placeholders until
-          their sections ship (Shows is gated behind SHOWS_ENABLED). */}
+      {/* Section nav. Bands and Playlists are live; Shows is gated behind
+          SHOWS_ENABLED; Venues is a placeholder until it ships. */}
       <nav className="mb-6 border-b border-[#E8E0D0]/20">
         <ul className="-mb-px flex flex-wrap items-end gap-x-6 gap-y-2">
           <li>
@@ -107,6 +118,14 @@ export default async function Home() {
             )}
           </li>
           <li>
+            <Link
+              href="/playlists"
+              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+            >
+              Playlists
+            </Link>
+          </li>
+          <li>
             <span className="inline-flex items-center gap-1.5 px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/35">
               Venues
               <span className="rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-[#E8E0D0]/50">
@@ -124,6 +143,7 @@ export default async function Home() {
           beside the search bar (keeps the band grid higher up the page). */}
       <BandGrid
         bands={bands}
+        bandsWithUpcomingShows={SHOWS_ENABLED ? bandsWithUpcomingShows : undefined}
         intro={
           <>
             <p className="text-[13px] leading-relaxed text-[#E8E0D0]/75">

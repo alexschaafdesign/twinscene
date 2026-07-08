@@ -88,9 +88,13 @@ function BandRow({ band }: { band: Band }) {
 export default function BandGrid({
   bands,
   intro,
+  bandsWithUpcomingShows,
 }: {
   bands: Band[];
   intro?: ReactNode;
+  // Slugs of bands with an upcoming show. Undefined (Shows feature disabled)
+  // hides the filter entirely rather than rendering it against an empty set.
+  bandsWithUpcomingShows?: string[];
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -99,6 +103,7 @@ export default function BandGrid({
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [showAllGenres, setShowAllGenres] = useState(false);
   const [location, setLocation] = useState("All");
+  const [upcomingShowsOnly, setUpcomingShowsOnly] = useState(false);
   // Neighborhood sub-filter (multi-select), scoped to the chosen city bucket.
   const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<string[]>(
     [],
@@ -216,6 +221,11 @@ export default function BandGrid({
     setShowAllNeighborhoods(false);
   }
 
+  const upcomingShowSlugSet = useMemo(
+    () => new Set(bandsWithUpcomingShows ?? []),
+    [bandsWithUpcomingShows],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const genreSet = new Set(selectedGenres.map((g) => g.toLowerCase()));
@@ -223,6 +233,11 @@ export default function BandGrid({
       selectedNeighborhoods.map((n) => n.toLowerCase()),
     );
     return bands.filter((band) => {
+      // Upcoming shows toggle
+      if (upcomingShowsOnly && !upcomingShowSlugSet.has(band.slug)) {
+        return false;
+      }
+
       // Search across name, genres, city, neighborhoods, and members
       if (q) {
         const haystack = [
@@ -256,10 +271,18 @@ export default function BandGrid({
 
       return true;
     });
-  }, [bands, query, selectedGenres, location, selectedNeighborhoods]);
+  }, [
+    bands,
+    query,
+    selectedGenres,
+    location,
+    selectedNeighborhoods,
+    upcomingShowsOnly,
+    upcomingShowSlugSet,
+  ]);
 
   // Key changes whenever filters change, remounting the grid to replay the fade.
-  const gridKey = `${query}|${selectedGenres.join(",")}|${location}|${selectedNeighborhoods.join(",")}`;
+  const gridKey = `${query}|${selectedGenres.join(",")}|${location}|${selectedNeighborhoods.join(",")}|${upcomingShowsOnly}`;
 
   function surpriseMe() {
     if (filtered.length === 0) return;
@@ -378,6 +401,25 @@ export default function BandGrid({
           })}
         </div>
 
+        {/* Upcoming shows toggle — only shown when Shows data was provided
+            (the Shows feature is enabled). */}
+        {bandsWithUpcomingShows && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setUpcomingShowsOnly((v) => !v)}
+              aria-pressed={upcomingShowsOnly}
+              className={`${filterPillBase} ${
+                upcomingShowsOnly
+                  ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                  : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+              }`}
+            >
+              Has upcoming shows
+            </button>
+          </div>
+        )}
+
         {/* Neighborhoods — city-scoped sub-filter (multi-select), popular
             ones surfaced with the rest behind "See more" */}
         {neighborhoodOptions.length > 0 && (
@@ -431,10 +473,7 @@ export default function BandGrid({
         )}
       </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <p className="text-xs text-[#E8E0D0]/55">
-            Showing {filtered.length} of {bands.length} bands
-          </p>
+        <div className="mt-4 flex items-center gap-3">
           <div className="flex items-center gap-0.5 rounded-md border border-[#E8E0D0]/20 p-0.5">
             <button
               type="button"
@@ -488,6 +527,10 @@ export default function BandGrid({
           </aside>
         )}
       </div>
+
+      <p className="mb-4 text-center text-xs text-[#E8E0D0]/55">
+        Showing {filtered.length} of {bands.length} bands
+      </p>
 
       {filtered.length === 0 ? (
         <p className="py-16 text-center text-sm text-[#E8E0D0]/50">
