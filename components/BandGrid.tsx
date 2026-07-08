@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Band } from "@/lib/fetchBands";
 import { iconProps, PlaceLine } from "@/components/band-shared";
 import { BandImage } from "@/components/band-shared-client";
@@ -85,7 +85,13 @@ function BandRow({ band }: { band: Band }) {
   );
 }
 
-export default function BandGrid({ bands }: { bands: Band[] }) {
+export default function BandGrid({
+  bands,
+  intro,
+}: {
+  bands: Band[];
+  intro?: ReactNode;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   // Genres are multi-select: a band matches if it has ANY of the chosen ones.
@@ -266,9 +272,10 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
 
   return (
     <div>
-      {/* Controls — kept in a narrower centered container so they don't
-          stretch the full grid width on large breakpoints. */}
-      <div className="mx-auto mb-8 max-w-2xl">
+      {/* Controls on the left, the intro/CTA stacked in a column on the right
+          so the grid isn't pushed down the page. Stacks on narrow screens. */}
+      <div className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
+      <div className="min-w-0 flex-1">
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
@@ -473,6 +480,13 @@ export default function BandGrid({ bands }: { bands: Band[] }) {
             </button>
           </div>
         </div>
+      </div>
+
+        {intro && (
+          <aside className="shrink-0 rounded-lg border border-[#E8E0D0]/10 bg-[#E8E0D0]/[0.03] p-4 lg:w-72 lg:max-w-xs">
+            {intro}
+          </aside>
+        )}
       </div>
 
       {filtered.length === 0 ? (
