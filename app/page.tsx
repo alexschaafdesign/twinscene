@@ -21,31 +21,7 @@ export default async function Home() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
-      <div
-        role="status"
-        className="mb-5 flex items-start gap-3 rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-3.5 py-2.5 text-[13px] leading-relaxed text-[#E8E0D0]/90"
-      >
-        <span
-          aria-hidden
-          className="mt-0.5 shrink-0 rounded bg-[#E8B84B]/20 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-[#E8B84B]"
-        >
-          Beta
-        </span>
-        <p className="m-0">
-          This site is in early beta — lots of in-progress sections and
-          half-finished ideas. Hit up alex@thebirdhaus.org with any comments/suggestions!
-        </p>
-        {SHOWS_ENABLED && (
-          <Link
-            href={adminHref}
-            className="mt-0.5 shrink-0 self-start rounded border border-[#E8E0D0]/20 px-2 py-0.5 text-xs font-medium text-[#E8E0D0]/55 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
-          >
-            Admin
-          </Link>
-        )}
-      </div>
-
-      <header className="mb-6 flex flex-col items-center gap-4 border-b border-[#E8E0D0]/10 pb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+      <header className="mb-5 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <h1 className="m-0 order-1 sm:order-none">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -76,6 +52,30 @@ export default async function Home() {
           </p>
         </div>
       </header>
+
+      <div
+        role="status"
+        className="mb-6 flex items-start gap-3 rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-3.5 py-2.5 text-[13px] leading-relaxed text-[#E8E0D0]/90"
+      >
+        <span
+          aria-hidden
+          className="mt-0.5 shrink-0 rounded bg-[#E8B84B]/20 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-[#E8B84B]"
+        >
+          Beta
+        </span>
+        <p className="m-0">
+          This site is in early beta — lots of in-progress sections and
+          half-finished ideas. Hit up alex@thebirdhaus.org with any comments/suggestions!
+        </p>
+        {SHOWS_ENABLED && (
+          <Link
+            href={adminHref}
+            className="mt-0.5 shrink-0 self-start rounded border border-[#E8E0D0]/20 px-2 py-0.5 text-xs font-medium text-[#E8E0D0]/55 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+          >
+            Admin
+          </Link>
+        )}
+      </div>
 
       {/* Section nav. Only Bands is live; Shows/Venues are placeholders until
           their sections ship (Shows is gated behind SHOWS_ENABLED). */}
