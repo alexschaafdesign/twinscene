@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { postToAppsScript } from "@/lib/postToAppsScript";
 
 // Shared input styling, kept in sync with SubmitForm.tsx.
 const inputClass =
@@ -23,6 +24,15 @@ function isValidUrl(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Lowercase/hyphenate a band name. Kept in sync with slugify in fetchBands. */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function Field({
@@ -56,26 +66,34 @@ function Field({
 /**
  * Single-select-but-add-many band search. Type to filter existing bands by
  * name; selecting one calls onAdd (the parent keeps the selected list and
- * renders the chips). Mirrors the keyboard/mouse behaviour of the genre
- * tag-input on the band form.
+ * renders the chips). When `onQuickAdd` is provided and the typed name matches
+ * no existing directory band, the dropdown offers an "Add to directory" entry
+ * that quick-adds a name-only band and links it (used in edit mode, where the
+ * full add-a-band form isn't available). Mirrors the keyboard/mouse behaviour
+ * of the genre tag-input on the band form.
  */
 function BandSearchSelect({
   bands,
   selected,
   onAdd,
+  onQuickAdd,
 }: {
   bands: BandOption[];
   selected: BandOption[];
   onAdd: (band: BandOption) => void;
+  onQuickAdd?: (name: string) => Promise<void>;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selectedSlugs = new Set(selected.map((b) => b.slug));
-  const qLower = query.trim().toLowerCase();
+  const q = query.trim();
+  const qLower = q.toLowerCase();
   const matches = bands
     .filter(
       (b) =>
@@ -84,7 +102,22 @@ function BandSearchSelect({
     )
     .slice(0, 8);
 
-  const activeIndex = highlight < matches.length ? highlight : 0;
+  // Offer a quick-add when a name is typed that's neither an exact directory
+  // match nor already selected.
+  const exactExists =
+    qLower !== "" &&
+    (bands.some((b) => b.name.toLowerCase() === qLower) ||
+      selected.some((b) => b.name.toLowerCase() === qLower));
+  const showAdd = !!onQuickAdd && qLower !== "" && !exactExists;
+
+  type Item =
+    | { type: "existing"; band: BandOption }
+    | { type: "add"; name: string };
+  const items: Item[] = [
+    ...matches.map((b) => ({ type: "existing" as const, band: b })),
+    ...(showAdd ? [{ type: "add" as const, name: q }] : []),
+  ];
+  const activeIndex = highlight < items.length ? highlight : 0;
 
   useEffect(() => {
     if (!open) return;
@@ -104,7 +137,29 @@ function BandSearchSelect({
     onAdd(band);
     setQuery("");
     setHighlight(0);
+    setAddError("");
     inputRef.current?.focus();
+  }
+
+  async function quickAdd(name: string) {
+    if (!onQuickAdd || adding) return;
+    setAdding(true);
+    setAddError("");
+    try {
+      await onQuickAdd(name);
+      // The parent links the new band; clear the box for the next one.
+      setQuery("");
+      setHighlight(0);
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "Couldn't add band");
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  function activate(item: Item) {
+    if (item.type === "existing") choose(item.band);
+    else quickAdd(item.name);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -115,20 +170,20 @@ function BandSearchSelect({
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setOpen(true);
-      setHighlight((h) => (matches.length ? (h + 1) % matches.length : 0));
+      setHighlight((h) => (items.length ? (h + 1) % items.length : 0));
       return;
     }
     if (e.key === "ArrowUp") {
       e.preventDefault();
       setHighlight((h) =>
-        matches.length ? (h - 1 + matches.length) % matches.length : 0,
+        items.length ? (h - 1 + items.length) % items.length : 0,
       );
       return;
     }
     if (e.key === "Enter") {
       // Never submit the form from the search box.
       e.preventDefault();
-      if (open && matches.length > 0) choose(matches[activeIndex]);
+      if (open && items.length > 0) activate(items[activeIndex]);
     }
   }
 
@@ -147,28 +202,35 @@ function BandSearchSelect({
         placeholder="Search bands by name…"
         className={inputClass}
       />
-      {open && matches.length > 0 && (
+      {open && items.length > 0 && (
         <ul className="absolute z-10 mt-1 max-h-[200px] w-full overflow-auto rounded-md border border-[#E8E0D0]/20 bg-[#2A2420] py-1 shadow-lg">
-          {matches.map((b, i) => (
-            <li key={b.slug}>
+          {items.map((item, i) => (
+            <li
+              key={item.type === "add" ? `__add__${item.name}` : item.band.slug}
+            >
               <button
                 type="button"
                 onMouseEnter={() => setHighlight(i)}
                 onMouseDown={(e) => {
                   // Select before the input blurs and closes the dropdown.
                   e.preventDefault();
-                  choose(b);
+                  activate(item);
                 }}
                 className={`block w-full px-3 py-2 text-left text-sm text-[#E8E0D0] ${
                   i === activeIndex ? "bg-[#E8E0D0]/10" : ""
-                }`}
+                } ${item.type === "add" ? "italic text-[#E8E0D0]/80" : ""}`}
               >
-                {b.name}
+                {item.type === "add"
+                  ? adding
+                    ? `Adding “${item.name}”…`
+                    : `+ Add “${item.name}” to directory`
+                  : item.band.name}
               </button>
             </li>
           ))}
         </ul>
       )}
+      {addError && <p className="mt-1 text-xs text-[#E5A0A0]">{addError}</p>}
     </div>
   );
 }
@@ -230,6 +292,46 @@ export default function ShowSubmitForm({
 
   function removeBand(slug: string) {
     setSelectedBands((prev) => prev.filter((b) => b.slug !== slug));
+  }
+
+  /**
+   * Name-only quick-add for a band that isn't in the directory yet, mirroring
+   * the show-import "Add to directory" flow: publishes the band immediately
+   * (the Apps Script honours quickAdd to skip the notification email), then
+   * links it to this show by slug. Used in edit mode, where the full
+   * add-a-band form isn't offered. Throws so the search box can surface errors.
+   */
+  async function quickAddBand(name: string): Promise<void> {
+    const url = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
+    if (!url) throw new Error("Submission endpoint isn't configured.");
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const slug = slugify(trimmed);
+    const payload = new URLSearchParams({
+      bandName: trimmed,
+      submitterName: "",
+      submitterEmail: "",
+      genres: "",
+      location: "",
+      neighborhoods: "",
+      members: "",
+      contactEmail: "",
+      contactMethod: "",
+      website: "",
+      instagram: "",
+      bandcamp: "",
+      bio: "",
+      notes: "",
+      existingSlug: "",
+      mode: "add",
+      bandSlug: slug,
+      removeImage: "false",
+      featuredLinks: "[]",
+      quickAdd: "true",
+    });
+    const data = await postToAppsScript(url, payload);
+    if (!data.success) throw new Error(data.error || "Couldn't add band");
+    addBand({ slug, name: trimmed });
   }
 
   function cancelNewBand() {
@@ -517,6 +619,8 @@ export default function ShowSubmitForm({
           <p className="mt-1 text-xs text-[#E8E0D0]/45">
             Add one or more bands from the directory. Some shows have several
             acts.
+            {isEdit &&
+              " If a band isn't listed yet, type its name and pick “Add to directory”."}
           </p>
 
           <div className="mt-2">
@@ -524,6 +628,9 @@ export default function ShowSubmitForm({
               bands={bands}
               selected={selectedBands}
               onAdd={addBand}
+              // Edit mode has no full add-a-band form, so let the search
+              // quick-add a name-only band and link it in one step.
+              onQuickAdd={isEdit ? quickAddBand : undefined}
             />
           </div>
 
