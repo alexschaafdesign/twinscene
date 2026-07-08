@@ -53,10 +53,14 @@ function groupByDate(shows: Show[]): { date: string; shows: Show[] }[] {
   return groups;
 }
 
+// Number of venue chips to show before collapsing the rest under "Show more".
+const VISIBLE_VENUE_COUNT = 8;
+
 export default function ShowsList({ shows }: { shows: Show[] }) {
   const [venue, setVenue] = useState<string>("");
+  const [showAllVenues, setShowAllVenues] = useState(false);
 
-  // Distinct venues (with counts), alphabetical.
+  // Distinct venues (with counts), busiest first (ties broken alphabetically).
   const venues = useMemo(() => {
     const counts = new Map<string, number>();
     for (const s of shows) {
@@ -65,8 +69,14 @@ export default function ShowsList({ shows }: { shows: Show[] }) {
     }
     return [...counts.entries()]
       .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
   }, [shows]);
+
+  const topVenues = venues.slice(0, VISIBLE_VENUE_COUNT);
+  const restVenues = venues.slice(VISIBLE_VENUE_COUNT);
+  // Keep the active venue's chip visible even if it's outside the top N.
+  const activeInRest = restVenues.some((v) => v.name === venue);
+  const visibleVenues = showAllVenues || activeInRest ? venues : topVenues;
 
   const visible = venue ? shows.filter((s) => s.venue.trim() === venue) : shows;
   const groups = groupByDate(visible);
@@ -98,7 +108,7 @@ export default function ShowsList({ shows }: { shows: Show[] }) {
             active={venue === ""}
             onClick={() => setVenue("")}
           />
-          {venues.map((v) => (
+          {visibleVenues.map((v) => (
             <FilterChip
               key={v.name}
               label={v.name}
@@ -107,6 +117,15 @@ export default function ShowsList({ shows }: { shows: Show[] }) {
               onClick={() => setVenue(v.name)}
             />
           ))}
+          {restVenues.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAllVenues((s) => !s)}
+              className="rounded-md px-3 py-1.5 text-sm font-medium text-[#E8E0D0]/50 underline decoration-dotted underline-offset-4 transition hover:text-[#E8E0D0]/80"
+            >
+              {showAllVenues ? "Show fewer venues" : `+${restVenues.length} more`}
+            </button>
+          )}
         </div>
       )}
 
