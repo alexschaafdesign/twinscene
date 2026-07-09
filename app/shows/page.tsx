@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { fetchShows } from "@/lib/fetchShows";
 import { fetchVenues } from "@/lib/fetchVenues";
+import { fetchPress } from "@/lib/fetchPress";
 import { SHOWS_ENABLED } from "@/lib/features";
 import ShowsList from "@/components/ShowsList";
 
@@ -13,7 +14,11 @@ export const metadata: Metadata = {
 
 export default async function ShowsPage() {
   if (!SHOWS_ENABLED) notFound();
-  const [shows, venues] = await Promise.all([fetchShows(), fetchVenues()]);
+  const [shows, venues, press] = await Promise.all([
+    fetchShows(),
+    fetchVenues(),
+    fetchPress(),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
@@ -48,7 +53,7 @@ export default async function ShowsPage() {
         </p>
       </header>
 
-      <ShowsList shows={shows} venues={venues} />
+      <ShowsList shows={shows} venues={venues} press={press} />
     </main>
   );
 }

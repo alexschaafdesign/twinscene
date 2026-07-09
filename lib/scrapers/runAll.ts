@@ -9,9 +9,9 @@ import { createMatcher, type MatchedShow } from "@/lib/bandMatcher";
 import { getAllScrapers, type Scraper } from "@/lib/scrapers";
 import { autoImportShow } from "@/lib/scrapers/autoImport";
 import {
-  runCrawlSpaceStar,
-  type CrawlSpaceStarResult,
-} from "@/lib/scrapers/starCrawlSpace";
+  runAllPressStars,
+  type PressStarResult,
+} from "@/lib/scrapers/starPress";
 import { AUTO_IMPORT_ALL_SHOWS } from "@/lib/features";
 
 export type ScraperDigest = {
@@ -30,11 +30,11 @@ export type DigestSummary = {
   totalAutoImported: number;
   totalQueued: number;
   totalNewBands: number;
-  // Not a venue scraper's output — Crawl Space's picks matched (and starred)
-  // against shows already on our list. Runs only from runAllScrapers, so it's
-  // absent from a single-venue "Run now". Not folded into the emailed digest
-  // above; visible via this JSON response.
-  crawlSpaceStar?: CrawlSpaceStarResult;
+  // Not a venue scraper's output — every registered Press outlet's picks
+  // matched (and starred) against shows already on our list. Runs only from
+  // runAllScrapers, so it's absent from a single-venue "Run now". Not folded
+  // into the emailed digest above; visible via this JSON response.
+  pressStars?: PressStarResult[];
 };
 
 // The import endpoint is a Google Apps Script web app that serializes sheet
@@ -102,15 +102,9 @@ export async function runAllScrapers(): Promise<DigestSummary> {
   const summary = await runScrapers(getAllScrapers(), { notify: true });
 
   try {
-    summary.crawlSpaceStar = await runCrawlSpaceStar();
+    summary.pressStars = await runAllPressStars();
   } catch (err) {
-    summary.crawlSpaceStar = {
-      picks: 0,
-      starred: 0,
-      unmatched: 0,
-      errors: 1,
-    };
-    console.error("runCrawlSpaceStar failed", err);
+    console.error("runAllPressStars failed", err);
   }
 
   return summary;

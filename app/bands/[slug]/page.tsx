@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchBands } from "@/lib/fetchBands";
 import { fetchShows } from "@/lib/fetchShows";
+import { fetchPress } from "@/lib/fetchPress";
 import { SHOWS_ENABLED } from "@/lib/features";
 import BandProfile, { editHref } from "@/components/BandProfile";
 import { iconProps, locationLabel } from "@/components/band-shared";
@@ -48,6 +49,7 @@ export default async function BandProfilePage({ params }: Props) {
   if (!band) notFound();
 
   const shows = SHOWS_ENABLED ? await fetchShows() : [];
+  const press = SHOWS_ENABLED ? await fetchPress() : [];
   const bandShows = shows.filter((s) => s.bandSlugs.includes(slug));
 
   return (
@@ -75,7 +77,7 @@ export default async function BandProfilePage({ params }: Props) {
         </Link>
       </div>
 
-      <BandProfile band={band} shows={bandShows} />
+      <BandProfile band={band} shows={bandShows} press={press} />
     </div>
   );
 }

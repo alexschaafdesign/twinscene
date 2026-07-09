@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchVenues, matchVenue } from "@/lib/fetchVenues";
 import { fetchShows } from "@/lib/fetchShows";
+import { fetchPress } from "@/lib/fetchPress";
 import { SHOWS_ENABLED } from "@/lib/features";
 import VenueProfile from "@/components/VenueProfile";
 import { venueEditHref, venueLocationLabel } from "@/components/venue-shared";
@@ -39,6 +40,7 @@ export default async function VenueProfilePage({ params }: Props) {
   if (!venue) notFound();
 
   const shows = SHOWS_ENABLED ? await fetchShows() : [];
+  const press = SHOWS_ENABLED ? await fetchPress() : [];
   const venueShows = shows.filter(
     (s) => matchVenue(venues, s.venue)?.slug === venue.slug,
   );
@@ -68,7 +70,7 @@ export default async function VenueProfilePage({ params }: Props) {
         </Link>
       </div>
 
-      <VenueProfile venue={venue} shows={venueShows} />
+      <VenueProfile venue={venue} shows={venueShows} press={press} />
     </main>
   );
 }

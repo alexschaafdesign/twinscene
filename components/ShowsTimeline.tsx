@@ -6,7 +6,8 @@
 
 import Link from "next/link";
 import type { Show } from "@/lib/fetchShows";
-import { curatorNotes } from "@/lib/curators";
+import type { Press } from "@/lib/fetchPress";
+import { pressNotes } from "@/lib/press";
 
 /** Prefix a bare URL with https:// so hrefs from the sheet always resolve. */
 function ensureUrl(value: string): string {
@@ -59,9 +60,11 @@ function groupByDate(shows: Show[]): { date: string; shows: Show[] }[] {
 
 export default function ShowsTimeline({
   shows,
+  press = [],
   emptyMessage = "No upcoming shows.",
 }: {
   shows: Show[];
+  press?: Press[];
   emptyMessage?: string;
 }) {
   const groups = groupByDate(shows);
@@ -132,7 +135,7 @@ export default function ShowsTimeline({
                           {show.notes}
                         </p>
                       )}
-                      {curatorNotes(show.starredBy, show.starredNotes).map(
+                      {pressNotes(show.starredBy, show.starredNotes, press).map(
                         (note) => (
                           <div key={note.id} className="mt-2">
                             <p className="text-xs font-medium text-amber-400">

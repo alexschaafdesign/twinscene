@@ -1,7 +1,7 @@
 // Parser for Crawl Space MSP's daily "Complete Twin Cities Concert List"
-// Substack post — not a venue, but a curator's picks used to star shows
-// elsewhere in our own list rather than to import new ones (see
-// lib/scrapers/starCrawlSpace.ts). Only the "My picks for top shows tonight"
+// Substack post — one of the Press-tab outlets whose picks star shows
+// elsewhere in our own list rather than get imported as new ones (see
+// lib/scrapers/starPress.ts). Only the "My picks for top shows tonight"
 // section is parsed; the much longer full genre-sectioned list below it is
 // left alone.
 //
@@ -18,7 +18,7 @@ import type { ScrapedShow } from "./types";
 
 const FEED_URL = "https://crawlspacemsp.substack.com/feed";
 const USER_AGENT = "TwinScene/1.0 (+https://twinscene.org)";
-export const CRAWLSPACE_CURATOR = "crawlspace";
+export const CRAWLSPACE_PRESS_ID = "crawlspace";
 
 /** Today's date as "YYYY-MM-DD" in America/Chicago. Kept in sync with the
  * same helper in lib/fetchShows.ts — the post is always about tonight. */
@@ -112,9 +112,9 @@ export async function scrapeCrawlSpace(): Promise<ScrapedShow[]> {
       advancePrice: null,
       dosPrice: null,
       sourceUrl: sourceUrl || FEED_URL,
-      curator: CRAWLSPACE_CURATOR,
+      press: CRAWLSPACE_PRESS_ID,
       blurb,
-      curatorPostUrl: postUrl,
+      pressPostUrl: postUrl,
     });
   });
 

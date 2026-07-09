@@ -10,7 +10,8 @@
 
 import type { Band } from "@/lib/fetchBands";
 import type { Show } from "@/lib/fetchShows";
-import { curatorNotes } from "@/lib/curators";
+import type { Press } from "@/lib/fetchPress";
+import { pressNotes } from "@/lib/press";
 import BandcampPlayer from "@/components/BandcampPlayer";
 import {
   IconLink,
@@ -212,9 +213,11 @@ function ContactMethod({ band }: { band: Band }) {
 export default function BandProfile({
   band,
   shows = [],
+  press = [],
 }: {
   band: Band;
   shows?: Show[];
+  press?: Press[];
 }) {
   const hasBandcamp = band.bandcampEmbedUrl || band.bandcamp;
 
@@ -336,7 +339,7 @@ export default function BandProfile({
                       {show.notes}
                     </p>
                   )}
-                  {curatorNotes(show.starredBy, show.starredNotes).map(
+                  {pressNotes(show.starredBy, show.starredNotes, press).map(
                     (note) => (
                       <div key={note.id} className="mt-1.5">
                         <p className="text-xs font-medium text-amber-400">

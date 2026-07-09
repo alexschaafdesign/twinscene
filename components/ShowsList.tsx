@@ -4,18 +4,22 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Show } from "@/lib/fetchShows";
 import { matchVenue, type Venue } from "@/lib/fetchVenues";
+import type { Press } from "@/lib/fetchPress";
 import ShowsTimeline from "@/components/ShowsTimeline";
 
 export default function ShowsList({
   shows,
   venues: venueDirectory,
+  press = [],
 }: {
   shows: Show[];
   venues: Venue[];
+  press?: Press[];
 }) {
   const [venue, setVenue] = useState<string>("");
   const [venueType, setVenueType] = useState<string>("");
   const [localBandsOnly, setLocalBandsOnly] = useState(false);
+  const [pressRecommendedOnly, setPressRecommendedOnly] = useState(false);
 
   // Distinct venues (with counts), busiest first (ties broken alphabetically).
   const venues = useMemo(() => {
@@ -49,11 +53,18 @@ export default function ShowsList({
     [shows],
   );
 
+  // Shows starred by at least one Press outlet.
+  const pressRecommendedCount = useMemo(
+    () => shows.filter((s) => s.starredBy.length > 0).length,
+    [shows],
+  );
+
   const visible = shows.filter(
     (s) =>
       (!venue || s.venue.trim() === venue) &&
       (!venueType || matchVenue(venueDirectory, s.venue)?.type === venueType) &&
-      (!localBandsOnly || s.bandSlugs.length > 0),
+      (!localBandsOnly || s.bandSlugs.length > 0) &&
+      (!pressRecommendedOnly || s.starredBy.length > 0),
   );
 
   if (shows.length === 0) {
@@ -74,15 +85,26 @@ export default function ShowsList({
 
   return (
     <div>
-      {/* Local bands toggle — only worth showing when some shows have linked bands. */}
-      {localBandsCount > 0 && (
+      {/* Local bands / press-recommended toggles — only worth showing when
+          some shows qualify. */}
+      {(localBandsCount > 0 || pressRecommendedCount > 0) && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <FilterChip
-            label="Local bands"
-            count={localBandsCount}
-            active={localBandsOnly}
-            onClick={() => setLocalBandsOnly((v) => !v)}
-          />
+          {localBandsCount > 0 && (
+            <FilterChip
+              label="Local bands"
+              count={localBandsCount}
+              active={localBandsOnly}
+              onClick={() => setLocalBandsOnly((v) => !v)}
+            />
+          )}
+          {pressRecommendedCount > 0 && (
+            <FilterChip
+              label="Recommended by local press"
+              count={pressRecommendedCount}
+              active={pressRecommendedOnly}
+              onClick={() => setPressRecommendedOnly((v) => !v)}
+            />
+          )}
         </div>
       )}
 
@@ -127,12 +149,15 @@ export default function ShowsList({
 
       <ShowsTimeline
         shows={visible}
+        press={press}
         emptyMessage={
           venue
             ? `No upcoming shows at ${venue}.`
-            : localBandsOnly
-              ? "No upcoming shows with local bands."
-              : "No upcoming shows."
+            : pressRecommendedOnly
+              ? "No upcoming shows recommended by local press."
+              : localBandsOnly
+                ? "No upcoming shows with local bands."
+                : "No upcoming shows."
         }
       />
     </div>

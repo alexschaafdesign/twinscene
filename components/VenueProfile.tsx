@@ -5,6 +5,7 @@
 
 import type { Show } from "@/lib/fetchShows";
 import type { Venue } from "@/lib/fetchVenues";
+import type { Press } from "@/lib/fetchPress";
 import ShowsTimeline from "@/components/ShowsTimeline";
 import { VenueIcon, VenuePlaceLine } from "@/components/venue-shared";
 
@@ -31,9 +32,11 @@ function InfoBlock({
 export default function VenueProfile({
   venue,
   shows = [],
+  press = [],
 }: {
   venue: Venue;
   shows?: Show[];
+  press?: Press[];
 }) {
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-[300px_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:gap-x-10">
@@ -79,6 +82,7 @@ export default function VenueProfile({
           </h2>
           <ShowsTimeline
             shows={shows}
+            press={press}
             emptyMessage="No upcoming shows listed at this venue yet."
           />
         </div>
