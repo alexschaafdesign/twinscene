@@ -90,7 +90,7 @@ export default function ShowsTimeline({
                   <div className="flex min-w-0 items-start gap-3">
                     {show.flyerUrl && (
                       <a
-                        href={ensureUrl(show.flyerUrl)}
+                        href={ensureUrl(show.link || show.flyerUrl)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="shrink-0"
