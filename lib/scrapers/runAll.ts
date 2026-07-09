@@ -8,6 +8,10 @@ import { fetchBands } from "@/lib/fetchBands";
 import { createMatcher, type MatchedShow } from "@/lib/bandMatcher";
 import { getAllScrapers, type Scraper } from "@/lib/scrapers";
 import { autoImportShow } from "@/lib/scrapers/autoImport";
+import {
+  runCrawlSpaceStar,
+  type CrawlSpaceStarResult,
+} from "@/lib/scrapers/starCrawlSpace";
 import { AUTO_IMPORT_ALL_SHOWS } from "@/lib/features";
 
 export type ScraperDigest = {
@@ -26,6 +30,11 @@ export type DigestSummary = {
   totalAutoImported: number;
   totalQueued: number;
   totalNewBands: number;
+  // Not a venue scraper's output — Crawl Space's picks matched (and starred)
+  // against shows already on our list. Runs only from runAllScrapers, so it's
+  // absent from a single-venue "Run now". Not folded into the emailed digest
+  // above; visible via this JSON response.
+  crawlSpaceStar?: CrawlSpaceStarResult;
 };
 
 // The import endpoint is a Google Apps Script web app that serializes sheet
@@ -90,7 +99,21 @@ function isAutoShow(show: MatchedShow): boolean {
 
 export async function runAllScrapers(): Promise<DigestSummary> {
   // The full run (cron / "Run all") emails the digest.
-  return runScrapers(getAllScrapers(), { notify: true });
+  const summary = await runScrapers(getAllScrapers(), { notify: true });
+
+  try {
+    summary.crawlSpaceStar = await runCrawlSpaceStar();
+  } catch (err) {
+    summary.crawlSpaceStar = {
+      picks: 0,
+      starred: 0,
+      unmatched: 0,
+      errors: 1,
+    };
+    console.error("runCrawlSpaceStar failed", err);
+  }
+
+  return summary;
 }
 
 /**

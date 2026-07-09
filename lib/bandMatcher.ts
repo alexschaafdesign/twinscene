@@ -11,6 +11,7 @@
 import Fuse from "fuse.js";
 import type { Band } from "@/lib/fetchBands";
 import type { ScrapedShow } from "@/lib/scrapers/pilllar";
+import { normalizeText, similarity } from "@/lib/textSimilarity";
 
 export type MatchResult = {
   name: string;
@@ -29,47 +30,11 @@ export type MatchedShow = ScrapedShow & {
 const AUTO_MIN_SIM = 0.85;
 const REVIEW_MIN_SIM = 0.7;
 
-/** Lowercase, expand "&", drop a leading "the ", strip punctuation. */
-function normalize(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/&/g, " and ")
-    .replace(/^the\s+/, "")
-    .replace(/[^a-z0-9\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** Levenshtein edit distance. */
-function editDistance(a: string, b: string): number {
-  const m = a.length;
-  const n = b.length;
-  if (m === 0) return n;
-  if (n === 0) return m;
-  let prev = Array.from({ length: n + 1 }, (_, j) => j);
-  for (let i = 1; i <= m; i++) {
-    const cur = [i];
-    for (let j = 1; j <= n; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
-    }
-    prev = cur;
-  }
-  return prev[n];
-}
-
-/** 0 (unrelated) → 1 (identical) similarity of two normalized strings. */
-function similarity(a: string, b: string): number {
-  const max = Math.max(a.length, b.length);
-  return max === 0 ? 1 : 1 - editDistance(a, b) / max;
-}
-
 type Indexed = { _normalized: string; band: Band };
 
 export function createMatcher(bands: Band[]) {
   const indexed: Indexed[] = bands.map((band) => ({
-    _normalized: normalize(band.name),
+    _normalized: normalizeText(band.name),
     band,
   }));
 
@@ -82,7 +47,7 @@ export function createMatcher(bands: Band[]) {
   });
 
   function matchBand(name: string): MatchResult {
-    const normalized = normalize(name);
+    const normalized = normalizeText(name);
     if (!normalized) {
       return { name, match: null, confidence: "none", score: 0 };
     }

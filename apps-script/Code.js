@@ -50,6 +50,8 @@ function doPost(e) {
 
     if (p.formType === 'showEdit') return handleShowEdit_(p);
 
+    if (p.formType === 'showStar') return handleShowStar_(p);
+
     if (p.formType === 'showLinkBand') return handleShowLinkBand_(p);
 
     if (p.formType === 'nonLocalBand') return handleNonLocalBand_(p);
@@ -216,8 +218,10 @@ function handleShowImport_(p) {
 
 // Columns the app manages beyond the original scraper schema. ID is the stable
 // edit key; EDITED is the manual-edit lock the scraper honours; FLYER is the
-// scraped poster image URL surfaced on /shows.
-var SHOW_MANAGED_COLUMNS = ['ID', 'EDITED', 'FLYER'];
+// scraped poster image URL surfaced on /shows; STARRED_BY is a comma-separated
+// list of curator ids (e.g. "crawlspace") who recommended the show; STARRED_NOTES
+// is a JSON object mapping each of those curator ids to their blurb, if given.
+var SHOW_MANAGED_COLUMNS = ['ID', 'EDITED', 'FLYER', 'STARRED_BY', 'STARRED_NOTES'];
 
 // Guarantee the Shows tab has the managed columns (older sheets predate them).
 // Appends any missing one at the end so existing column positions never shift.
@@ -376,6 +380,66 @@ function handleShowLinkBand_(p) {
       if (slugs.indexOf(slug) === -1) slugs.push(slug);
       sheet.getRange(i + 2, slugsIdx + 1, 1, 1).setValue(slugs.join(','));
       return jsonOutput_({ success: true, bandSlugs: slugs.join(',') });
+    }
+    return jsonOutput_({ success: false, error: 'Show not found' });
+  } catch (err) {
+    return jsonOutput_({ success: false, error: String(err) });
+  }
+}
+
+// Add one curator id (and optionally their blurb + source link) to a show's
+// STARRED_BY / STARRED_NOTES, located by ID. Used by the daily curator-digest
+// matching (formType: showStar, e.g. Crawl Space's picks). Same light-touch
+// shape as handleShowLinkBand_: touches only these two cells, no EDITED lock,
+// so a re-scrape still refreshes the row.
+function handleShowStar_(p) {
+  try {
+    var id = trim_(p.id);
+    var starredBy = trim_(p.starredBy);
+    var blurb = trim_(p.blurb);
+    var url = trim_(p.url);
+    if (!id || !starredBy) {
+      return jsonOutput_({ success: false, error: 'Missing id or starredBy' });
+    }
+    ensureShowColumns_();
+    var sheet = getShowsSheet_();
+    var last = sheet.getLastRow();
+    var headers = showHeaders_(sheet);
+    var idIdx = headers.indexOf('ID');
+    var starredIdx = headers.indexOf('STARRED_BY');
+    var notesIdx = headers.indexOf('STARRED_NOTES');
+    if (idIdx < 0 || starredIdx < 0 || last < 2) {
+      return jsonOutput_({ success: false, error: 'Shows sheet not ready' });
+    }
+    var data = sheet.getRange(2, 1, last - 1, headers.length).getValues();
+    for (var i = 0; i < data.length; i++) {
+      if (data[i][idIdx].toString().trim() !== id) continue;
+      var curators = data[i][starredIdx]
+        .toString()
+        .split(',')
+        .map(function(x) { return x.trim(); })
+        .filter(String);
+      if (curators.indexOf(starredBy) === -1) curators.push(starredBy);
+      sheet.getRange(i + 2, starredIdx + 1, 1, 1).setValue(curators.join(','));
+
+      if (notesIdx >= 0) {
+        var notes = {};
+        var rawNotes = data[i][notesIdx].toString().trim();
+        if (rawNotes) {
+          try { notes = JSON.parse(rawNotes); } catch (e) { notes = {}; }
+        }
+        // notes[id] is { blurb, url }; older rows may have a plain blurb
+        // string written before the url field existed — normalize on read.
+        var existing = notes[starredBy];
+        if (typeof existing === 'string') existing = { blurb: existing, url: '' };
+        notes[starredBy] = {
+          blurb: blurb || (existing && existing.blurb) || '',
+          url: url || (existing && existing.url) || '',
+        };
+        sheet.getRange(i + 2, notesIdx + 1, 1, 1).setValue(JSON.stringify(notes));
+      }
+
+      return jsonOutput_({ success: true, starredBy: curators.join(',') });
     }
     return jsonOutput_({ success: false, error: 'Show not found' });
   } catch (err) {

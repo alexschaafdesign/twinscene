@@ -6,6 +6,7 @@
 
 import Link from "next/link";
 import type { Show } from "@/lib/fetchShows";
+import { curatorNotes } from "@/lib/curators";
 
 /** Prefix a bare URL with https:// so hrefs from the sheet always resolve. */
 function ensureUrl(value: string): string {
@@ -84,7 +85,11 @@ export default function ShowsTimeline({
             {group.shows.map((show, i) => (
               <li
                 key={`${show.title}-${show.venue}-${i}`}
-                className="rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] p-4"
+                className={`rounded-md border p-4 ${
+                  show.starredBy.length > 0
+                    ? "border-amber-400/40 bg-amber-400/[0.06]"
+                    : "border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)]"
+                }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                   <div className="flex min-w-0 items-start gap-3">
@@ -108,6 +113,9 @@ export default function ShowsTimeline({
                     <div className="min-w-0">
                       <p className="font-medium text-[#E8E0D0]">
                         {show.title}
+                        {show.starredBy.length > 0 && (
+                          <span className="ml-1.5 text-amber-400">★</span>
+                        )}
                       </p>
                       {show.venue && (
                         <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
@@ -123,6 +131,32 @@ export default function ShowsTimeline({
                         <p className="mt-1 text-sm text-[#E8E0D0]/50">
                           {show.notes}
                         </p>
+                      )}
+                      {curatorNotes(show.starredBy, show.starredNotes).map(
+                        (note) => (
+                          <div key={note.id} className="mt-2">
+                            <p className="text-xs font-medium text-amber-400">
+                              ★ Recommended by{" "}
+                              {note.url ? (
+                                <a
+                                  href={ensureUrl(note.url)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline decoration-amber-400/50 underline-offset-2 hover:text-amber-300"
+                                >
+                                  {note.name}
+                                </a>
+                              ) : (
+                                note.name
+                              )}
+                            </p>
+                            {note.blurb && (
+                              <p className="mt-0.5 text-xs leading-relaxed text-[#E8E0D0]/60">
+                                {note.blurb}
+                              </p>
+                            )}
+                          </div>
+                        ),
                       )}
                     </div>
                   </div>

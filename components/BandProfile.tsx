@@ -10,6 +10,7 @@
 
 import type { Band } from "@/lib/fetchBands";
 import type { Show } from "@/lib/fetchShows";
+import { curatorNotes } from "@/lib/curators";
 import BandcampPlayer from "@/components/BandcampPlayer";
 import {
   IconLink,
@@ -296,7 +297,11 @@ export default function BandProfile({
               {shows.map((show, i) => (
                 <li
                   key={`${show.date}-${show.venue}-${i}`}
-                  className="rounded-md border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)] px-3 py-2.5"
+                  className={`rounded-md border px-3 py-2.5 ${
+                    show.starredBy.length > 0
+                      ? "border-amber-400/40 bg-amber-400/[0.06]"
+                      : "border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)]"
+                  }`}
                 >
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="text-sm font-medium text-[#E8E0D0]">
@@ -316,6 +321,9 @@ export default function BandProfile({
                   {show.title && (
                     <p className="mt-0.5 text-sm font-medium text-[#E8E0D0]/90">
                       {show.title}
+                      {show.starredBy.length > 0 && (
+                        <span className="ml-1.5 text-amber-400">★</span>
+                      )}
                     </p>
                   )}
                   {show.venue && (
@@ -327,6 +335,32 @@ export default function BandProfile({
                     <p className="mt-0.5 text-xs text-[#E8E0D0]/50">
                       {show.notes}
                     </p>
+                  )}
+                  {curatorNotes(show.starredBy, show.starredNotes).map(
+                    (note) => (
+                      <div key={note.id} className="mt-1.5">
+                        <p className="text-xs font-medium text-amber-400">
+                          ★ Recommended by{" "}
+                          {note.url ? (
+                            <a
+                              href={ensureUrl(note.url)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline decoration-amber-400/50 underline-offset-2 hover:text-amber-300"
+                            >
+                              {note.name}
+                            </a>
+                          ) : (
+                            note.name
+                          )}
+                        </p>
+                        {note.blurb && (
+                          <p className="mt-0.5 text-xs leading-relaxed text-[#E8E0D0]/60">
+                            {note.blurb}
+                          </p>
+                        )}
+                      </div>
+                    ),
                   )}
                 </li>
               ))}

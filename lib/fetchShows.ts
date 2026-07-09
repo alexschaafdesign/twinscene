@@ -24,7 +24,11 @@ export type Show = {
   source: string; // "manual" | "pilllar" | …
   sourceKey: string; // stable dedup key for scraped shows ("" for manual)
   added: string;
+  starredBy: string[]; // curator ids that recommended this show (e.g. "crawlspace")
+  starredNotes: Record<string, StarredNote>; // curator id -> their blurb/source link, when given
 };
+
+export type StarredNote = { blurb: string; url: string };
 
 /**
  * Parse CSV text into rows of cells. Handles quoted fields, escaped quotes
@@ -137,6 +141,29 @@ export async function fetchShows(): Promise<Show[]> {
       .map((x) => x.trim())
       .filter(Boolean);
 
+  // STARRED_NOTES holds a curator-id -> { blurb, url } JSON object; tolerate
+  // blank/malformed cells (pre-migration rows, hand edits) by falling back to
+  // {}, and normalize the older plain-string-blurb shape written before the
+  // url field existed.
+  const parseStarredNotes = (s: string): Record<string, StarredNote> => {
+    if (!s) return {};
+    try {
+      const parsed = JSON.parse(s);
+      if (!parsed || typeof parsed !== "object") return {};
+      const notes: Record<string, StarredNote> = {};
+      for (const [id, value] of Object.entries(parsed)) {
+        if (typeof value === "string") notes[id] = { blurb: value, url: "" };
+        else if (value && typeof value === "object") {
+          const v = value as { blurb?: string; url?: string };
+          notes[id] = { blurb: v.blurb ?? "", url: v.url ?? "" };
+        }
+      }
+      return notes;
+    } catch {
+      return {};
+    }
+  };
+
   for (const row of rows.slice(1)) {
     const date = get(row, "DATE");
     // Skip rows with no date or a date in the past (string compare works for
@@ -167,6 +194,8 @@ export async function fetchShows(): Promise<Show[]> {
       source: get(row, "SOURCE"),
       sourceKey: get(row, "SOURCE_KEY"),
       added: get(row, "ADDED"),
+      starredBy: splitSlugs(get(row, "STARRED_BY")),
+      starredNotes: parseStarredNotes(get(row, "STARRED_NOTES")),
     });
   }
 

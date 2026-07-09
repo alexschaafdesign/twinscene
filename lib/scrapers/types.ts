@@ -15,4 +15,10 @@ export type ScrapedShow = {
   advancePrice: number | null;
   dosPrice: number | null;
   sourceUrl: string;
+  // Set only by curator-digest sources (e.g. crawlspace.ts): which curator
+  // picked this show, their blurb (if any), and a link to the post it came
+  // from. Optional so venue scrapers are unaffected.
+  curator?: string | null;
+  blurb?: string | null;
+  curatorPostUrl?: string | null;
 };
