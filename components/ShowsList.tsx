@@ -115,10 +115,10 @@ export default function ShowsList({
             onChange={(e) => setVenue(e.target.value)}
             className="rounded-md border border-[#E8E0D0]/25 bg-[#2A2420] px-3 py-1.5 text-sm font-medium text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/50 focus:border-[#E8E0D0]/50 focus:outline-none"
           >
-            <option value="">All venues ({shows.length})</option>
+            <option value="">All venues ({shows.length} shows)</option>
             {venues.map((v) => (
               <option key={v.name} value={v.name}>
-                {v.name} ({v.count})
+                {v.name} ({v.count} shows)
               </option>
             ))}
           </select>

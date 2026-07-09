@@ -8,7 +8,7 @@ import ShowsList from "@/components/ShowsList";
 
 export const metadata: Metadata = {
   title: "Upcoming Shows — Twin Scene",
-  description: "Upcoming shows submitted by bands in the Twin Cities music scene.",
+  description: "This list is mostly created automatically by pulling info from venue websites. Still in beta!",
 };
 
 export default async function ShowsPage() {
@@ -44,7 +44,7 @@ export default async function ShowsPage() {
           Upcoming Shows
         </h1>
         <p className="mt-2 text-sm text-[#E8E0D0]/70">
-          Shows submitted by Twin Cities bands
+          This list is mostly created automatically by pulling info from venue websites. Still in beta!
         </p>
       </header>
 
