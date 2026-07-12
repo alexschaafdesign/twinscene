@@ -13,7 +13,7 @@ const appFont = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: "Twin Scene",
+  title: "Crawlspace",
   description:
     "A curated index of the Twin Cities music scene, maintained by The Birdhaus.",
 };

@@ -9,7 +9,7 @@ import { fetchBands } from "@/lib/fetchBands";
 import { SHOWS_ENABLED } from "@/lib/features";
 
 export const metadata: Metadata = {
-  title: "Add a Show — Twin Scene",
+  title: "Add a Show — Crawlspace",
   description: "Add an upcoming show for a band in the Twin Cities directory.",
 };
 

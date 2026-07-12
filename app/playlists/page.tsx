@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Playlists — Twin Scene",
+  title: "Playlists — Crawlspace",
   description:
     "Playlists spotlighting the Twin Cities music scene, starting with a monthly roundup of new local releases.",
 };

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "TCMS Admin",
+  title: "Crawlspace Admin",
   robots: { index: false, follow: false },
 };
 

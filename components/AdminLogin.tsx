@@ -4,7 +4,7 @@ import { loginAdmin } from "@/app/admin/actions";
 export default function AdminLogin({ error }: { error: boolean }) {
   return (
     <main className="mx-auto flex w-full max-w-sm flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
-      <h1 className="text-xl font-medium">TCMS Admin</h1>
+      <h1 className="text-xl font-medium">Crawlspace Admin</h1>
       <p className="mt-2 text-sm text-[#E8E0D0]/60">
         Enter the admin password to continue.
       </p>
