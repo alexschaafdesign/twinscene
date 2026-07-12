@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ScraperLogRow } from "@/lib/fetchScraperLog";
 import type { Band } from "@/lib/fetchBands";
 import type { NonLocalBand } from "@/lib/fetchNonLocalBands";
@@ -116,6 +116,45 @@ export default function AdminPanel({
 
   const submitUrl = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
   const q = `secret=${encodeURIComponent(secret)}`;
+
+  const [graphicState, setGraphicState] = useState<RunState>(IDLE);
+  const [graphicPreviewUrl, setGraphicPreviewUrl] = useState<string | null>(null);
+
+  // Revoke the previous blob URL whenever a new preview replaces it or the
+  // panel unmounts, so we don't leak object URLs across regenerations.
+  useEffect(() => {
+    return () => {
+      if (graphicPreviewUrl) URL.revokeObjectURL(graphicPreviewUrl);
+    };
+  }, [graphicPreviewUrl]);
+
+  async function downloadTodayGraphic() {
+    setGraphicState({ status: "loading", message: "" });
+    try {
+      const res = await fetch("/api/og/today");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const showDate = res.headers.get("X-Show-Date") || "today";
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      setGraphicPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return url;
+      });
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `crawlspace-shows-${showDate}.png`;
+      a.click();
+
+      setGraphicState({ status: "done", message: "Downloaded." });
+    } catch (err) {
+      setGraphicState({
+        status: "error",
+        message: err instanceof Error ? err.message : "Failed",
+      });
+    }
+  }
 
   async function runScraper(id: string) {
     setRunStates((s) => ({ ...s, [id]: { status: "loading", message: "" } }));
@@ -234,6 +273,56 @@ export default function AdminPanel({
           &ldquo;Run now&rdquo; still works.
         </p>
       )}
+
+      {/* 0. SHOW GRAPHICS ─────────────────────────────────────────────── */}
+      <section className="mb-12">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className={SECTION_HEADING}>Show graphics</h2>
+        </div>
+        <div className={CARD}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-medium text-[#E8E0D0]">Today&apos;s show graphic</p>
+              <p className="mt-1 text-xs text-[#E8E0D0]/55">
+                Generates the story-format PNG for tomorrow&apos;s date (it&apos;s
+                labeled &ldquo;TODAY&rdquo; since it&apos;s meant to be posted
+                the day of).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={downloadTodayGraphic}
+              disabled={graphicState.status === "loading"}
+              className={BTN_PRIMARY}
+            >
+              {graphicState.status === "loading" ? (
+                <Spinner label="Generating…" />
+              ) : (
+                "Download today's show graphic"
+              )}
+            </button>
+          </div>
+
+          {graphicState.status !== "idle" && graphicState.status !== "loading" && (
+            <p
+              className={`mt-3 text-sm ${
+                graphicState.status === "error" ? "text-[#E5A0A0]" : "text-[#8FD08F]"
+              }`}
+            >
+              {graphicState.message}
+            </p>
+          )}
+
+          {graphicPreviewUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={graphicPreviewUrl}
+              alt="Preview of today's show graphic"
+              className="mt-4 w-40 rounded-md border border-[#E8E0D0]/15"
+            />
+          )}
+        </div>
+      </section>
 
       {/* 1. SCRAPER STATUS ────────────────────────────────────────────── */}
       <section className="mb-12">
