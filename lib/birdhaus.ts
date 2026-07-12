@@ -118,3 +118,56 @@ export async function fetchBirdhausBands(): Promise<BirdhausBand[]> {
   lastGood = bands;
   return bands;
 }
+
+// Lineup-to-band matching (lib/shows.ts) needs the bands list once per show
+// write, not once per lineup entry — a 12-venue scrape run would otherwise
+// hammer this endpoint dozens of times in a few seconds. This is a bare TTL
+// wrapper around fetchBirdhausBands() above, not a new caching layer: same
+// live-fetch-with-fallback function underneath, just not re-hit within the
+// same short window.
+const MATCH_CACHE_TTL_MS = 60_000;
+let matchCache: { bands: BirdhausBand[]; expiresAt: number } | null = null;
+
+export async function getCachedBirdhausBands(): Promise<BirdhausBand[]> {
+  if (matchCache && matchCache.expiresAt > Date.now()) return matchCache.bands;
+  const bands = await fetchBirdhausBands();
+  matchCache = { bands, expiresAt: Date.now() + MATCH_CACHE_TTL_MS };
+  return bands;
+}
+
+/**
+ * Exact case-insensitive match-or-create against Birdhaus's directory.
+ * Returns null (never throws) on any failure — a lineup entry whose band
+ * can't be resolved just stays unlinked rather than blocking the show write.
+ */
+export async function matchOrCreateBirdhausBand(
+  name: string,
+): Promise<{ slug: string; created: boolean } | null> {
+  const apiKey = process.env.BIRDHAUS_API_KEY;
+  if (!apiKey) {
+    console.error("matchOrCreateBirdhausBand: BIRDHAUS_API_KEY is not set");
+    return null;
+  }
+
+  try {
+    const res = await fetch(BIRDHAUS_API_URL, {
+      method: "POST",
+      headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      console.error(`matchOrCreateBirdhausBand: request failed (${res.status}) for "${name}"`);
+      return null;
+    }
+    const body = (await res.json()) as Record<string, unknown>;
+    const slug = asString(body.slug);
+    if (!slug) {
+      console.error(`matchOrCreateBirdhausBand: unexpected response shape for "${name}"`);
+      return null;
+    }
+    return { slug, created: body.created === true };
+  } catch (err) {
+    console.error(`matchOrCreateBirdhausBand: request failed for "${name}"`, err);
+    return null;
+  }
+}

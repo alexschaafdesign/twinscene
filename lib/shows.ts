@@ -15,6 +15,7 @@
 import { randomUUID } from "node:crypto";
 import type postgres from "postgres";
 import { sql } from "@/lib/db";
+import { getCachedBirdhausBands, matchOrCreateBirdhausBand } from "@/lib/birdhaus";
 
 type TransactionSql = postgres.TransactionSql;
 
@@ -34,7 +35,8 @@ function splitNames(s: string): string[] {
 /**
  * Build lineup entries from a free-text lineup string, pairing each name with
  * a linked band's slug when one matches by name (case-insensitive, exact).
- * Names with no matching linked band get bandSlug: null.
+ * Names with no matching linked band get bandSlug: null — resolveLineupBandSlugs
+ * below fills those in against Birdhaus's directory.
  */
 export function buildLineupEntries(
   lineup: string,
@@ -45,6 +47,35 @@ export function buildLineupEntries(
     name,
     bandSlug: byName.get(name.trim().toLowerCase()) ?? null,
   }));
+}
+
+/**
+ * Forward-only Birdhaus matching: for every entry that's still unlinked after
+ * buildLineupEntries (i.e. not already resolved via an explicit linkedBands
+ * pairing — a scraper's confident match or a human's selection), try an exact
+ * case-insensitive match against the cached directory, then fall back to
+ * creating an unreviewed band on Birdhaus. Entries that already have a
+ * bandSlug are left untouched, so this never overwrites an admin's manual
+ * link-band override or a scraper/human's explicit selection. Never throws —
+ * a Birdhaus hiccup leaves the entry's bandSlug null, same as today.
+ */
+async function resolveLineupBandSlugs(entries: LineupEntry[]): Promise<LineupEntry[]> {
+  if (entries.every((e) => e.bandSlug)) return entries;
+
+  const directory = await getCachedBirdhausBands();
+  const byName = new Map(directory.map((b) => [b.name.trim().toLowerCase(), b.slug]));
+
+  return Promise.all(
+    entries.map(async (entry) => {
+      if (entry.bandSlug) return entry;
+
+      const cached = byName.get(entry.name.trim().toLowerCase());
+      if (cached) return { ...entry, bandSlug: cached };
+
+      const result = await matchOrCreateBirdhausBand(entry.name);
+      return result ? { ...entry, bandSlug: result.slug } : entry;
+    }),
+  );
 }
 
 /** Insert one show_history row. Always called inside the write's own transaction. */
@@ -88,6 +119,11 @@ export async function upsertScrapedShow(
   input: ScrapedShowInput,
   actor: string,
 ): Promise<{ skipped: boolean }> {
+  // Resolved outside the transaction — these are HTTP calls to Birdhaus, not
+  // DB work, so they shouldn't hold a Postgres connection open. Wasted on the
+  // rare row that turns out to be edited-locked below, which is fine.
+  const lineup = await resolveLineupBandSlugs(input.lineup);
+
   return sql.begin(async (tx) => {
     const existing = await tx`
       SELECT id, edited_at FROM shows WHERE source_key = ${input.sourceKey} FOR UPDATE
@@ -101,7 +137,7 @@ export async function upsertScrapedShow(
         source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url
       ) VALUES (
         ${input.source}, ${input.sourceKey}, ${input.venue}, ${input.title}, ${input.date},
-        ${input.link || null}, ${tx.json(input.lineup)}, ${input.notes || null}, ${input.flyerUrl || null}
+        ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}, ${input.flyerUrl || null}
       )
       ON CONFLICT (source_key) DO UPDATE SET
         source = EXCLUDED.source,
@@ -121,7 +157,7 @@ export async function upsertScrapedShow(
       rows[0].id,
       existing.length > 0 ? "updated" : "created",
       actor,
-      { venue: input.venue, title: input.title, date: input.date, lineup: input.lineup },
+      { venue: input.venue, title: input.title, date: input.date, lineup },
     );
     return { skipped: false };
   });
@@ -143,12 +179,14 @@ export async function insertManualShow(
   submitter?: Submitter,
 ): Promise<{ id: string }> {
   const sourceKey = `manual:${randomUUID()}`;
+  const lineup = await resolveLineupBandSlugs(input.lineup);
+
   return sql.begin(async (tx) => {
     const rows = await tx`
       INSERT INTO shows (source, source_key, venue_name, title, date, ticket_url, lineup, notes)
       VALUES (
         'manual', ${sourceKey}, ${input.venue}, ${input.title}, ${input.date},
-        ${input.link || null}, ${tx.json(input.lineup)}, ${input.notes || null}
+        ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}
       )
       RETURNING id
     `;
@@ -158,7 +196,7 @@ export async function insertManualShow(
       id,
       "created",
       actor,
-      { venue: input.venue, title: input.title, date: input.date, lineup: input.lineup },
+      { venue: input.venue, title: input.title, date: input.date, lineup },
       submitter,
     );
     return { id };
@@ -185,6 +223,8 @@ export async function editShow(
   actor: string,
   submitter?: Submitter,
 ): Promise<{ success: boolean }> {
+  const lineup = await resolveLineupBandSlugs(input.lineup);
+
   return sql.begin(async (tx) => {
     const rows = await tx`
       UPDATE shows SET
@@ -192,7 +232,7 @@ export async function editShow(
         title = ${input.title},
         date = ${input.date},
         ticket_url = ${input.link || null},
-        lineup = ${tx.json(input.lineup)},
+        lineup = ${tx.json(lineup)},
         notes = ${input.notes || null},
         edited_at = now(),
         updated_at = now()
@@ -206,7 +246,7 @@ export async function editShow(
       id,
       "updated",
       actor,
-      { venue: input.venue, title: input.title, date: input.date, lineup: input.lineup },
+      { venue: input.venue, title: input.title, date: input.date, lineup },
       submitter,
     );
     return { success: true };
