@@ -37,11 +37,8 @@ export type DigestSummary = {
   pressStars?: PressStarResult[];
 };
 
-// The import endpoint is a Google Apps Script web app that serializes sheet
-// writes with a lock, so it can't absorb hundreds of simultaneous POSTs (they
-// fail with lock/invocation errors). Cap how many imports are in flight at once
-// and retry the ones that lose the lock race — imports upsert by sourceKey, so
-// a retry is harmless.
+// Cap how many imports are in flight at once and retry a few times on
+// failure — imports upsert by sourceKey, so a retry is harmless.
 const IMPORT_CONCURRENCY = 4;
 const IMPORT_RETRIES = 2;
 
@@ -54,14 +51,14 @@ function delay(ms: number): Promise<void> {
 async function importWithRetry(
   show: MatchedShow,
   scraperId: string,
-  submitUrl: string,
+  baseUrl: string,
 ): Promise<{ success: boolean; error?: string }> {
   let last: { success: boolean; error?: string } = {
     success: false,
     error: "not attempted",
   };
   for (let attempt = 0; attempt <= IMPORT_RETRIES; attempt++) {
-    last = await autoImportShow(show, scraperId, submitUrl);
+    last = await autoImportShow(show, scraperId, baseUrl);
     if (last.success) return last;
     if (attempt < IMPORT_RETRIES) await delay(300 * (attempt + 1));
   }
@@ -97,12 +94,12 @@ function isAutoShow(show: MatchedShow): boolean {
   );
 }
 
-export async function runAllScrapers(): Promise<DigestSummary> {
+export async function runAllScrapers(baseUrl: string): Promise<DigestSummary> {
   // The full run (cron / "Run all") emails the digest.
-  const summary = await runScrapers(getAllScrapers(), { notify: true });
+  const summary = await runScrapers(getAllScrapers(), { notify: true, baseUrl });
 
   try {
-    summary.pressStars = await runAllPressStars();
+    summary.pressStars = await runAllPressStars(baseUrl);
   } catch (err) {
     console.error("runAllPressStars failed", err);
   }
@@ -115,13 +112,18 @@ export async function runAllScrapers(): Promise<DigestSummary> {
  * queue the rest, log the digest. `runAllScrapers` is this over every scraper;
  * the per-venue admin "Run now" is this over one, so both import and log
  * identically (only the scope differs). `notify` controls the digest email —
- * on for the daily run, off for a manual single-venue run.
+ * on for the daily run, off for a manual single-venue run. `baseUrl` is this
+ * deployment's own origin, used to call the internal /api/scrapers/import
+ * route (server-to-server, same app).
  */
 export async function runScrapers(
   scrapers: Scraper[],
-  opts: { notify?: boolean } = {},
+  opts: { notify?: boolean; baseUrl: string },
 ): Promise<DigestSummary> {
   const notify = opts.notify ?? false;
+  const baseUrl = opts.baseUrl;
+  // The Scraper Log tab is a separate, unmigrated sheet (run history + newly
+  // discovered bands) — still logged via Apps Script.
   const submitUrl = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
 
   // Fetch the directory and build the fuzzy matcher once, shared across every
@@ -167,14 +169,14 @@ export async function runScrapers(
       ? []
       : shows.filter((s) => !isAutoShow(s));
 
-    // Auto-import the high-confidence shows (only when we have somewhere to
-    // send them). Count only the ones the Apps Script accepted.
+    // Auto-import the high-confidence shows. Count only the ones the route
+    // accepted (a locked/edited row is reported as skipped, not a failure).
     let autoImported = 0;
-    if (submitUrl && autoShows.length > 0) {
+    if (autoShows.length > 0) {
       const outcomes = await mapWithConcurrency(
         autoShows,
         IMPORT_CONCURRENCY,
-        (show) => importWithRetry(show, scraper.id, submitUrl),
+        (show) => importWithRetry(show, scraper.id, baseUrl),
       );
       autoImported = outcomes.filter((o) => o.success).length;
     }

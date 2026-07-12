@@ -222,7 +222,7 @@ export default async function ImportShowsPage({
         </p>
       </header>
 
-      <RelinkPanel suggestions={linkSuggestions} />
+      <RelinkPanel suggestions={linkSuggestions} secret={secret ?? ""} />
 
       {scrapeErrors.length > 0 && (
         <ul className="mb-6 space-y-1 rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-3.5 py-2.5 text-sm text-[#E8E0D0]/90">
@@ -237,7 +237,7 @@ export default async function ImportShowsPage({
           {error}
         </p>
       ) : (
-        <ShowImportReview shows={shows} bandOptions={bandOptions} />
+        <ShowImportReview shows={shows} bandOptions={bandOptions} secret={secret ?? ""} />
       )}
     </main>
   );

@@ -386,22 +386,13 @@ export default function ShowSubmitForm({
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
-    const url = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
-    if (!url) {
-      setStatus("error");
-      setErrorMsg(
-        "Submission endpoint isn't configured yet. Please email alex@thebirdhaus.org.",
-      );
-      return;
-    }
-
     setStatus("submitting");
     setErrorMsg("");
 
     try {
-      const payload = isEdit
-        ? new URLSearchParams({
-            formType: "showEdit",
+      const url = isEdit ? "/api/shows/edit" : "/api/shows/submit";
+      const body: Record<string, unknown> = isEdit
+        ? {
             id: initial?.id ?? "",
             date: date.trim(),
             venue: venue.trim(),
@@ -409,31 +400,29 @@ export default function ShowSubmitForm({
             lineup: lineup.trim(),
             notes: notes.trim(),
             link: link.trim(),
+            linkedBands: selectedBands.map((b) => ({ name: b.name, slug: b.slug })),
             submitterName: submitterName.trim(),
             submitterEmail: submitterEmail.trim(),
-            bandSlugs: selectedBands.map((b) => b.slug).join(","),
-          })
-        : new URLSearchParams({
-            formType: "show",
+          }
+        : {
             date: date.trim(),
             venue: venue.trim(),
             notes: notes.trim(),
             link: link.trim(),
+            linkedBands: selectedBands.map((b) => ({ name: b.name, slug: b.slug })),
             submitterName: submitterName.trim(),
             submitterEmail: submitterEmail.trim(),
-            bandSlugs: selectedBands.map((b) => b.slug).join(","),
-            bandNames: selectedBands.map((b) => b.name).join(","),
-          });
+          };
 
       if (!isEdit && showNewBand && newBandName.trim()) {
-        payload.set("newBandName", newBandName.trim());
-        payload.set("newBandGenres", newBandGenres.trim());
-        payload.set("newBandLocation", newBandLocation.trim());
-        payload.set("newBandContactEmail", newBandContactEmail.trim());
-        payload.set("newBandInstagram", newBandInstagram.trim());
+        body.newBandName = newBandName.trim();
       }
 
-      const res = await fetch(url, { method: "POST", body: payload });
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
       const data = await res.json();
       if (!data.success) {
         throw new Error(data.error || "Submission failed");

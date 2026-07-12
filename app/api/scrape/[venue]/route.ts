@@ -27,7 +27,7 @@ export async function GET(
   try {
     // Real per-venue run: scrapes, auto-imports high-confidence shows, queues
     // the rest, and logs the digest — so the admin's "Last run" is accurate.
-    const summary = await runScrapers([scraper]);
+    const summary = await runScrapers([scraper], { baseUrl: request.nextUrl.origin });
     const entry = summary.scrapers[0];
     if (entry?.error) throw new Error(entry.error);
     return NextResponse.json(summary);

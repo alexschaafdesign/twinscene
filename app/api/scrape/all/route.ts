@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const summary = await runAllScrapers();
+    const summary = await runAllScrapers(request.nextUrl.origin);
     return NextResponse.json(summary);
   } catch (err) {
     const message =

@@ -217,10 +217,12 @@ function ShowCard({
   show,
   bands,
   hidden,
+  secret,
 }: {
   show: ImportShow;
   bands: BandOption[];
   hidden?: boolean;
+  secret: string;
 }) {
   const [date, setDate] = useState(show.date);
   const [venue, setVenue] = useState(show.venue);
@@ -273,13 +275,21 @@ function ShowCard({
 
   const busy = status === "submitting";
 
+  // Recover each linked band's original scraped lineup name (from the
+  // suggestion it came from) so the lineup jsonb can pair {name, bandSlug}
+  // correctly; falls back to the directory name for bands added via search
+  // or quick-add, where the typed name already matches the lineup text.
+  function resolveLinkedBands(): { name: string; slug: string }[] {
+    const scrapedNameBySlug = new Map(
+      show.suggested.map((s) => [s.slug, s.scrapedName]),
+    );
+    return links.map((l) => ({
+      name: scrapedNameBySlug.get(l.slug) ?? l.name,
+      slug: l.slug,
+    }));
+  }
+
   async function confirm() {
-    const url = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
-    if (!url) {
-      setStatus("error");
-      setErrorMsg("Submission endpoint isn't configured.");
-      return;
-    }
     if (!date.trim() || !venue.trim() || !title.trim()) {
       setStatus("error");
       setErrorMsg("Date, venue, and title are required.");
@@ -289,20 +299,25 @@ function ShowCard({
     setStatus("submitting");
     setErrorMsg("");
     try {
-      const payload = new URLSearchParams({
-        formType: "showImport",
-        source: show.source,
-        sourceKey: show.sourceKey,
-        date: date.trim(),
-        venue: venue.trim(),
-        title: title.trim(),
-        lineup: lineup.trim(),
-        bandSlugs: links.map((l) => l.slug).join(","),
-        notes: notes.trim(),
-        link: link.trim(),
-        flyerUrl: show.flyerUrl ?? "",
+      const res = await fetch("/api/scrapers/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          secret,
+          actor: "admin",
+          source: show.source,
+          sourceKey: show.sourceKey,
+          date: date.trim(),
+          venue: venue.trim(),
+          title: title.trim(),
+          lineup: lineup.trim(),
+          linkedBands: resolveLinkedBands(),
+          notes: notes.trim(),
+          link: link.trim(),
+          flyerUrl: show.flyerUrl ?? "",
+        }),
       });
-      const data = await postToAppsScript(url, payload);
+      const data = await res.json();
       if (!data.success) throw new Error(data.error || "Import failed");
       setStatus("done");
     } catch (err) {
@@ -534,9 +549,11 @@ function inFilter(show: ImportShow, filter: Filter): boolean {
 export default function ShowImportReview({
   shows,
   bandOptions,
+  secret,
 }: {
   shows: ImportShow[];
   bandOptions: BandOption[];
+  secret: string;
 }) {
   const [filter, setFilter] = useState<Filter>("review");
 
@@ -618,6 +635,7 @@ export default function ShowImportReview({
             show={show}
             bands={bandOptions}
             hidden={!inFilter(show, filter)}
+            secret={secret}
           />
         ))}
       </ul>

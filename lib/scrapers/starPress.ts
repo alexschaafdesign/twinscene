@@ -21,7 +21,7 @@ async function starOutlet(
   outlet: PressScraper,
   picks: ScrapedShow[],
   shows: Awaited<ReturnType<typeof fetchShows>>,
-  submitUrl: string,
+  baseUrl: string,
 ): Promise<PressStarResult> {
   let starred = 0;
   let unmatched = 0;
@@ -29,19 +29,20 @@ async function starOutlet(
 
   for (const pick of picks) {
     const match = findShowMatch(pick, shows);
-    // Can't target a star write without a stable row id (pre-ID legacy row).
-    if (!match || !match.id) {
+    // Can't target a star write without a stable row id.
+    if (!match) {
       unmatched++;
       continue;
     }
 
     try {
-      const res = await fetch(submitUrl, {
+      const res = await fetch(`${baseUrl}/api/shows/star`, {
         method: "POST",
-        body: new URLSearchParams({
-          formType: "showStar",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          secret: process.env.SCRAPE_SECRET,
           id: match.id,
-          starredBy: pick.press || outlet.id,
+          outlet: pick.press || outlet.id,
           blurb: pick.blurb ?? "",
           url: pick.pressPostUrl ?? "",
         }),
@@ -57,19 +58,7 @@ async function starOutlet(
   return { id: outlet.id, name: outlet.name, picks: picks.length, starred, unmatched, errors };
 }
 
-export async function runAllPressStars(): Promise<PressStarResult[]> {
-  const submitUrl = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
-  if (!submitUrl) {
-    return PRESS_SCRAPERS.map((o) => ({
-      id: o.id,
-      name: o.name,
-      picks: 0,
-      starred: 0,
-      unmatched: 0,
-      errors: 0,
-    }));
-  }
-
+export async function runAllPressStars(baseUrl: string): Promise<PressStarResult[]> {
   // Fetched once, shared across every outlet's matching.
   const shows = await fetchShows();
 
@@ -77,7 +66,7 @@ export async function runAllPressStars(): Promise<PressStarResult[]> {
   const results = await Promise.allSettled(
     PRESS_SCRAPERS.map(async (outlet) => {
       const picks = await outlet.scrape();
-      return starOutlet(outlet, picks, shows, submitUrl);
+      return starOutlet(outlet, picks, shows, baseUrl);
     }),
   );
 

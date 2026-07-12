@@ -222,6 +222,9 @@ export default function AdminPanel({
           <h1 className="text-2xl font-medium tracking-tight">TCMS Admin</h1>
           <p className="mt-1 text-sm text-[#E8E0D0]/60">Scraper management</p>
         </div>
+        <a href={`/admin/activity?${q}`} className={BTN}>
+          Recent Activity →
+        </a>
       </header>
 
       {!logConfigured && (

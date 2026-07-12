@@ -1,0 +1,288 @@
+// Server-only write operations against the Postgres `shows` table — the
+// write side of the Shows feature (scraper auto-import, public submit/edit,
+// admin relink sweep, press-outlet stars). Mirrors the semantics the old
+// Apps Script handlers had against the sheet (see apps-script/Code.js):
+// upsert-by-source_key with an edited_at lock, a light-touch link/star that
+// doesn't set the lock, etc. Read side lives in lib/fetchShows.ts.
+//
+// Every write logs a show_history row in the same transaction as the real
+// write, so history can never drift out of sync with shows. `actor` is
+// always supplied by the caller (never inferred from payload shape) since
+// only the caller genuinely knows who/what it is — e.g. /api/scrapers/import
+// is hit by both the automated scraper pipeline (actor "scraper:<source>")
+// and a human confirming in Import Review (actor "admin").
+
+import { randomUUID } from "node:crypto";
+import type postgres from "postgres";
+import { sql } from "@/lib/db";
+
+type TransactionSql = postgres.TransactionSql;
+
+export type LineupEntry = { name: string; bandSlug: string | null };
+export type StarredByEntry = { outlet: string; blurb: string; url: string };
+
+export type Submitter = { name?: string; email?: string };
+
+/** Split a comma-separated lineup string into trimmed, non-empty names. */
+function splitNames(s: string): string[] {
+  return s
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Build lineup entries from a free-text lineup string, pairing each name with
+ * a linked band's slug when one matches by name (case-insensitive, exact).
+ * Names with no matching linked band get bandSlug: null.
+ */
+export function buildLineupEntries(
+  lineup: string,
+  linkedBands: { name: string; slug: string }[],
+): LineupEntry[] {
+  const byName = new Map(linkedBands.map((b) => [b.name.trim().toLowerCase(), b.slug]));
+  return splitNames(lineup).map((name) => ({
+    name,
+    bandSlug: byName.get(name.trim().toLowerCase()) ?? null,
+  }));
+}
+
+/** Insert one show_history row. Always called inside the write's own transaction. */
+async function logHistory(
+  tx: TransactionSql,
+  showId: string,
+  action: string,
+  actor: string,
+  changedFields: Record<string, unknown> | null,
+  submitter?: Submitter,
+): Promise<void> {
+  await tx`
+    INSERT INTO show_history (show_id, action, actor, changed_fields, submitter_name, submitter_email)
+    VALUES (
+      ${showId}, ${action}, ${actor}, ${changedFields ? tx.json(changedFields as postgres.JSONValue) : null},
+      ${submitter?.name || null}, ${submitter?.email || null}
+    )
+  `;
+}
+
+export type ScrapedShowInput = {
+  source: string;
+  sourceKey: string;
+  venue: string;
+  title: string;
+  date: string;
+  lineup: LineupEntry[];
+  notes: string;
+  link: string;
+  flyerUrl: string;
+};
+
+/**
+ * Upsert a scraped/admin-confirmed show by source_key. Mirrors
+ * upsertShowRow_/handleShowImport_: if a matching row exists and is
+ * edited_at-locked, the write is skipped entirely (a human edit always wins
+ * over a re-scrape); otherwise the row is inserted or fully replaced (minus
+ * edited_at, which this path never sets).
+ */
+export async function upsertScrapedShow(
+  input: ScrapedShowInput,
+  actor: string,
+): Promise<{ skipped: boolean }> {
+  return sql.begin(async (tx) => {
+    const existing = await tx`
+      SELECT id, edited_at FROM shows WHERE source_key = ${input.sourceKey} FOR UPDATE
+    `;
+    if (existing.length > 0 && existing[0].edited_at) {
+      return { skipped: true };
+    }
+
+    const rows = await tx`
+      INSERT INTO shows (
+        source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url
+      ) VALUES (
+        ${input.source}, ${input.sourceKey}, ${input.venue}, ${input.title}, ${input.date},
+        ${input.link || null}, ${tx.json(input.lineup)}, ${input.notes || null}, ${input.flyerUrl || null}
+      )
+      ON CONFLICT (source_key) DO UPDATE SET
+        source = EXCLUDED.source,
+        venue_name = EXCLUDED.venue_name,
+        title = EXCLUDED.title,
+        date = EXCLUDED.date,
+        ticket_url = EXCLUDED.ticket_url,
+        lineup = EXCLUDED.lineup,
+        notes = EXCLUDED.notes,
+        flyer_url = EXCLUDED.flyer_url,
+        updated_at = now()
+      RETURNING id
+    `;
+
+    await logHistory(
+      tx,
+      rows[0].id,
+      existing.length > 0 ? "updated" : "created",
+      actor,
+      { venue: input.venue, title: input.title, date: input.date, lineup: input.lineup },
+    );
+    return { skipped: false };
+  });
+}
+
+export type ManualShowInput = {
+  venue: string;
+  title: string;
+  date: string;
+  lineup: LineupEntry[];
+  notes: string;
+  link: string;
+};
+
+/** Insert a new manually-submitted show. Mirrors handleShowSubmission_. */
+export async function insertManualShow(
+  input: ManualShowInput,
+  actor: string,
+  submitter?: Submitter,
+): Promise<{ id: string }> {
+  const sourceKey = `manual:${randomUUID()}`;
+  return sql.begin(async (tx) => {
+    const rows = await tx`
+      INSERT INTO shows (source, source_key, venue_name, title, date, ticket_url, lineup, notes)
+      VALUES (
+        'manual', ${sourceKey}, ${input.venue}, ${input.title}, ${input.date},
+        ${input.link || null}, ${tx.json(input.lineup)}, ${input.notes || null}
+      )
+      RETURNING id
+    `;
+    const id = rows[0].id;
+    await logHistory(
+      tx,
+      id,
+      "created",
+      actor,
+      { venue: input.venue, title: input.title, date: input.date, lineup: input.lineup },
+      submitter,
+    );
+    return { id };
+  });
+}
+
+export type EditShowInput = {
+  venue: string;
+  title: string;
+  date: string;
+  lineup: LineupEntry[];
+  notes: string;
+  link: string;
+};
+
+/**
+ * Update an existing show's editable fields by id and lock it against future
+ * re-scrapes. Mirrors handleShowEdit_ (source/source_key/created_at are left
+ * untouched, same as the sheet's SOURCE/SOURCE_KEY/ADDED).
+ */
+export async function editShow(
+  id: string,
+  input: EditShowInput,
+  actor: string,
+  submitter?: Submitter,
+): Promise<{ success: boolean }> {
+  return sql.begin(async (tx) => {
+    const rows = await tx`
+      UPDATE shows SET
+        venue_name = ${input.venue},
+        title = ${input.title},
+        date = ${input.date},
+        ticket_url = ${input.link || null},
+        lineup = ${tx.json(input.lineup)},
+        notes = ${input.notes || null},
+        edited_at = now(),
+        updated_at = now()
+      WHERE id = ${id}
+      RETURNING id
+    `;
+    if (rows.length === 0) return { success: false };
+
+    await logHistory(
+      tx,
+      id,
+      "updated",
+      actor,
+      { venue: input.venue, title: input.title, date: input.date, lineup: input.lineup },
+      submitter,
+    );
+    return { success: true };
+  });
+}
+
+/**
+ * Attach a directory band slug to the lineup entry matching scrapedName (case-
+ * insensitive), or append a new entry if none matches. Mirrors
+ * handleShowLinkBand_: touches only the lineup, no edited_at lock, so a
+ * re-scrape can still refresh the row.
+ */
+export async function linkBandToShow(
+  id: string,
+  scrapedName: string,
+  bandSlug: string,
+  actor: string,
+): Promise<{ success: boolean }> {
+  return sql.begin(async (tx) => {
+    const rows = await tx`SELECT lineup FROM shows WHERE id = ${id} FOR UPDATE`;
+    if (rows.length === 0) return { success: false };
+
+    const lineup: LineupEntry[] = Array.isArray(rows[0].lineup) ? rows[0].lineup : [];
+    const target = scrapedName.trim().toLowerCase();
+    let matched = false;
+    const updated = lineup.map((entry) => {
+      if (entry.name.trim().toLowerCase() === target) {
+        matched = true;
+        return { ...entry, bandSlug };
+      }
+      return entry;
+    });
+    if (!matched) updated.push({ name: scrapedName, bandSlug });
+
+    await tx`
+      UPDATE shows SET lineup = ${tx.json(updated)}, updated_at = now() WHERE id = ${id}
+    `;
+    await logHistory(tx, id, "linked_band", actor, { scrapedName, bandSlug });
+    return { success: true };
+  });
+}
+
+/**
+ * Add or update one outlet's star on a show: upserts the starred_by entry
+ * (new blurb/url win, falling back to the existing ones when blank) and keeps
+ * the `starred` boolean in sync. Mirrors handleShowStar_.
+ */
+export async function starShow(
+  id: string,
+  outlet: string,
+  blurb: string,
+  url: string,
+  actor: string,
+): Promise<{ success: boolean }> {
+  return sql.begin(async (tx) => {
+    const rows = await tx`SELECT starred_by FROM shows WHERE id = ${id} FOR UPDATE`;
+    if (rows.length === 0) return { success: false };
+
+    const starredBy: StarredByEntry[] = Array.isArray(rows[0].starred_by)
+      ? rows[0].starred_by
+      : [];
+    const existing = starredBy.find((s) => s.outlet === outlet);
+    const entry: StarredByEntry = {
+      outlet,
+      blurb: blurb || existing?.blurb || "",
+      url: url || existing?.url || "",
+    };
+    const updated = existing
+      ? starredBy.map((s) => (s.outlet === outlet ? entry : s))
+      : [...starredBy, entry];
+
+    await tx`
+      UPDATE shows SET starred_by = ${tx.json(updated)}, starred = true, updated_at = now()
+      WHERE id = ${id}
+    `;
+    await logHistory(tx, id, "starred", actor, { outlet, blurb, url });
+    return { success: true };
+  });
+}

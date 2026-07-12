@@ -29,25 +29,27 @@ function shortDate(date: string): string {
   }).format(dt);
 }
 
-function SuggestionRow({ suggestion }: { suggestion: LinkSuggestion }) {
+function SuggestionRow({
+  suggestion,
+  secret,
+}: {
+  suggestion: LinkSuggestion;
+  secret: string;
+}) {
   const [status, setStatus] = useState<RowStatus>("idle");
   const [error, setError] = useState("");
 
   async function link() {
-    const url = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
-    if (!url) {
-      setStatus("error");
-      setError("Submission endpoint isn't configured.");
-      return;
-    }
     setStatus("submitting");
     setError("");
     try {
-      const res = await fetch(url, {
+      const res = await fetch("/api/shows/link-band", {
         method: "POST",
-        body: new URLSearchParams({
-          formType: "showLinkBand",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          secret,
           id: suggestion.showId,
+          scrapedName: suggestion.scrapedName,
           bandSlug: suggestion.bandSlug,
         }),
       });
@@ -109,8 +111,10 @@ function SuggestionRow({ suggestion }: { suggestion: LinkSuggestion }) {
 
 export default function RelinkPanel({
   suggestions,
+  secret,
 }: {
   suggestions: LinkSuggestion[];
+  secret: string;
 }) {
   if (suggestions.length === 0) return null;
 
@@ -130,6 +134,7 @@ export default function RelinkPanel({
           <SuggestionRow
             key={`${s.showId}-${s.bandSlug}`}
             suggestion={s}
+            secret={secret}
           />
         ))}
       </ul>

@@ -1,9 +1,10 @@
-// Auto-import a high-confidence matched show into the Shows sheet.
+// Auto-import a high-confidence matched show into the shows table via the
+// internal /api/scrapers/import route.
 //
-// Mirrors the payload the manual import review page POSTs (formType
-// 'showImport'), so an auto-imported show and a hand-confirmed one produce the
-// same row — and share a SOURCE_KEY, so re-running the scraper upserts rather
-// than duplicating.
+// Mirrors the payload the manual import review page sends on "confirm", so
+// an auto-imported show and a hand-confirmed one land the same way — and
+// share a sourceKey, so re-running the scraper upserts rather than
+// duplicating.
 
 import type { MatchedShow } from "@/lib/bandMatcher";
 
@@ -33,7 +34,7 @@ function composeNotes(show: MatchedShow): string {
 export async function autoImportShow(
   show: MatchedShow,
   scraperId: string,
-  submitUrl: string,
+  baseUrl: string,
 ): Promise<{ success: boolean; error?: string }> {
   const title = show.headliner || show.allBands[0] || "";
   const lineup = show.allBands.join(", ");
@@ -42,27 +43,29 @@ export async function autoImportShow(
   )}`;
 
   // Only the confidently-matched directory bands get linked automatically.
-  const bandSlugs = show.bandMatches
+  const linkedBands = show.bandMatches
     .filter((m) => m.confidence === "auto" && m.match)
-    .map((m) => m.match!.slug)
-    .join(",");
+    .map((m) => ({ name: m.name, slug: m.match!.slug }));
 
   try {
-    const payload = new URLSearchParams({
-      formType: "showImport",
-      source: scraperId,
-      sourceKey,
-      date: show.date ?? "",
-      venue: show.venue,
-      title,
-      lineup,
-      bandSlugs,
-      notes: composeNotes(show),
-      link: show.ticketUrl ?? "",
-      flyerUrl: show.flyerUrl ?? "",
+    const res = await fetch(`${baseUrl}/api/scrapers/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        secret: process.env.SCRAPE_SECRET,
+        actor: `scraper:${scraperId}`,
+        source: scraperId,
+        sourceKey,
+        date: show.date ?? "",
+        venue: show.venue,
+        title,
+        lineup,
+        linkedBands,
+        notes: composeNotes(show),
+        link: show.ticketUrl ?? "",
+        flyerUrl: show.flyerUrl ?? "",
+      }),
     });
-
-    const res = await fetch(submitUrl, { method: "POST", body: payload });
     const data = await res.json();
     if (!data.success) {
       return { success: false, error: data.error || "Import failed" };
