@@ -32,8 +32,25 @@ import type { ScrapedShow } from "./types";
 
 const VENUE = "The Hook and Ladder";
 const EVENTS_URL = "https://thehookmpls.com/events/";
-const USER_AGENT = "TwinScene/1.0 (+https://twinscene.org)";
 const TIMEZONE = "America/Chicago";
+
+// thehookmpls.com is behind Cloudflare, which 403s requests it judges to be
+// bots. A bare/custom User-Agent from a datacenter IP (Vercel) trips that even
+// though it's fine from a residential IP (local dev) — so present as a real
+// browser: full Chrome UA plus the Accept/Sec-Fetch headers a browser sends on
+// a top-level navigation. This is a best-effort nudge past Cloudflare's basic
+// heuristics; a hard IP-reputation block or JS challenge would need a proxy.
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+  Accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Sec-Fetch-Dest": "document",
+  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-Site": "none",
+  "Upgrade-Insecure-Requests": "1",
+};
 
 // The EventsBrowser island's props attribute — `component-url` reliably comes
 // before `props` in Astro's rendered tag, and the value has no literal `>` or
@@ -204,7 +221,7 @@ function parseEvent(event: HookEvent): ScrapedShow | null {
 
 export async function scrapeHookAndLadder(): Promise<ScrapedShow[]> {
   const res = await fetch(EVENTS_URL, {
-    headers: { "User-Agent": USER_AGENT },
+    headers: BROWSER_HEADERS,
     cache: "no-store",
   });
   if (!res.ok) {
