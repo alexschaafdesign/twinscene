@@ -15,6 +15,12 @@ export type ScrapedShow = {
   advancePrice: number | null;
   dosPrice: number | null;
   sourceUrl: string;
+  // Event-type label for listings that aren't a normal band bill — e.g. a
+  // private event, record sale, or industry meetup. Set by scrapers that
+  // accept all of a venue's events rather than dropping the non-shows (see
+  // hookandladder.ts); null/absent means an ordinary music show. Flows through
+  // to the import review UI and the shows table's event_type column.
+  tag?: string | null;
   // Set only by press-digest sources (e.g. crawlspace.ts, racket.ts): which
   // outlet picked this show, their blurb (if any), and a link to the post it
   // came from. Optional so venue scrapers are unaffected.

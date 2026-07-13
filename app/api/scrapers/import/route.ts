@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const { source, sourceKey, date, venue, title, lineup, linkedBands, notes, link, flyerUrl, actor } =
+  const { source, sourceKey, date, venue, title, lineup, linkedBands, notes, link, flyerUrl, eventType, actor } =
     body;
   if (!source || !sourceKey || !date || !venue || !title || !actor) {
     return NextResponse.json(
@@ -36,6 +36,7 @@ export async function POST(request: NextRequest) {
         notes: notes ?? "",
         link: link ?? "",
         flyerUrl: flyerUrl ?? "",
+        eventType: eventType ?? "",
       },
       actor,
     );

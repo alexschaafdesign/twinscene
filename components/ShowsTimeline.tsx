@@ -119,6 +119,11 @@ export default function ShowsTimeline({
                         {show.starredBy.length > 0 && (
                           <span className="ml-1.5 text-amber-400">★</span>
                         )}
+                        {show.eventType && (
+                          <span className="ml-2 rounded bg-[#E8B84B]/15 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-[#E8B84B]">
+                            {show.eventType}
+                          </span>
+                        )}
                       </p>
                       {show.venue && (
                         <p className="mt-0.5 text-sm text-[#E8E0D0]/75">

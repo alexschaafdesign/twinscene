@@ -16,6 +16,7 @@ export type Show = {
   title: string; // marquee / headliner — the show's display title
   lineup: string; // full lineup, e.g. "shugE, Average Joey, Ditch Pigeon"
   bandSlugs: string[]; // directory slugs this show links to (0..n)
+  eventType: string; // non-band listing label (e.g. "Private Event"), "" for shows
   notes: string;
   link: string;
   flyerUrl: string; // scraped poster image URL ("" when none)
@@ -37,6 +38,7 @@ type ShowsQueryRow = {
   notes: string | null;
   ticket_url: string | null;
   flyer_url: string | null;
+  event_type: string | null;
   source: string;
   source_key: string;
   starred_by: StarredByEntry[] | null;
@@ -66,6 +68,7 @@ function mapRow(row: ShowsQueryRow): Show {
     bandSlugs: lineup
       .map((e) => e.bandSlug)
       .filter((slug): slug is string => !!slug),
+    eventType: row.event_type ?? "",
     notes: row.notes ?? "",
     link: row.ticket_url ?? "",
     flyerUrl: row.flyer_url ?? "",
@@ -85,7 +88,7 @@ export async function fetchShows(): Promise<Show[]> {
     rows = await sql<ShowsQueryRow[]>`
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
-        notes, ticket_url, flyer_url, source, source_key, starred_by, created_at
+        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at
       FROM shows
     `;
   } catch (err) {

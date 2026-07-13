@@ -18,6 +18,7 @@ import { scrapeGreenRoom } from "./greenroom";
 import { scrape331Club } from "./331club";
 import { scrapeIcehouse } from "./icehouse";
 import { scrapeCedar } from "./cedar";
+import { scrapeHookAndLadder } from "./hookandladder";
 
 export type { ScrapedShow };
 
@@ -87,6 +88,11 @@ export const SCRAPERS: Record<string, Scraper> = {
     id: "cedar",
     name: "The Cedar Cultural Center",
     scrape: scrapeCedar,
+  },
+  hookandladder: {
+    id: "hookandladder",
+    name: "The Hook and Ladder",
+    scrape: scrapeHookAndLadder,
   },
 };
 

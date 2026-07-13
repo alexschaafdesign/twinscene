@@ -106,6 +106,7 @@ export type ScrapedShowInput = {
   notes: string;
   link: string;
   flyerUrl: string;
+  eventType: string; // non-band listing label (e.g. "Private Event"); "" for shows
 };
 
 /**
@@ -134,10 +135,11 @@ export async function upsertScrapedShow(
 
     const rows = await tx`
       INSERT INTO shows (
-        source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url
+        source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url, event_type
       ) VALUES (
         ${input.source}, ${input.sourceKey}, ${input.venue}, ${input.title}, ${input.date},
-        ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}, ${input.flyerUrl || null}
+        ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}, ${input.flyerUrl || null},
+        ${input.eventType || null}
       )
       ON CONFLICT (source_key) DO UPDATE SET
         source = EXCLUDED.source,
@@ -148,6 +150,7 @@ export async function upsertScrapedShow(
         lineup = EXCLUDED.lineup,
         notes = EXCLUDED.notes,
         flyer_url = EXCLUDED.flyer_url,
+        event_type = EXCLUDED.event_type,
         updated_at = now()
       RETURNING id
     `;

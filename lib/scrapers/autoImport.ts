@@ -64,6 +64,7 @@ export async function autoImportShow(
         notes: composeNotes(show),
         link: show.ticketUrl ?? "",
         flyerUrl: show.flyerUrl ?? "",
+        eventType: show.tag ?? "",
       }),
     });
     const data = await res.json();

@@ -17,6 +17,7 @@ export type ImportShow = {
   venue: string;
   title: string;
   lineup: string;
+  tag: string | null; // event-type label for non-band listings (e.g. "Private Event")
   notes: string;
   link: string;
   flyerUrl: string | null;
@@ -315,6 +316,7 @@ function ShowCard({
           notes: notes.trim(),
           link: link.trim(),
           flyerUrl: show.flyerUrl ?? "",
+          eventType: show.tag ?? "",
         }),
       });
       const data = await res.json();
@@ -370,11 +372,18 @@ function ShowCard({
             <p className="truncate text-sm font-medium text-[#E8E0D0]">
               {title || "(untitled show)"}
             </p>
-            {status === "done" && (
-              <span className="shrink-0 rounded bg-[#6FBF73]/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#8FD693]">
-                on schedule
-              </span>
-            )}
+            <div className="flex shrink-0 items-center gap-2">
+              {show.tag && (
+                <span className="rounded bg-[#E8B84B]/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#E8B84B]">
+                  {show.tag}
+                </span>
+              )}
+              {status === "done" && (
+                <span className="rounded bg-[#6FBF73]/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#8FD693]">
+                  on schedule
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">

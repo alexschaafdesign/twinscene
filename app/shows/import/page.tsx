@@ -163,6 +163,7 @@ export default async function ImportShowsPage({
         venue: show.venue,
         title: headliner,
         lineup: show.allBands.join(", "),
+        tag: show.tag ?? null,
         notes: composeNotes(show),
         link: show.ticketUrl ?? "",
         flyerUrl: show.flyerUrl,
