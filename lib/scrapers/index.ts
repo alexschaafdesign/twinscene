@@ -26,6 +26,12 @@ export type Scraper = {
   id: string;
   name: string;
   scrape: () => Promise<ScrapedShow[]>;
+  // When true, this venue's site blocks scrapes from datacenter IPs (e.g.
+  // Cloudflare 403s Vercel's egress), so it only works from a residential IP.
+  // The Vercel cron skips these; run them locally instead (npm run scrape:local),
+  // which writes to the same shared Postgres DB. On-demand endpoints still run
+  // them if asked (so a local `/api/scrape/<id>` works).
+  localOnly?: boolean;
 };
 
 export const SCRAPERS: Record<string, Scraper> = {
@@ -93,6 +99,7 @@ export const SCRAPERS: Record<string, Scraper> = {
     id: "hookandladder",
     name: "The Hook and Ladder",
     scrape: scrapeHookAndLadder,
+    localOnly: true, // Cloudflare 403s datacenter IPs — run locally (npm run scrape:local)
   },
 };
 
@@ -102,4 +109,15 @@ export function getScraper(id: string): Scraper | null {
 
 export function getAllScrapers(): Scraper[] {
   return Object.values(SCRAPERS);
+}
+
+/** Scrapers the Vercel cron runs — everything except localOnly venues, whose
+ * sites block datacenter IPs and must be scraped locally from a residential IP. */
+export function getCronScrapers(): Scraper[] {
+  return Object.values(SCRAPERS).filter((s) => !s.localOnly);
+}
+
+/** localOnly venues — run these from a residential IP via `npm run scrape:local`. */
+export function getLocalOnlyScrapers(): Scraper[] {
+  return Object.values(SCRAPERS).filter((s) => s.localOnly);
 }

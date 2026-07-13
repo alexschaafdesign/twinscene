@@ -94,9 +94,13 @@ function isAutoShow(show: MatchedShow): boolean {
   );
 }
 
-export async function runAllScrapers(baseUrl: string): Promise<DigestSummary> {
-  // The full run (cron / "Run all") emails the digest.
-  const summary = await runScrapers(getAllScrapers(), { notify: true, baseUrl });
+export async function runAllScrapers(
+  baseUrl: string,
+  scrapers: Scraper[] = getAllScrapers(),
+): Promise<DigestSummary> {
+  // The full run (cron / "Run all") emails the digest. Callers can pass a
+  // subset — the cron passes getCronScrapers() to skip localOnly venues.
+  const summary = await runScrapers(scrapers, { notify: true, baseUrl });
 
   try {
     summary.pressStars = await runAllPressStars(baseUrl);

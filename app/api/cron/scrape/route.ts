@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { runAllScrapers } from "@/lib/scrapers/runAll";
+import { getCronScrapers } from "@/lib/scrapers";
 import { SHOWS_ENABLED } from "@/lib/features";
 
 // cheerio needs the Node.js runtime, and the scrape must never be cached.
@@ -23,7 +24,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const summary = await runAllScrapers(request.nextUrl.origin);
+    // Skip localOnly venues (their sites block Vercel's datacenter IPs) — those
+    // are scraped locally from a residential IP via `npm run scrape:local`.
+    const summary = await runAllScrapers(request.nextUrl.origin, getCronScrapers());
     return NextResponse.json(summary);
   } catch (err) {
     const message =
