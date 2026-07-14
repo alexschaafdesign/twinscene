@@ -16,6 +16,7 @@
 
 import * as cheerio from "cheerio";
 import type { ScrapedShow } from "./types";
+import { protectKnownNames } from "./knownActNames";
 
 const SHOWS_URL = "https://first-avenue.com/shows/";
 const USER_AGENT = "TwinScene/1.0 (+https://twinscene.org)";
@@ -41,10 +42,13 @@ function clean(text: string): string {
 
 /** Split a "with A, B and C" supporting-acts string into band names. */
 function parseSupporting(text: string): string[] {
-  return clean(text)
+  // Protect known comma-containing act names ("Earth, Wind & Fire") before
+  // splitting, so the split below can't fragment them.
+  const { text: protectedText, restore } = protectKnownNames(clean(text));
+  return protectedText
     .replace(/^with\s+/i, "")
     .split(/,\s*and\s+|\s+and\s+|,\s*/)
-    .map((s) => s.trim())
+    .map((s) => restore(s).trim())
     .filter((s) => s && !/^tba$/i.test(s));
 }
 

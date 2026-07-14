@@ -22,6 +22,7 @@
 
 import * as cheerio from "cheerio";
 import type { ScrapedShow } from "./types";
+import { protectKnownNames } from "./knownActNames";
 
 const VENUE = "Berlin";
 const CALENDAR_URL = "https://www.berlinmpls.com/calendar";
@@ -64,8 +65,11 @@ function decodeEntities(s: string): string {
 /** Split a (already prefix-stripped) title into individual act names. */
 function splitBands(rawTitle: string): string[] {
   const title = decodeEntities(rawTitle).trim();
+  // Protect known comma-containing act names ("Earth, Wind & Fire") before
+  // any splitting, so the split below can't fragment them.
+  const { text: protectedTitle, restore } = protectKnownNames(title);
   // "w/" marks the headliner/support boundary, when present.
-  const sides = title.split(/\s+w\/\s+/i);
+  const sides = protectedTitle.split(/\s+w\/\s+/i);
   const names = sides.flatMap((side) =>
     // The Oxford-comma alternatives must come before the bare comma one: for
     // "A, B, & C" the bare comma would otherwise consume ", " right up to the
@@ -76,7 +80,7 @@ function splitBands(rawTitle: string): string[] {
     ),
   );
   return names
-    .map((n) => n.trim())
+    .map((n) => restore(n).trim())
     .filter((n) => n && !/^tba\.?$/i.test(n) && !/^tbd\.?$/i.test(n));
 }
 

@@ -31,6 +31,7 @@
 // show.
 
 import type { ScrapedShow } from "./types";
+import { protectKnownNames } from "./knownActNames";
 
 const VENUE = "Icehouse";
 const BASE_URL = "https://icehouse.turntabletickets.com";
@@ -93,7 +94,10 @@ function buildTime(hour: string, minute: string | undefined, ampm: string): stri
  * "with", "//", "/", "&", "+", "x", and comma-separated bills. */
 function splitBands(rawName: string): string[] {
   const name = decodeEntities(rawName).trim();
-  const sides = name.split(/\s+w\/\s*|\s+with\s+/i);
+  // Protect known comma-containing act names ("Earth, Wind & Fire") before
+  // any splitting, so the split below can't fragment them.
+  const { text: protectedName, restore } = protectKnownNames(name);
+  const sides = protectedName.split(/\s+w\/\s*|\s+with\s+/i);
   const names = sides.flatMap((side) =>
     // The Oxford-comma alternatives must come before the bare comma one: for
     // "A, B, & C" the bare comma would otherwise consume ", " right up to the
@@ -103,7 +107,7 @@ function splitBands(rawName: string): string[] {
       /\s*,\s*&\s+|\s*,\s*and\s+|\s*\/\/\s*|\s*\/\s*|\s+&\s+|\s*,\s*|\s+and\s+|\s+x\s+|\s+\+\s+|\s+featuring\s+|\s+feat\.\s+|\s+ft\.\s+/i,
     ),
   );
-  return names
+  return names.map(restore)
     .map((n) => n.trim())
     .filter((n) => n && !/^tba\.?$/i.test(n) && !/^tbd\.?$/i.test(n));
 }

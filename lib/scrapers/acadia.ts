@@ -55,6 +55,7 @@
 // blocking off a date, not an event (analogous to a canceled show).
 
 import type { ScrapedShow } from "./types";
+import { protectKnownNames } from "./knownActNames";
 
 const VENUE = "Acadia Cafe";
 const EVENTS_URL = "https://www.acadiacafe.com/events";
@@ -132,7 +133,10 @@ type CalendarEvent = {
  * each side splits on slashes, commas, ampersands, plus, "x", and feat. */
 function splitBands(rawTitle: string): string[] {
   const title = rawTitle.trim();
-  const sides = title.split(/\s+w\/\s*|\s+with\s+/i);
+  // Protect known comma-containing act names ("Earth, Wind & Fire") before
+  // any splitting, so the split below can't fragment them.
+  const { text: protectedTitle, restore } = protectKnownNames(title);
+  const sides = protectedTitle.split(/\s+w\/\s*|\s+with\s+/i);
   const names = sides.flatMap((side) =>
     // The Oxford-comma alternatives must come before the bare comma one: for
     // "A, B, & C" the bare comma would otherwise consume ", " right up to the
@@ -142,7 +146,7 @@ function splitBands(rawTitle: string): string[] {
       /\s*,\s*&\s+|\s*,\s*and\s+|\s*\/\/\s*|\s*\/\s*|\s+&\s+|\s*,\s*|\s+and\s+|\s+x\s+|\s+\+\s+|\s+featuring\s+|\s+feat\.\s+|\s+ft\.\s+/i,
     ),
   );
-  return names
+  return names.map(restore)
     .map((n) => n.trim())
     .filter((n) => n && !/^tba\.?$/i.test(n) && !/^tbd\.?$/i.test(n));
 }

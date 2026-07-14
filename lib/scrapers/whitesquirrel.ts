@@ -22,11 +22,13 @@
 // The Warning, Buzz Box"), so we split on "w./w/" for the headliner/support
 // boundary and on "&/and/+/featuring/commas" within each side. This has the
 // same known false-split risk as Pilllar's "with A, B, and C" parsing: a band
-// literally named e.g. "Bees & the Knees" gets split into two. Same mitigation
-// applies — it won't fuzzy-match either half convincingly, so it lands in
-// review rather than corrupting the directory.
+// literally named e.g. "Earth, Wind & Fire" gets split into pieces —
+// protectKnownNames (knownActNames.ts) shields a short list of known cases
+// from that; anything not on the list still splits wrong and needs a manual
+// fix in /admin/review.
 
 import type { ScrapedShow } from "./types";
+import { protectKnownNames } from "./knownActNames";
 
 const VENUE = "White Squirrel Bar";
 const CALENDAR_URL = "https://whitesquirrelbar.com/calendar/";
@@ -65,8 +67,11 @@ function decodeEntities(s: string): string {
 /** Split a show title into individual band names, dropping TBA/TBD. */
 function splitBands(rawTitle: string): string[] {
   const title = decodeEntities(rawTitle).trim();
+  // Protect known comma-containing act names ("Earth, Wind & Fire") before
+  // any splitting, so the split below can't fragment them.
+  const { text: protectedTitle, restore } = protectKnownNames(title);
   // "w."/"w/" marks the headliner/support boundary (mirrors Pilllar's "with").
-  const sides = title.split(/\s+w\/\s+|\s+w\.\s+/i);
+  const sides = protectedTitle.split(/\s+w\/\s+|\s+w\.\s+/i);
   const names = sides.flatMap((side) =>
     // The Oxford-comma alternatives must come before the bare comma one: for
     // "A, B, & C" the bare comma would otherwise consume ", " right up to the
@@ -74,7 +79,7 @@ function splitBands(rawTitle: string): string[] {
     // the "&" alternative to match.
     side.split(/\s*,\s*&\s+|\s*,\s*and\s+|\s*,\s*|\s+&\s+|\s+and\s+|\s+\+\s+|\s+featuring\s+|\s+ft\.\s+/i),
   );
-  return names
+  return names.map(restore)
     .map((n) => n.trim())
     .filter((n) => n && !/^tba\.?$/i.test(n) && !/^tbd\.?$/i.test(n));
 }

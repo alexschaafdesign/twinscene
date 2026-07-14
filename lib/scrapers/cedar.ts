@@ -29,6 +29,7 @@
 
 import * as cheerio from "cheerio";
 import type { ScrapedShow } from "./types";
+import { protectKnownNames } from "./knownActNames";
 
 const VENUE = "The Cedar Cultural Center";
 const EVENTS_URL = "https://www.thecedar.org/events";
@@ -96,8 +97,11 @@ function stripSubtitle(side: string): string {
 
 /** Split a (already prefix-stripped) title into individual act names. */
 function splitBands(rawTitle: string): string[] {
+  // Protect known comma-containing act names ("Earth, Wind & Fire") before
+  // any splitting, so the split below can't fragment them.
+  const { text: protectedTitle, restore } = protectKnownNames(rawTitle);
   // "with" marks the headliner/support boundary, when present.
-  const sides = rawTitle.split(/\s+with\s+/i);
+  const sides = protectedTitle.split(/\s+with\s+/i);
   sides[0] = stripSubtitle(sides[0]);
   const names = sides.flatMap((side) =>
     // The Oxford-comma alternatives must come before the bare comma one: for
@@ -108,7 +112,7 @@ function splitBands(rawTitle: string): string[] {
       /\s*,\s*&\s+|\s*,\s*and\s+|\s*\/\s*|\s+&\s+|\s*,\s*|\s+and\s+|\s+x\s+|\s+\+\s+|\s+featuring\s+|\s+ft\.\s+/i,
     ),
   );
-  return names
+  return names.map(restore)
     .map((n) => n.trim().replace(/^special guest\s+/i, "").trim())
     .filter((n) => n && !/^tba\.?$/i.test(n) && !/^tbd\.?$/i.test(n));
 }
