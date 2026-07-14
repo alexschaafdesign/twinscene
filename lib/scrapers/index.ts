@@ -18,6 +18,7 @@ import { scrapeGreenRoom } from "./greenroom";
 import { scrape331Club } from "./331club";
 import { scrapeIcehouse } from "./icehouse";
 import { scrapeCedar } from "./cedar";
+import { scrapeAcadia } from "./acadia";
 import { scrapeHookAndLadder } from "./hookandladder";
 
 export type { ScrapedShow };
@@ -100,6 +101,11 @@ export const SCRAPERS: Record<string, Scraper> = {
     name: "The Hook and Ladder",
     scrape: scrapeHookAndLadder,
     localOnly: true, // Cloudflare 403s datacenter IPs — run locally (npm run scrape:local)
+  },
+  acadia: {
+    id: "acadia",
+    name: "Acadia Cafe",
+    scrape: scrapeAcadia,
   },
 };
 
