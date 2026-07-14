@@ -114,6 +114,14 @@ export async function fetchShows(): Promise<Show[]> {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** Today + the next `days - 1` days, both as "YYYY-MM-DD" (America/Chicago). */
+export function reviewWindow(days: number): { start: string; end: string } {
+  const start = todayInChicago();
+  const end = new Date(`${start}T00:00:00Z`);
+  end.setUTCDate(end.getUTCDate() + (days - 1));
+  return { start, end: end.toISOString().slice(0, 10) };
+}
+
 /**
  * Every show in the next `days` days (inclusive of today) — unlike
  * fetchShows(), this doesn't exclude "broken" (no usable date) rows or
@@ -121,10 +129,7 @@ export async function fetchShows(): Promise<Show[]> {
  * those.
  */
 export async function fetchShowsForReview(days: number): Promise<Show[]> {
-  const today = todayInChicago();
-  const end = new Date(`${today}T00:00:00Z`);
-  end.setUTCDate(end.getUTCDate() + (days - 1));
-  const endDate = end.toISOString().slice(0, 10);
+  const { start, end } = reviewWindow(days);
 
   let rows: ShowsQueryRow[];
   try {
@@ -134,10 +139,35 @@ export async function fetchShowsForReview(days: number): Promise<Show[]> {
         notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
-      WHERE date BETWEEN ${today} AND ${endDate}
+      WHERE date BETWEEN ${start} AND ${end}
     `;
   } catch (err) {
     console.error("fetchShowsForReview: query failed", err);
+    return [];
+  }
+
+  return rows.map(mapRow).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Every needs_review show, any date — scrapers pull shows months out, so a
+ * flag on a show outside fetchShowsForReview's window would otherwise never
+ * be reachable from /admin/review. This is how "why is X flagged" stays
+ * answerable no matter how far out the show is.
+ */
+export async function fetchFlaggedShows(): Promise<Show[]> {
+  let rows: ShowsQueryRow[];
+  try {
+    rows = await sql<ShowsQueryRow[]>`
+      SELECT
+        id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
+        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        needs_review, confidence, review_reasons
+      FROM shows
+      WHERE needs_review = true
+    `;
+  } catch (err) {
+    console.error("fetchFlaggedShows: query failed", err);
     return [];
   }
 

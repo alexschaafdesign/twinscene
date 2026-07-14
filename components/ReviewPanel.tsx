@@ -54,10 +54,12 @@ export default function ReviewPanel({
   shows,
   secret,
   windowDays,
+  windowEnd,
 }: {
   shows: Show[];
   secret: string;
   windowDays: number;
+  windowEnd: string;
 }) {
   const [items, setItems] = useState(shows);
   const q = secret ? `secret=${encodeURIComponent(secret)}` : "";
@@ -65,6 +67,7 @@ export default function ReviewPanel({
   const dateGroups = useMemo(() => {
     const byDate = new Map<string, Show[]>();
     for (const show of items) {
+      if (show.date > windowEnd) continue; // shown in the flagged-further-out section instead
       const list = byDate.get(show.date) ?? [];
       list.push(show);
       byDate.set(show.date, list);
@@ -89,7 +92,17 @@ export default function ReviewPanel({
           });
         return { date, duplicateClusters, singles };
       });
-  }, [items]);
+  }, [items, windowEnd]);
+
+  // Flagged shows dated beyond the calendar window above — otherwise
+  // unreachable from this page, since scrapers pull shows months out.
+  const flaggedBeyondWindow = useMemo(
+    () =>
+      items
+        .filter((s) => s.needsReview && s.date > windowEnd)
+        .sort((a, b) => a.date.localeCompare(b.date)),
+    [items, windowEnd],
+  );
 
   const totalFlagged = items.filter((s) => s.needsReview).length;
 
@@ -172,13 +185,37 @@ export default function ReviewPanel({
           <h1 className="text-2xl font-medium tracking-tight">Review Shows</h1>
           <p className="mt-1 text-sm text-[#E8E0D0]/60">
             Next {windowDays} days · {items.length} show{items.length === 1 ? "" : "s"} ·{" "}
-            {totalFlagged} flagged
+            {totalFlagged} flagged{" "}
+            {totalFlagged > 0 &&
+              `(${totalFlagged - flaggedBeyondWindow.length} this week, ${
+                flaggedBeyondWindow.length
+              } further out)`}
           </p>
         </div>
         <a href={`/shows/import?${q}`} className={BTN}>
           Live re-scrape import →
         </a>
       </header>
+
+      {flaggedBeyondWindow.length > 0 && (
+        <section className="mb-10">
+          <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.15em] text-[#E8B84B]">
+            Flagged — beyond the next {windowDays} days
+          </h2>
+          <div className="space-y-3">
+            {flaggedBeyondWindow.map((show) => (
+              <ShowCard
+                key={show.id}
+                show={show}
+                showDate
+                onDelete={() => handleDelete(show)}
+                onLooksGood={() => handleLooksGood(show.id)}
+                onSaveEdit={(form) => handleSaveEdit(show.id, form)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       {dateGroups.length === 0 && (
         <p className="text-sm text-[#E8E0D0]/55">No shows in this window.</p>
@@ -239,12 +276,14 @@ function ShowCard({
   onLooksGood,
   onSaveEdit,
   extraAction,
+  showDate = false,
 }: {
   show: Show;
   onDelete: () => void;
   onLooksGood: () => void;
   onSaveEdit: (form: EditForm) => Promise<boolean>;
   extraAction?: { label: string; onClick: () => void };
+  showDate?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<EditForm>(() => toEditForm(show));
@@ -320,6 +359,9 @@ function ShowCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-medium text-[#E8E0D0]">
+            {showDate && (
+              <span className="text-[#E8E0D0]/50">{formatDateHeading(show.date)} — </span>
+            )}
             {show.title}{" "}
             <span className="text-[#E8E0D0]/50">— {show.venue}</span>
           </p>

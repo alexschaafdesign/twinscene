@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { SHOWS_ENABLED } from "@/lib/features";
-import { fetchShowsForReview } from "@/lib/fetchShows";
+import {
+  fetchFlaggedShows,
+  fetchShowsForReview,
+  reviewWindow,
+  type Show,
+} from "@/lib/fetchShows";
 import ReviewPanel from "@/components/ReviewPanel";
 
 // Admin-only: reads no-store data at request time — never cache.
@@ -36,13 +41,25 @@ export default async function AdminReviewPage({
     );
   }
 
-  const shows = await fetchShowsForReview(REVIEW_WINDOW_DAYS);
+  const { end: windowEnd } = reviewWindow(REVIEW_WINDOW_DAYS);
+  const [windowShows, flaggedShows] = await Promise.all([
+    fetchShowsForReview(REVIEW_WINDOW_DAYS),
+    fetchFlaggedShows(),
+  ]);
+
+  // Union by id: flaggedShows brings in flagged rows dated beyond the 7-day
+  // window (scrapers pull months out), so those aren't otherwise reachable.
+  const byId = new Map<string, Show>(windowShows.map((s) => [s.id, s]));
+  for (const show of flaggedShows) {
+    if (!byId.has(show.id)) byId.set(show.id, show);
+  }
 
   return (
     <ReviewPanel
-      shows={shows}
+      shows={Array.from(byId.values())}
       secret={secret ?? ""}
       windowDays={REVIEW_WINDOW_DAYS}
+      windowEnd={windowEnd}
     />
   );
 }
