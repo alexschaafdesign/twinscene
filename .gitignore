@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# phase 2 band-migration artifacts (local only — contain raw band data)
+bands-export.json
+bands-import-preview.json
+bands-id-mapping.json
