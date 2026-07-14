@@ -84,14 +84,16 @@ export default function ReviewPanel({
         }
         const duplicateClusters = Array.from(clusters.values()).filter((c) => c.length > 1);
         const clustered = new Set(duplicateClusters.flat().map((s) => s.id));
+        // Only flagged shows render standalone — a duplicate cluster renders
+        // in full even though one member (the "first" of the pair) usually
+        // isn't itself flagged, since seeing both is what makes "keep this
+        // one" a real decision rather than a guess.
         const singles = dateShows
-          .filter((s) => !clustered.has(s.id))
-          .sort((a, b) => {
-            if (a.needsReview !== b.needsReview) return a.needsReview ? -1 : 1;
-            return a.venue.localeCompare(b.venue);
-          });
+          .filter((s) => !clustered.has(s.id) && s.needsReview)
+          .sort((a, b) => a.venue.localeCompare(b.venue));
         return { date, duplicateClusters, singles };
-      });
+      })
+      .filter((group) => group.duplicateClusters.length > 0 || group.singles.length > 0);
   }, [items, windowEnd]);
 
   // Flagged shows dated beyond the calendar window above — otherwise
@@ -184,12 +186,11 @@ export default function ReviewPanel({
         <div>
           <h1 className="text-2xl font-medium tracking-tight">Review Shows</h1>
           <p className="mt-1 text-sm text-[#E8E0D0]/60">
-            Next {windowDays} days · {items.length} show{items.length === 1 ? "" : "s"} ·{" "}
-            {totalFlagged} flagged{" "}
+            {totalFlagged} show{totalFlagged === 1 ? "" : "s"} flagged
             {totalFlagged > 0 &&
-              `(${totalFlagged - flaggedBeyondWindow.length} this week, ${
+              ` — ${totalFlagged - flaggedBeyondWindow.length} in the next ${windowDays} days, ${
                 flaggedBeyondWindow.length
-              } further out)`}
+              } further out`}
           </p>
         </div>
         <a href={`/shows/import?${q}`} className={BTN}>
@@ -217,8 +218,14 @@ export default function ReviewPanel({
         </section>
       )}
 
-      {dateGroups.length === 0 && (
-        <p className="text-sm text-[#E8E0D0]/55">No shows in this window.</p>
+      {dateGroups.length === 0 && flaggedBeyondWindow.length === 0 && (
+        <p className="text-sm text-[#E8E0D0]/55">Nothing flagged right now.</p>
+      )}
+
+      {dateGroups.length > 0 && (
+        <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.15em] text-[#E8B84B]">
+          Flagged — in the next {windowDays} days
+        </h2>
       )}
 
       <div className="space-y-10">
