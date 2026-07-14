@@ -119,6 +119,52 @@ function mapDiceEvent(
   };
 }
 
+// The config object a Squarespace page passes to DiceEventListWidget.create({…}).
+// Venues that embed the widget carry their apiKey + venue/promoter filters here,
+// so a scraper can read them off the page rather than hardcoding them (and thus
+// follows the venue if they re-point the widget). See zhora.ts / undergroundmusic.ts.
+export type DiceWidgetConfig = {
+  apiKey: string;
+  venues: string[];
+  promoters: string[];
+};
+
+/** Pull the DiceEventListWidget.create({…}) config out of an events page.
+ *  `label` names the venue for error messages. */
+export function extractDiceWidgetConfig(
+  html: string,
+  label: string,
+): DiceWidgetConfig {
+  const m = html.match(/DiceEventListWidget\.create\((\{[\s\S]*?\})\)/);
+  if (!m) {
+    throw new Error(`${label}: Dice widget config not found on the events page`);
+  }
+  // Squarespace may HTML-escape the embedded code block; undo the common ones.
+  const json = m[1]
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+
+  let cfg: Record<string, unknown>;
+  try {
+    cfg = JSON.parse(json) as Record<string, unknown>;
+  } catch {
+    throw new Error(`${label}: could not parse the Dice widget config`);
+  }
+
+  const apiKey = typeof cfg.apiKey === "string" ? cfg.apiKey : "";
+  if (!apiKey) throw new Error(`${label}: Dice widget config is missing apiKey`);
+
+  const strList = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+
+  return {
+    apiKey,
+    venues: strList(cfg.venues),
+    promoters: strList(cfg.promoters),
+  };
+}
+
 /**
  * Fetch a venue's upcoming shows from the Dice partner API and map them to
  * ScrapedShow[]. Cancelled events are dropped.
