@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // node-ical (flyingv.ts) depends on temporal-polyfill, which defines BigInt
+  // constants at module scope; Next's default server-bundling transform
+  // mangles that into a runtime helper that has no BigInt, throwing "e.BigInt
+  // is not a function" on import. Opting out of bundling (native require
+  // instead) avoids the transform entirely.
+  serverExternalPackages: ["node-ical", "temporal-polyfill", "rrule-temporal"],
   async headers() {
     return [
       {
