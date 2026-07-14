@@ -26,6 +26,7 @@ export type Show = {
   starredBy: string[]; // curator/outlet ids that recommended this show
   starredNotes: Record<string, StarredNote>; // outlet id -> their blurb/source link, when given
   needsReview: boolean; // data-quality flag (lib/scrapers/reviewFlags.ts) — still shown publicly
+  confidence: string; // "ok" | "flag" | "broken" — "broken" rows are held out of fetchShows()
   reviewReasons: string[];
 };
 
@@ -85,6 +86,7 @@ function mapRow(row: ShowsQueryRow): Show {
       starredBy.map((s) => [s.outlet, { blurb: s.blurb, url: s.url }]),
     ),
     needsReview: row.needs_review ?? false,
+    confidence: row.confidence ?? "ok",
     reviewReasons: row.review_reasons ?? [],
   };
 }
@@ -110,4 +112,34 @@ export async function fetchShows(): Promise<Show[]> {
     .map(mapRow)
     .filter((show) => show.date && show.date >= today)
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Every show in the next `days` days (inclusive of today) — unlike
+ * fetchShows(), this doesn't exclude "broken" (no usable date) rows or
+ * anything else, since /admin/review exists specifically to catch and fix
+ * those.
+ */
+export async function fetchShowsForReview(days: number): Promise<Show[]> {
+  const today = todayInChicago();
+  const end = new Date(`${today}T00:00:00Z`);
+  end.setUTCDate(end.getUTCDate() + (days - 1));
+  const endDate = end.toISOString().slice(0, 10);
+
+  let rows: ShowsQueryRow[];
+  try {
+    rows = await sql<ShowsQueryRow[]>`
+      SELECT
+        id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
+        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        needs_review, confidence, review_reasons
+      FROM shows
+      WHERE date BETWEEN ${today} AND ${endDate}
+    `;
+  } catch (err) {
+    console.error("fetchShowsForReview: query failed", err);
+    return [];
+  }
+
+  return rows.map(mapRow).sort((a, b) => a.date.localeCompare(b.date));
 }

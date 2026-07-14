@@ -241,7 +241,10 @@ export type EditShowInput = {
 /**
  * Update an existing show's editable fields by id and lock it against future
  * re-scrapes. Mirrors handleShowEdit_ (source/source_key/created_at are left
- * untouched, same as the sheet's SOURCE/SOURCE_KEY/ADDED).
+ * untouched, same as the sheet's SOURCE/SOURCE_KEY/ADDED). Also clears any
+ * data-quality review flag: an edit means a human just took ownership of this
+ * row's data (edited_at already locks it out of future re-scrapes entirely),
+ * so whatever reviewFlags.ts originally flagged no longer applies.
  */
 export async function editShow(
   id: string,
@@ -261,6 +264,10 @@ export async function editShow(
         lineup = ${tx.json(lineup)},
         notes = ${input.notes || null},
         edited_at = now(),
+        needs_review = false,
+        confidence = 'ok',
+        review_reasons = '[]',
+        reviewed_at = now(),
         updated_at = now()
       WHERE id = ${id}
       RETURNING id
@@ -277,6 +284,38 @@ export async function editShow(
     );
     return { success: true };
   });
+}
+
+/**
+ * Clear a show's review flag once a human has looked at it and it's fine as
+ * is. Sets reviewed_at, which upsertScrapedShow then treats as a lock — a
+ * future re-scrape won't stomp needs_review/confidence/review_reasons back
+ * on. Powers the /admin/review "✓ looks good" action.
+ */
+export async function markShowReviewed(
+  id: string,
+  actor: string,
+): Promise<{ success: boolean }> {
+  return sql.begin(async (tx) => {
+    const rows = await tx`
+      UPDATE shows SET needs_review = false, reviewed_at = now(), updated_at = now()
+      WHERE id = ${id}
+      RETURNING id
+    `;
+    if (rows.length === 0) return { success: false };
+    await logHistory(tx, id, "reviewed", actor, null);
+    return { success: true };
+  });
+}
+
+/**
+ * Delete a show outright — for junk/duplicate rows caught in /admin/review.
+ * show_history rows for it cascade (ON DELETE CASCADE), so there's nothing
+ * to log afterward.
+ */
+export async function deleteShow(id: string): Promise<{ success: boolean }> {
+  const rows = await sql`DELETE FROM shows WHERE id = ${id} RETURNING id`;
+  return { success: rows.length > 0 };
 }
 
 /**

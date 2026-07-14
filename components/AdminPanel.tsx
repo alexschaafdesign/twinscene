@@ -446,34 +446,34 @@ export default function AdminPanel({
         </div>
       </section>
 
-      {/* 2. QUEUED FOR REVIEW ─────────────────────────────────────────── */}
+      {/* 2. FLAGGED FOR REVIEW ────────────────────────────────────────── */}
       <section className="mb-12">
-        <h2 className={`${SECTION_HEADING} mb-4`}>Queued for review</h2>
+        <h2 className={`${SECTION_HEADING} mb-4`}>Flagged for review</h2>
         {(() => {
           const perVenue = scrapers.map((scraper) => ({
             name: scraper.name,
-            queued: latestFor(scraper.id, scraper.name)?.entry.queued ?? null,
+            flagged: latestFor(scraper.id, scraper.name)?.entry.flagged ?? null,
           }));
-          const total = perVenue.reduce((n, v) => n + (v.queued ?? 0), 0);
+          const total = perVenue.reduce((n, v) => n + (v.flagged ?? 0), 0);
           return (
             <div
               className={`${CARD} flex flex-wrap items-center justify-between gap-3`}
             >
               <div className="min-w-0">
                 <p className="text-sm text-[#E8E0D0]">
-                  {total} show{total === 1 ? "" : "s"} queued across all venues
+                  {total} show{total === 1 ? "" : "s"} flagged in the last run per venue
                 </p>
                 <p className="mt-0.5 text-xs text-[#E8E0D0]/55">
                   {perVenue
                     .map(
                       (v) =>
-                        `${v.name}: ${v.queued != null ? v.queued : "—"}`,
+                        `${v.name}: ${v.flagged != null ? v.flagged : "—"}`,
                     )
                     .join(" · ")}
                 </p>
               </div>
-              <a href={`/shows/import?${q}`} className={BTN}>
-                Review imports →
+              <a href={`/admin/review?${q}`} className={BTN}>
+                Review shows →
               </a>
             </div>
           );
