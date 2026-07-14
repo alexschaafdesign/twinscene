@@ -7,6 +7,7 @@
 // duplicating.
 
 import type { MatchedShow } from "@/lib/bandMatcher";
+import type { UpsertOutcome } from "@/lib/shows";
 
 /** Lowercase/hyphenate for a stable dedup key. Mirrors slugify elsewhere. */
 function slugify(name: string): string {
@@ -35,7 +36,7 @@ export async function autoImportShow(
   show: MatchedShow,
   scraperId: string,
   baseUrl: string,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; outcome?: UpsertOutcome; error?: string }> {
   const title = show.headliner || show.allBands[0] || "";
   const lineup = show.allBands.join(", ");
   const sourceKey = `${scraperId}:${show.date}:${slugify(
@@ -71,7 +72,7 @@ export async function autoImportShow(
     if (!data.success) {
       return { success: false, error: data.error || "Import failed" };
     }
-    return { success: true };
+    return { success: true, outcome: data.outcome as UpsertOutcome | undefined };
   } catch (err) {
     return {
       success: false,

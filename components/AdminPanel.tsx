@@ -14,6 +14,12 @@ type DigestEntry = {
   id: string;
   name: string;
   total: number;
+  // Granular disposition (runs since the "truthful counts" change); older log
+  // rows only have autoImported, so these are optional and we fall back.
+  added?: number;
+  updated?: number;
+  skipped?: number;
+  failed?: number;
   autoImported: number;
   queued: number;
   newBandsFound: string[];
@@ -22,10 +28,33 @@ type DigestEntry = {
 type Digest = {
   ranAt: string;
   scrapers: DigestEntry[];
+  totalAdded?: number;
+  totalUpdated?: number;
+  totalSkipped?: number;
+  totalFailed?: number;
   totalAutoImported: number;
   totalQueued: number;
   totalNewBands: number;
 };
+
+/**
+ * A human-readable one-liner for a scraper's run — "40 scraped · 2 added · 38
+ * duplicates". Duplicates = shows we already had (updated + left-alone). Falls
+ * back to the old "N imported" phrasing for log rows predating granular counts.
+ */
+function formatResult(entry: DigestEntry): string {
+  if (entry.added == null) {
+    return `${entry.total} scraped, ${entry.autoImported} imported, ${entry.queued} queued`;
+  }
+  const duplicates = (entry.updated ?? 0) + (entry.skipped ?? 0);
+  const parts = [
+    `${entry.total} scraped`,
+    `${entry.added} added`,
+    `${duplicates} duplicate${duplicates === 1 ? "" : "s"}`,
+  ];
+  if (entry.failed) parts.push(`${entry.failed} failed`);
+  return parts.join(", ");
+}
 
 /** Lowercase/hyphenate. Mirrors slugify() in lib/fetchBands.ts. */
 function slugify(name: string): string {
@@ -163,9 +192,7 @@ export default function AdminPanel({
       const data = (await res.json()) as Digest & { error?: string };
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       const entry = data.scrapers?.[0];
-      const message = entry
-        ? `Done — ${entry.total} scraped, ${entry.autoImported} imported, ${entry.queued} queued`
-        : "Done";
+      const message = entry ? `Done — ${formatResult(entry)}` : "Done";
       setRunStates((s) => ({ ...s, [id]: { status: "done", message } }));
     } catch (err) {
       setRunStates((s) => ({
@@ -184,10 +211,17 @@ export default function AdminPanel({
       const res = await fetch(`/api/scrape/all?${q}`);
       const data = (await res.json()) as Digest & { error?: string };
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      setAllState({
-        status: "done",
-        message: `Done — ${data.totalAutoImported} imported, ${data.totalQueued} queued, ${data.totalNewBands} new bands`,
-      });
+      const scrapedTotal = (data.scrapers ?? []).reduce(
+        (n, s) => n + (s.total ?? 0),
+        0,
+      );
+      const message =
+        data.totalAdded == null
+          ? `Done — ${data.totalAutoImported} imported, ${data.totalQueued} queued, ${data.totalNewBands} new bands`
+          : `Done — ${scrapedTotal} scraped, ${data.totalAdded} added, ${
+              (data.totalUpdated ?? 0) + (data.totalSkipped ?? 0)
+            } duplicates${data.totalFailed ? `, ${data.totalFailed} failed` : ""}, ${data.totalNewBands} new bands`;
+      setAllState({ status: "done", message });
     } catch (err) {
       setAllState({
         status: "error",
@@ -368,7 +402,7 @@ export default function AdminPanel({
                     <p className="mt-0.5 text-xs text-[#E8E0D0]/55">
                       Last result:{" "}
                       {latest && !latest.entry.error
-                        ? `${latest.entry.total} scraped, ${latest.entry.autoImported} imported, ${latest.entry.queued} queued`
+                        ? formatResult(latest.entry)
                         : latest?.entry.error
                           ? `error — ${latest.entry.error}`
                           : "—"}

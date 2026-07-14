@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { skipped } = await upsertScrapedShow(
+    const { outcome } = await upsertScrapedShow(
       {
         source,
         sourceKey,
@@ -40,7 +40,9 @@ export async function POST(request: NextRequest) {
       },
       actor,
     );
-    return NextResponse.json({ success: true, skipped });
+    // `skipped` retained for back-compat with callers that only checked it;
+    // `outcome` is the richer created/updated/skipped disposition.
+    return NextResponse.json({ success: true, outcome, skipped: outcome === "skipped" });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Import failed";
     return NextResponse.json({ success: false, error: message }, { status: 500 });

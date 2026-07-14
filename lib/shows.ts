@@ -110,6 +110,16 @@ export type ScrapedShowInput = {
 };
 
 /**
+ * The disposition of an upsert, so callers (the scrape digest) can report
+ * "N added, N updated, N already had" rather than one opaque "imported" count:
+ * - "created": no row existed for this source_key; a new show was inserted.
+ * - "updated": a row existed and was replaced by the fresh scrape.
+ * - "skipped": a row existed and is edited_at-locked, so a human edit won and
+ *   the scrape was discarded.
+ */
+export type UpsertOutcome = "created" | "updated" | "skipped";
+
+/**
  * Upsert a scraped/admin-confirmed show by source_key. Mirrors
  * upsertShowRow_/handleShowImport_: if a matching row exists and is
  * edited_at-locked, the write is skipped entirely (a human edit always wins
@@ -119,7 +129,7 @@ export type ScrapedShowInput = {
 export async function upsertScrapedShow(
   input: ScrapedShowInput,
   actor: string,
-): Promise<{ skipped: boolean }> {
+): Promise<{ outcome: UpsertOutcome }> {
   // Resolved outside the transaction — these are HTTP calls to Birdhaus, not
   // DB work, so they shouldn't hold a Postgres connection open. Wasted on the
   // rare row that turns out to be edited-locked below, which is fine.
@@ -130,8 +140,9 @@ export async function upsertScrapedShow(
       SELECT id, edited_at FROM shows WHERE source_key = ${input.sourceKey} FOR UPDATE
     `;
     if (existing.length > 0 && existing[0].edited_at) {
-      return { skipped: true };
+      return { outcome: "skipped" };
     }
+    const wasExisting = existing.length > 0;
 
     const rows = await tx`
       INSERT INTO shows (
@@ -158,11 +169,11 @@ export async function upsertScrapedShow(
     await logHistory(
       tx,
       rows[0].id,
-      existing.length > 0 ? "updated" : "created",
+      wasExisting ? "updated" : "created",
       actor,
       { venue: input.venue, title: input.title, date: input.date, lineup },
     );
-    return { skipped: false };
+    return { outcome: wasExisting ? "updated" : "created" };
   });
 }
 

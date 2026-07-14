@@ -61,7 +61,15 @@ async function main() {
       if (v?.error) {
         console.log(`FAILED: ${v.error}`);
       } else if (v) {
-        console.log(`ok — ${v.total} scraped, ${v.autoImported} imported, ${v.queued} queued`);
+        // Prefer the granular added/duplicate breakdown; fall back to the old
+        // "imported" count for a server predating it.
+        if (v.added != null) {
+          const duplicates = (v.updated ?? 0) + (v.skipped ?? 0);
+          const extra = v.failed ? `, ${v.failed} failed` : "";
+          console.log(`ok — ${v.total} scraped, ${v.added} added, ${duplicates} duplicates${extra}`);
+        } else {
+          console.log(`ok — ${v.total} scraped, ${v.autoImported} imported, ${v.queued} queued`);
+        }
       } else {
         console.log("ok");
       }

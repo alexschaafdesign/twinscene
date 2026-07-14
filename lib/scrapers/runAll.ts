@@ -17,8 +17,12 @@ import { AUTO_IMPORT_ALL_SHOWS } from "@/lib/features";
 export type ScraperDigest = {
   id: string;
   name: string;
-  total: number;
-  autoImported: number;
+  total: number; // shows scraped
+  added: number; // brand-new shows inserted
+  updated: number; // shows we already had, re-written from this scrape
+  skipped: number; // shows we already had but left alone (human-edited/locked)
+  failed: number; // imports that errored after retries
+  autoImported: number; // added + updated (rows actually written) — kept for back-compat
   queued: number;
   newBandsFound: string[]; // scraped band names that matched nothing ('none')
   error?: string;
@@ -27,6 +31,10 @@ export type ScraperDigest = {
 export type DigestSummary = {
   ranAt: string;
   scrapers: ScraperDigest[];
+  totalAdded: number;
+  totalUpdated: number;
+  totalSkipped: number;
+  totalFailed: number;
   totalAutoImported: number;
   totalQueued: number;
   totalNewBands: number;
@@ -52,8 +60,8 @@ async function importWithRetry(
   show: MatchedShow,
   scraperId: string,
   baseUrl: string,
-): Promise<{ success: boolean; error?: string }> {
-  let last: { success: boolean; error?: string } = {
+): Promise<Awaited<ReturnType<typeof autoImportShow>>> {
+  let last: Awaited<ReturnType<typeof autoImportShow>> = {
     success: false,
     error: "not attempted",
   };
@@ -154,6 +162,10 @@ export async function runScrapers(
         id: scraper.id,
         name: scraper.name,
         total: 0,
+        added: 0,
+        updated: 0,
+        skipped: 0,
+        failed: 0,
         autoImported: 0,
         queued: 0,
         newBandsFound: [],
@@ -173,17 +185,30 @@ export async function runScrapers(
       ? []
       : shows.filter((s) => !isAutoShow(s));
 
-    // Auto-import the high-confidence shows. Count only the ones the route
-    // accepted (a locked/edited row is reported as skipped, not a failure).
-    let autoImported = 0;
+    // Auto-import the high-confidence shows, tallying the import route's
+    // per-show disposition so the digest can say "N added, N updated, N
+    // already had" instead of one opaque count. A locked/edited row comes back
+    // "skipped" (a human edit won); a row that errored past its retries is a
+    // failure, not an import.
+    let added = 0;
+    let updated = 0;
+    let skipped = 0;
+    let failed = 0;
     if (autoShows.length > 0) {
       const outcomes = await mapWithConcurrency(
         autoShows,
         IMPORT_CONCURRENCY,
         (show) => importWithRetry(show, scraper.id, baseUrl),
       );
-      autoImported = outcomes.filter((o) => o.success).length;
+      for (const o of outcomes) {
+        if (!o.success) failed++;
+        else if (o.outcome === "created") added++;
+        else if (o.outcome === "updated") updated++;
+        else if (o.outcome === "skipped") skipped++;
+        else added++; // success without an outcome (older route) — treat as added
+      }
     }
+    const autoImported = added + updated;
 
     // Distinct scraped band names that matched nothing — candidates to add to
     // the directory by hand.
@@ -201,6 +226,10 @@ export async function runScrapers(
       id: scraper.id,
       name: scraper.name,
       total: shows.length,
+      added,
+      updated,
+      skipped,
+      failed,
       autoImported,
       queued: reviewShows.length,
       newBandsFound,
@@ -210,6 +239,10 @@ export async function runScrapers(
   const summary: DigestSummary = {
     ranAt: new Date().toISOString(),
     scrapers: digest,
+    totalAdded: digest.reduce((n, s) => n + s.added, 0),
+    totalUpdated: digest.reduce((n, s) => n + s.updated, 0),
+    totalSkipped: digest.reduce((n, s) => n + s.skipped, 0),
+    totalFailed: digest.reduce((n, s) => n + s.failed, 0),
     totalAutoImported: digest.reduce((n, s) => n + s.autoImported, 0),
     totalQueued: digest.reduce((n, s) => n + s.queued, 0),
     totalNewBands: digest.reduce((n, s) => n + s.newBandsFound.length, 0),
