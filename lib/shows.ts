@@ -15,7 +15,7 @@
 import { randomUUID } from "node:crypto";
 import type postgres from "postgres";
 import { sql } from "@/lib/db";
-import { getCachedBirdhausBands, matchOrCreateBirdhausBand } from "@/lib/birdhaus";
+import { getCachedBirdhausBands } from "@/lib/birdhaus";
 
 type TransactionSql = postgres.TransactionSql;
 
@@ -53,11 +53,18 @@ export function buildLineupEntries(
  * Forward-only Birdhaus matching: for every entry that's still unlinked after
  * buildLineupEntries (i.e. not already resolved via an explicit linkedBands
  * pairing — a scraper's confident match or a human's selection), try an exact
- * case-insensitive match against the cached directory, then fall back to
- * creating an unreviewed band on Birdhaus. Entries that already have a
- * bandSlug are left untouched, so this never overwrites an admin's manual
- * link-band override or a scraper/human's explicit selection. Never throws —
- * a Birdhaus hiccup leaves the entry's bandSlug null, same as today.
+ * case-insensitive match against the cached directory. Entries that already
+ * have a bandSlug are left untouched, so this never overwrites an admin's
+ * manual link-band override or a scraper/human's explicit selection.
+ *
+ * Deliberately does NOT create a new Birdhaus band for a name with no match —
+ * that used to happen here (matchOrCreateBirdhausBand), but once every scraped
+ * show started auto-importing (not just confidently band-matched ones), it
+ * flooded Birdhaus with bare stub bands for every unmatched opener/support act.
+ * An unmatched name now just stays unlinked (bandSlug: null); it still shows up
+ * as a name in the lineup, and surfaces in AdminPanel's "New bands discovered"
+ * queue (via the scraper digest's confidence:'none' matches) for a human to
+ * add deliberately, with an actual profile, via the normal /submit flow.
  */
 async function resolveLineupBandSlugs(entries: LineupEntry[]): Promise<LineupEntry[]> {
   if (entries.every((e) => e.bandSlug)) return entries;
@@ -65,17 +72,11 @@ async function resolveLineupBandSlugs(entries: LineupEntry[]): Promise<LineupEnt
   const directory = await getCachedBirdhausBands();
   const byName = new Map(directory.map((b) => [b.name.trim().toLowerCase(), b.slug]));
 
-  return Promise.all(
-    entries.map(async (entry) => {
-      if (entry.bandSlug) return entry;
-
-      const cached = byName.get(entry.name.trim().toLowerCase());
-      if (cached) return { ...entry, bandSlug: cached };
-
-      const result = await matchOrCreateBirdhausBand(entry.name);
-      return result ? { ...entry, bandSlug: result.slug } : entry;
-    }),
-  );
+  return entries.map((entry) => {
+    if (entry.bandSlug) return entry;
+    const cached = byName.get(entry.name.trim().toLowerCase());
+    return cached ? { ...entry, bandSlug: cached } : entry;
+  });
 }
 
 /** Insert one show_history row. Always called inside the write's own transaction. */
