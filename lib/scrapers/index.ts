@@ -20,6 +20,7 @@ import { scrapeIcehouse } from "./icehouse";
 import { scrapeCedar } from "./cedar";
 import { scrapeAcadia } from "./acadia";
 import { scrapeHookAndLadder } from "./hookandladder";
+import { scrapeFlyingV } from "./flyingv";
 
 export type { ScrapedShow };
 
@@ -106,6 +107,11 @@ export const SCRAPERS: Record<string, Scraper> = {
     id: "acadia",
     name: "Acadia Cafe",
     scrape: scrapeAcadia,
+  },
+  flyingv: {
+    id: "flyingv",
+    name: "Flying V",
+    scrape: scrapeFlyingV,
   },
 };
 
