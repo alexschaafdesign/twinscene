@@ -25,6 +25,8 @@ export type Show = {
   added: string;
   starredBy: string[]; // curator/outlet ids that recommended this show
   starredNotes: Record<string, StarredNote>; // outlet id -> their blurb/source link, when given
+  needsReview: boolean; // data-quality flag (lib/scrapers/reviewFlags.ts) — still shown publicly
+  reviewReasons: string[];
 };
 
 export type StarredNote = { blurb: string; url: string };
@@ -43,6 +45,9 @@ type ShowsQueryRow = {
   source_key: string;
   starred_by: StarredByEntry[] | null;
   created_at: Date;
+  needs_review: boolean | null;
+  confidence: string | null;
+  review_reasons: string[] | null;
 };
 
 /** Today's date as "YYYY-MM-DD" in America/Chicago (en-CA yields ISO order). */
@@ -79,6 +84,8 @@ function mapRow(row: ShowsQueryRow): Show {
     starredNotes: Object.fromEntries(
       starredBy.map((s) => [s.outlet, { blurb: s.blurb, url: s.url }]),
     ),
+    needsReview: row.needs_review ?? false,
+    reviewReasons: row.review_reasons ?? [],
   };
 }
 
@@ -88,8 +95,10 @@ export async function fetchShows(): Promise<Show[]> {
     rows = await sql<ShowsQueryRow[]>`
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
-        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at
+        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        needs_review, confidence, review_reasons
       FROM shows
+      WHERE confidence IS DISTINCT FROM 'broken'
     `;
   } catch (err) {
     console.error("fetchShows: query failed", err);

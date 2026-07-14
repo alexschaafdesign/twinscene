@@ -66,7 +66,8 @@ async function main() {
         if (v.added != null) {
           const duplicates = (v.updated ?? 0) + (v.skipped ?? 0);
           const extra = v.failed ? `, ${v.failed} failed` : "";
-          console.log(`ok — ${v.total} scraped, ${v.added} added, ${duplicates} duplicates${extra}`);
+          const flagged = v.flagged ? `, ${v.flagged} flagged for review` : "";
+          console.log(`ok — ${v.total} scraped, ${v.added} added, ${duplicates} duplicates${extra}${flagged}`);
         } else {
           console.log(`ok — ${v.total} scraped, ${v.autoImported} imported, ${v.queued} queued`);
         }

@@ -8,6 +8,7 @@
 
 import type { MatchedShow } from "@/lib/bandMatcher";
 import type { UpsertOutcome } from "@/lib/shows";
+import { evaluateShow, type ReviewConfidence } from "@/lib/scrapers/reviewFlags";
 
 /** Lowercase/hyphenate for a stable dedup key. Mirrors slugify elsewhere. */
 function slugify(name: string): string {
@@ -36,7 +37,13 @@ export async function autoImportShow(
   show: MatchedShow,
   scraperId: string,
   baseUrl: string,
-): Promise<{ success: boolean; outcome?: UpsertOutcome; error?: string }> {
+  extraReviewReasons: string[] = [],
+): Promise<{
+  success: boolean;
+  outcome?: UpsertOutcome;
+  confidence?: ReviewConfidence;
+  error?: string;
+}> {
   const title = show.headliner || show.allBands[0] || "";
   const lineup = show.allBands.join(", ");
   const sourceKey = `${scraperId}:${show.date}:${slugify(
@@ -47,6 +54,16 @@ export async function autoImportShow(
   const linkedBands = show.bandMatches
     .filter((m) => m.confidence === "auto" && m.match)
     .map((m) => ({ name: m.name, slug: m.match!.slug }));
+
+  // Data-quality flags (reviewFlags.ts) plus any extras the caller found by
+  // looking across shows (e.g. a cross-source duplicate) — that context isn't
+  // visible to evaluateShow, which only ever sees one show at a time.
+  const review = evaluateShow(show);
+  const reviewReasons = [...review.reasons, ...extraReviewReasons];
+  const confidence =
+    review.confidence === "ok" && extraReviewReasons.length > 0
+      ? "flag"
+      : review.confidence;
 
   try {
     const res = await fetch(`${baseUrl}/api/scrapers/import`, {
@@ -66,13 +83,19 @@ export async function autoImportShow(
         link: show.ticketUrl ?? "",
         flyerUrl: show.flyerUrl ?? "",
         eventType: show.tag ?? "",
+        confidence,
+        reviewReasons,
       }),
     });
     const data = await res.json();
     if (!data.success) {
       return { success: false, error: data.error || "Import failed" };
     }
-    return { success: true, outcome: data.outcome as UpsertOutcome | undefined };
+    return {
+      success: true,
+      outcome: data.outcome as UpsertOutcome | undefined,
+      confidence,
+    };
   } catch (err) {
     return {
       success: false,

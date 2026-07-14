@@ -15,8 +15,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const { source, sourceKey, date, venue, title, lineup, linkedBands, notes, link, flyerUrl, eventType, actor } =
-    body;
+  const {
+    source,
+    sourceKey,
+    date,
+    venue,
+    title,
+    lineup,
+    linkedBands,
+    notes,
+    link,
+    flyerUrl,
+    eventType,
+    actor,
+    confidence,
+    reviewReasons,
+  } = body;
   if (!source || !sourceKey || !date || !venue || !title || !actor) {
     return NextResponse.json(
       { success: false, error: "Missing source, sourceKey, date, venue, title, or actor" },
@@ -25,6 +39,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // A human confirming in Import Review sends no confidence/reviewReasons —
+    // they've just reviewed it, so it defaults to "ok".
     const { outcome } = await upsertScrapedShow(
       {
         source,
@@ -37,6 +53,8 @@ export async function POST(request: NextRequest) {
         link: link ?? "",
         flyerUrl: flyerUrl ?? "",
         eventType: eventType ?? "",
+        confidence: confidence ?? "ok",
+        reviewReasons: Array.isArray(reviewReasons) ? reviewReasons : [],
       },
       actor,
     );

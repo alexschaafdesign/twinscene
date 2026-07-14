@@ -21,6 +21,9 @@ type DigestEntry = {
   skipped?: number;
   failed?: number;
   autoImported: number;
+  // Imported but data-quality-flagged (lib/scrapers/reviewFlags.ts); absent
+  // on log rows from before Phase 2.
+  flagged?: number;
   queued: number;
   newBandsFound: string[];
   error?: string;
@@ -33,6 +36,7 @@ type Digest = {
   totalSkipped?: number;
   totalFailed?: number;
   totalAutoImported: number;
+  totalFlagged?: number;
   totalQueued: number;
   totalNewBands: number;
 };
@@ -53,6 +57,7 @@ function formatResult(entry: DigestEntry): string {
     `${duplicates} duplicate${duplicates === 1 ? "" : "s"}`,
   ];
   if (entry.failed) parts.push(`${entry.failed} failed`);
+  if (entry.flagged) parts.push(`${entry.flagged} flagged for review`);
   return parts.join(", ");
 }
 
@@ -220,7 +225,9 @@ export default function AdminPanel({
           ? `Done — ${data.totalAutoImported} imported, ${data.totalQueued} queued, ${data.totalNewBands} new bands`
           : `Done — ${scrapedTotal} scraped, ${data.totalAdded} added, ${
               (data.totalUpdated ?? 0) + (data.totalSkipped ?? 0)
-            } duplicates${data.totalFailed ? `, ${data.totalFailed} failed` : ""}, ${data.totalNewBands} new bands`;
+            } duplicates${data.totalFailed ? `, ${data.totalFailed} failed` : ""}${
+              data.totalFlagged ? `, ${data.totalFlagged} flagged for review` : ""
+            }, ${data.totalNewBands} new bands`;
       setAllState({ status: "done", message });
     } catch (err) {
       setAllState({

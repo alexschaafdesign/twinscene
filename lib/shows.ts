@@ -107,6 +107,8 @@ export type ScrapedShowInput = {
   link: string;
   flyerUrl: string;
   eventType: string; // non-band listing label (e.g. "Private Event"); "" for shows
+  confidence: string; // reviewFlags.ts ReviewConfidence: "ok" | "flag" | "broken"
+  reviewReasons: string[];
 };
 
 /**
@@ -124,7 +126,9 @@ export type UpsertOutcome = "created" | "updated" | "skipped";
  * upsertShowRow_/handleShowImport_: if a matching row exists and is
  * edited_at-locked, the write is skipped entirely (a human edit always wins
  * over a re-scrape); otherwise the row is inserted or fully replaced (minus
- * edited_at, which this path never sets).
+ * edited_at, which this path never sets). needs_review/confidence/
+ * review_reasons come along for the ride but stop updating once a human has
+ * set reviewed_at, same idea as the edited_at lock but scoped to review status.
  */
 export async function upsertScrapedShow(
   input: ScrapedShowInput,
@@ -143,14 +147,19 @@ export async function upsertScrapedShow(
       return { outcome: "skipped" };
     }
     const wasExisting = existing.length > 0;
+    const needsReview = input.confidence !== "ok";
 
+    // Once a human has reviewed a row (reviewed_at set, Phase 3's "looks good"),
+    // a re-scrape must not resurrect flags they already cleared — leave
+    // needs_review/confidence/review_reasons (and reviewed_at itself) alone.
     const rows = await tx`
       INSERT INTO shows (
-        source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url, event_type
+        source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url, event_type,
+        needs_review, confidence, review_reasons
       ) VALUES (
         ${input.source}, ${input.sourceKey}, ${input.venue}, ${input.title}, ${input.date},
         ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}, ${input.flyerUrl || null},
-        ${input.eventType || null}
+        ${input.eventType || null}, ${needsReview}, ${input.confidence}, ${tx.json(input.reviewReasons)}
       )
       ON CONFLICT (source_key) DO UPDATE SET
         source = EXCLUDED.source,
@@ -162,6 +171,9 @@ export async function upsertScrapedShow(
         notes = EXCLUDED.notes,
         flyer_url = EXCLUDED.flyer_url,
         event_type = EXCLUDED.event_type,
+        needs_review = CASE WHEN shows.reviewed_at IS NULL THEN EXCLUDED.needs_review ELSE shows.needs_review END,
+        confidence = CASE WHEN shows.reviewed_at IS NULL THEN EXCLUDED.confidence ELSE shows.confidence END,
+        review_reasons = CASE WHEN shows.reviewed_at IS NULL THEN EXCLUDED.review_reasons ELSE shows.review_reasons END,
         updated_at = now()
       RETURNING id
     `;
