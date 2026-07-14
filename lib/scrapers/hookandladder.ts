@@ -17,10 +17,13 @@
 // that's cleaner than splitting a title. Rather than drop the listings that
 // have no lineup, this scraper keeps every event and labels the lineup-less
 // ones with an event-type `tag` (Private Event, Record Sale, Meetup, …) derived
-// from the title, so non-shows land in the import review clearly marked instead
-// of silently disappearing. Those tagged rows carry the title as their sole
-// "band" so they queue for review (a lineup-less show would otherwise look
-// auto-importable) rather than getting linked to the directory.
+// from the title, so non-shows land on the timeline clearly marked instead of
+// silently disappearing. Those tagged rows carry an empty `allBands` — the
+// title still displays via `headliner` — so the event-type label is never
+// treated as a band name (it used to sit in allBands as a fake "band" so a
+// lineup-less show wouldn't look trivially auto-importable under the old
+// review gate; that gate is gone, so doing that now would just create a
+// bogus band called "Private Event").
 //
 // `doorTime`/`startTime` are ISO timestamps with the venue-local offset, mapped
 // to doors/music time; `priceRange` is a fee-inclusive string ("$28.91",
@@ -187,14 +190,14 @@ function parseEvent(event: HookEvent): ScrapedShow | null {
     allBands = [headliner, ...supporting];
     tag = null;
   } else {
-    // No lineup: keep it, but label what kind of event it is. The title stands
-    // in as the sole "band" so the show has a display name and queues for
-    // review (rather than looking auto-importable with an empty lineup).
+    // No lineup: keep it, but label what kind of event it is. headliner
+    // carries the display title through; allBands stays empty so the
+    // event-type label never gets matched/created as a band.
     const title = event.title?.trim();
     if (!title) return null; // nothing to show
     headliner = title;
     supporting = [];
-    allBands = [title];
+    allBands = [];
     tag = classifyEventType(title);
   }
 

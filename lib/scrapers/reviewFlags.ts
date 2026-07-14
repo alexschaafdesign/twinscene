@@ -17,6 +17,7 @@ export type ReviewResult = {
 
 const MAX_ACTS = 8;
 const MAX_BAND_NAME_LENGTH = 60;
+const MIN_NAME_LENGTH = 3;
 
 // Placeholder/non-musical lineup entries venues sometimes leave in a bill.
 const NOISE_NAMES = new Set([
@@ -34,6 +35,28 @@ const NOISE_NAMES = new Set([
   "and more",
   "more tba",
 ]);
+
+// A lineup entry that's just an instrument/vocal credit ("electric guitar"),
+// or "instrument - performer" ("drums - Paul Metzger") — a chamber/
+// experimental bill credited by instrument rather than by act, which the
+// scrapers' comma/&-splitting doesn't parse into real names (and sometimes
+// loses the name entirely, leaving just the bare instrument).
+const INSTRUMENT_WORDS = [
+  "vocals?", "lead vocals?", "guitar", "electric guitar", "acoustic guitar",
+  "bass", "bass guitar", "drums?", "percussion", "keys?", "keyboards?",
+  "piano", "synth(?:esizer)?", "contrabass", "upright bass", "cello",
+  "violin", "viola", "horns?", "trumpet", "saxophone", "sax", "trombone",
+  "flute", "clarinet", "banjo", "mandolin", "turntables", "decks",
+];
+const INSTRUMENT_CREDIT_RE = new RegExp(
+  `^(?:${INSTRUMENT_WORDS.join("|")})(?:\\s*[-–—]\\s*.+)?$`,
+  "i",
+);
+
+// A leading bare "&"/"and" is a near-certain split artifact — a comma-split
+// stranded the connector at the front of the next name (see the scrapers'
+// splitBands fixes) rather than it being a real name.
+const DANGLING_CONNECTOR_RE = /^(?:&|and\b)\s*/i;
 
 function isDateValid(date: string | null): boolean {
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
@@ -79,6 +102,23 @@ export function evaluateShow(show: MatchedShow): ReviewResult {
   }
   if (dupes.size > 0) {
     reasons.push(`duplicate act in lineup: ${Array.from(dupes).join(", ")}`);
+  }
+
+  const danglingConnector = names.filter((n) => DANGLING_CONNECTOR_RE.test(n));
+  if (danglingConnector.length > 0) {
+    reasons.push(`lineup entry starts with a bare "&"/"and" — likely a split artifact: ${danglingConnector.join(", ")}`);
+  }
+
+  const instrumentCredits = names.filter((n) => INSTRUMENT_CREDIT_RE.test(n));
+  if (instrumentCredits.length > 0) {
+    reasons.push(`lineup entry looks like an instrument credit, not an act name: ${instrumentCredits.join(", ")}`);
+  }
+
+  const tooShort = names.filter(
+    (n) => n.length > 0 && n.length < MIN_NAME_LENGTH && !isNoiseName(n),
+  );
+  if (tooShort.length > 0) {
+    reasons.push(`lineup entry is unusually short (<${MIN_NAME_LENGTH} chars): ${tooShort.join(", ")}`);
   }
 
   return { confidence: reasons.length > 0 ? "flag" : "ok", reasons };

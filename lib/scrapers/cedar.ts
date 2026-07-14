@@ -100,8 +100,12 @@ function splitBands(rawTitle: string): string[] {
   const sides = rawTitle.split(/\s+with\s+/i);
   sides[0] = stripSubtitle(sides[0]);
   const names = sides.flatMap((side) =>
+    // The Oxford-comma alternatives must come before the bare comma one: for
+    // "A, B, & C" the bare comma would otherwise consume ", " right up to the
+    // "&", stranding "& C" as its own piece with no leading space left for
+    // the "&" alternative to match.
     side.split(
-      /\s*\/\s*|\s+&\s+|\s*,\s*|\s+and\s+|\s+x\s+|\s+\+\s+|\s+featuring\s+|\s+ft\.\s+/i,
+      /\s*,\s*&\s+|\s*,\s*and\s+|\s*\/\s*|\s+&\s+|\s*,\s*|\s+and\s+|\s+x\s+|\s+\+\s+|\s+featuring\s+|\s+ft\.\s+/i,
     ),
   );
   return names

@@ -48,6 +48,30 @@ function parseSupporting(text: string): string[] {
     .filter((s) => s && !/^tba$/i.test(s));
 }
 
+// First Avenue books non-music events (private rentals, rallies, etc.) into
+// the same calendar as shows, with no separate category to key off — unlike
+// hookandladder.ts's structured event data, here the headliner text is all
+// there is, so this is a best-effort keyword match. Unmatched headliners are
+// left as ordinary shows (conservative default): a false negative just means
+// a non-music listing gets treated as a show; a false positive would (wrongly)
+// strip a real band's members, which is worse, so this never falls back to a
+// generic label the way hookandladder.ts's classifyEventType does.
+const EVENT_TYPE_RULES: [RegExp, string][] = [
+  [/private event/i, "Private Event"],
+  [/\brally\b/i, "Rally"],
+  [/record (sale|fair|show|swap)|vinyl (sale|fair)/i, "Record Sale"],
+  [/\bmeet-?up\b/i, "Meetup"],
+  [/\btrivia\b/i, "Trivia"],
+  [/\bbingo\b/i, "Bingo"],
+];
+
+function classifyEventType(headliner: string): string | null {
+  for (const [re, label] of EVENT_TYPE_RULES) {
+    if (re.test(headliner)) return label;
+  }
+  return null;
+}
+
 /** Pull the flyer image out of a `.photo` element's inline background-image. */
 function posterUrl(style: string | undefined): string | null {
   if (!style) return null;
@@ -110,15 +134,20 @@ function parsePage(html: string): ScrapedShow[] {
         $el.find(".gig_poster_col .photo").first().attr("style"),
       );
 
-      const allBands = [headliner, ...supporting].filter(
-        (b): b is string => !!b,
-      );
+      // A non-music listing (private rental, rally, …): keep the card so it
+      // still shows up with its title and a tag chip, but don't feed its
+      // "lineup" — attendee names, a room-rental label, etc. — through as
+      // band members.
+      const tag = headliner ? classifyEventType(headliner) : null;
+      const allBands = tag
+        ? []
+        : [headliner, ...supporting].filter((b): b is string => !!b);
 
       shows.push({
         venue: venue || "First Avenue",
         date: currentDate,
         headliner: headliner || null,
-        supporting,
+        supporting: tag ? [] : supporting,
         allBands,
         flyerUrl,
         ticketUrl: buyHref || eventHref,
@@ -127,6 +156,7 @@ function parsePage(html: string): ScrapedShow[] {
         advancePrice: null,
         dosPrice: null,
         sourceUrl: eventHref || SHOWS_URL,
+        tag,
       });
     });
 

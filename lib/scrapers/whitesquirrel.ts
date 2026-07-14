@@ -68,7 +68,11 @@ function splitBands(rawTitle: string): string[] {
   // "w."/"w/" marks the headliner/support boundary (mirrors Pilllar's "with").
   const sides = title.split(/\s+w\/\s+|\s+w\.\s+/i);
   const names = sides.flatMap((side) =>
-    side.split(/\s*,\s*|\s+&\s+|\s+and\s+|\s+\+\s+|\s+featuring\s+|\s+ft\.\s+/i),
+    // The Oxford-comma alternatives must come before the bare comma one: for
+    // "A, B, & C" the bare comma would otherwise consume ", " right up to the
+    // "&", stranding "& C" as its own piece with no leading space left for
+    // the "&" alternative to match.
+    side.split(/\s*,\s*&\s+|\s*,\s*and\s+|\s*,\s*|\s+&\s+|\s+and\s+|\s+\+\s+|\s+featuring\s+|\s+ft\.\s+/i),
   );
   return names
     .map((n) => n.trim())
