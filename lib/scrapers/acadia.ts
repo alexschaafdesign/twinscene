@@ -36,7 +36,9 @@
 //
 // The Google feed gives a title, a free-text description, and start/end times
 // (both epoch millis and an ISO `start_time` already in venue-local offset), but
-// no flyer image, ticket link, or structured price — so those are all null here.
+// no flyer image, ticket link, or structured price. Ticket link and price are
+// null; the flyer falls back to the venue logo (VENUE_LOGO_FLYER) since Acadia
+// never posts per-show art.
 // The `start_time` date is used directly for the show date, and startHour/Minute
 // for the music time; doors aren't exposed. Titles pack the whole bill into one
 // string ("Hill of Crosses/Make Me Sick/ Sweet Land", "Sophia Brand/David
@@ -60,6 +62,13 @@ import { protectKnownNames } from "./knownActNames";
 const VENUE = "Acadia Cafe";
 const EVENTS_URL = "https://www.acadiacafe.com/events";
 const USER_AGENT = "TwinScene/1.0 (+https://twinscene.org)";
+
+// Acadia never publishes per-show flyers (the Google feed carries no image),
+// so every show would render with no artwork. Use the venue logo instead, and
+// write it into flyer_url so downstream consumers of the shared shows DB (the
+// Crawlspace app included) pick it up — not just this app's UI. Must stay
+// byte-identical to lib/venueImages.ts's entry for Acadia (isVenueLogo).
+const VENUE_LOGO_FLYER = "https://www.twinscene.org/venues/acadia.jpg";
 
 // The Events Calendar (eventscalendar.co) Wix app, and its component instance on
 // Acadia's events page. The appDefId is constant across every eventscalendar
@@ -213,7 +222,7 @@ function parseEvent(event: CalendarEvent): ScrapedShow | null {
     headliner,
     supporting,
     allBands,
-    flyerUrl: null,
+    flyerUrl: VENUE_LOGO_FLYER,
     ticketUrl: null,
     doorsTime: null,
     musicTime: formatTime(event.startHour, event.startMinutes),

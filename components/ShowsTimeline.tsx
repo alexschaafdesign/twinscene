@@ -8,7 +8,7 @@ import Link from "next/link";
 import type { Show } from "@/lib/fetchShows";
 import type { Press } from "@/lib/fetchPress";
 import { pressNotes } from "@/lib/press";
-import { venueFallbackImage } from "@/lib/venueImages";
+import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
 
 /** Prefix a bare URL with https:// so hrefs from the sheet always resolve. */
 function ensureUrl(value: string): string {
@@ -87,12 +87,13 @@ export default function ShowsTimeline({
           </h2>
           <ul className="space-y-3">
             {group.shows.map((show, i) => {
-              // Real scraped flyer if we have one; otherwise fall back to the
-              // venue's logo for venues that never publish flyers (e.g. Acadia).
-              const fallbackImage = show.flyerUrl
-                ? ""
-                : venueFallbackImage(show.venue);
-              const imageSrc = show.flyerUrl || fallbackImage;
+              // Scraped flyer if we have one; otherwise fall back to the venue's
+              // logo for venues that never publish flyers (e.g. Acadia). The
+              // logo can also arrive as flyer_url straight from the DB, so key
+              // the "logo vs poster" styling off isVenueLogo, not on which
+              // source it came from.
+              const imageSrc = show.flyerUrl || venueFallbackImage(show.venue);
+              const isLogo = isVenueLogo(imageSrc);
               const imageHref = show.link || show.flyerUrl;
               return (
               <li
@@ -115,7 +116,7 @@ export default function ShowsTimeline({
                           alt=""
                           loading="lazy"
                           className={`h-20 w-20 rounded-md border border-[#E8E0D0]/15 ${
-                            fallbackImage
+                            isLogo
                               ? "bg-[rgba(232,224,208,0.06)] object-contain p-1.5"
                               : "object-cover"
                           }`}
@@ -127,7 +128,7 @@ export default function ShowsTimeline({
                           target="_blank"
                           rel="noopener noreferrer"
                           className="shrink-0"
-                          aria-label={`${show.title} ${fallbackImage ? "venue" : "flyer"}`}
+                          aria-label={`${show.title} ${isLogo ? "venue" : "flyer"}`}
                         >
                           {img}
                         </a>
