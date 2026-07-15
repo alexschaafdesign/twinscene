@@ -8,6 +8,7 @@ import Link from "next/link";
 import type { Show } from "@/lib/fetchShows";
 import type { Press } from "@/lib/fetchPress";
 import { pressNotes } from "@/lib/press";
+import { venueFallbackImage } from "@/lib/venueImages";
 
 /** Prefix a bare URL with https:// so hrefs from the sheet always resolve. */
 function ensureUrl(value: string): string {
@@ -85,7 +86,15 @@ export default function ShowsTimeline({
             {formatDateLabel(group.date)}
           </h2>
           <ul className="space-y-3">
-            {group.shows.map((show, i) => (
+            {group.shows.map((show, i) => {
+              // Real scraped flyer if we have one; otherwise fall back to the
+              // venue's logo for venues that never publish flyers (e.g. Acadia).
+              const fallbackImage = show.flyerUrl
+                ? ""
+                : venueFallbackImage(show.venue);
+              const imageSrc = show.flyerUrl || fallbackImage;
+              const imageHref = show.link || show.flyerUrl;
+              return (
               <li
                 key={`${show.title}-${show.venue}-${i}`}
                 className={`rounded-md border p-4 ${
@@ -96,23 +105,36 @@ export default function ShowsTimeline({
               >
                 <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
                   <div className="flex min-w-0 items-start gap-3">
-                    {show.flyerUrl && (
-                      <a
-                        href={ensureUrl(show.link || show.flyerUrl)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0"
-                        aria-label={`${show.title} flyer`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element -- external flyer art */}
+                    {imageSrc && (() => {
+                      // Posters are cropped to fill; a venue logo is padded and
+                      // contained so it isn't cut off.
+                      const img = (
+                        // eslint-disable-next-line @next/next/no-img-element -- external flyer art / local venue logo
                         <img
-                          src={show.flyerUrl}
+                          src={imageSrc}
                           alt=""
                           loading="lazy"
-                          className="h-20 w-20 rounded-md border border-[#E8E0D0]/15 object-cover"
+                          className={`h-20 w-20 rounded-md border border-[#E8E0D0]/15 ${
+                            fallbackImage
+                              ? "bg-[rgba(232,224,208,0.06)] object-contain p-1.5"
+                              : "object-cover"
+                          }`}
                         />
-                      </a>
-                    )}
+                      );
+                      return imageHref ? (
+                        <a
+                          href={ensureUrl(imageHref)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0"
+                          aria-label={`${show.title} ${fallbackImage ? "venue" : "flyer"}`}
+                        >
+                          {img}
+                        </a>
+                      ) : (
+                        <span className="shrink-0">{img}</span>
+                      );
+                    })()}
                     <div className="min-w-0">
                       <p className="font-medium text-[#E8E0D0]">
                         {show.title}
@@ -190,7 +212,8 @@ export default function ShowsTimeline({
                   </div>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
       ))}
