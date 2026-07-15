@@ -8,7 +8,7 @@ import { SHOWS_ENABLED } from "@/lib/features";
 import ShowsList from "@/components/ShowsList";
 
 export const metadata: Metadata = {
-  title: "Upcoming Shows — Crawlspace",
+  title: "Upcoming Shows — Twin Scene",
   description: "This list is mostly created automatically by pulling info from venue websites. Still in beta!",
 };
 

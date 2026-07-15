@@ -178,7 +178,7 @@ export default function AdminPanel({
 
       const a = document.createElement("a");
       a.href = url;
-      a.download = `crawlspace-shows-${showDate}.png`;
+      a.download = `twinscene-shows-${showDate}.png`;
       a.click();
 
       setGraphicState({ status: "done", message: "Downloaded." });
@@ -299,7 +299,7 @@ export default function AdminPanel({
     <main className="mx-auto w-full max-w-3xl px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
       <header className="mb-10 flex flex-wrap items-center justify-between gap-3 border-b border-[#E8E0D0]/20 pb-6">
         <div>
-          <h1 className="text-2xl font-medium tracking-tight">Crawlspace Admin</h1>
+          <h1 className="text-2xl font-medium tracking-tight">Twin Scene Admin</h1>
           <p className="mt-1 text-sm text-[#E8E0D0]/60">Scraper management</p>
         </div>
         <a href={`/admin/activity?${q}`} className={BTN}>

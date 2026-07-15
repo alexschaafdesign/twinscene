@@ -13,7 +13,7 @@ import ReviewPanel from "@/components/ReviewPanel";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Review Shows — Crawlspace",
+  title: "Review Shows — Twin Scene",
   robots: { index: false, follow: false },
 };
 

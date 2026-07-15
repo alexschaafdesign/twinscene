@@ -1044,7 +1044,7 @@ export default function SubmitForm({
 
         <Section
           title="Embeddable music player"
-          description="Right now this is the only way to make your music playable directly on Crawlspace (fuck Spotify)."
+          description="Right now this is the only way to make your music playable directly on Twin Scene (fuck Spotify)."
         >
           <Field
             label="Bandcamp"

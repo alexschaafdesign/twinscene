@@ -37,7 +37,7 @@ export default async function Home() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
-            alt="Crawlspace"
+            alt="Twin Scene"
             className="mx-auto block w-full max-w-[180px] sm:mx-0"
           />
         </h1>

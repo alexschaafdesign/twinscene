@@ -66,7 +66,7 @@ const USER_AGENT = "TwinScene/1.0 (+https://twinscene.org)";
 // Acadia never publishes per-show flyers (the Google feed carries no image),
 // so every show would render with no artwork. Use the venue logo instead, and
 // write it into flyer_url so downstream consumers of the shared shows DB (the
-// Crawlspace app included) pick it up — not just this app's UI. Must stay
+// Twin Scene app included) pick it up — not just this app's UI. Must stay
 // byte-identical to lib/venueImages.ts's entry for Acadia (isVenueLogo).
 const VENUE_LOGO_FLYER = "https://www.twinscene.org/venues/acadia.jpg";
 

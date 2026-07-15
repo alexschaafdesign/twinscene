@@ -5,7 +5,7 @@ import { fetchBands } from "@/lib/fetchBands";
 import { NEIGHBORHOOD_OPTIONS } from "@/lib/neighborhoods";
 
 export const metadata: Metadata = {
-  title: "Add your band — Crawlspace",
+  title: "Add your band — Twin Scene",
   description: "Submit your band for inclusion in the directory.",
 };
 

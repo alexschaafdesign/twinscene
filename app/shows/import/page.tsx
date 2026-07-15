@@ -15,7 +15,7 @@ import RelinkPanel, { type LinkSuggestion } from "@/components/RelinkPanel";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Import Shows — Crawlspace",
+  title: "Import Shows — Twin Scene",
   robots: { index: false, follow: false },
 };
 

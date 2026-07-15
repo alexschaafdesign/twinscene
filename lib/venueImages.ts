@@ -3,7 +3,7 @@
 // the venue's own logo as a generic image.
 //
 // The Acadia scraper writes this same URL into the DB's flyer_url (so any
-// consumer of the shared shows DB — e.g. the Crawlspace app — picks it up), and
+// consumer of the shared shows DB — e.g. the Twin Scene app — picks it up), and
 // venueFallbackImage() below covers rows that predate that (not yet re-scraped
 // or backfilled). Keyed by the venue_name string the scraper writes (each
 // scraper's VENUE constant). It must stay byte-identical to the URL the scraper

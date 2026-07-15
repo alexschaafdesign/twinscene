@@ -10,7 +10,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Recent Activity — Crawlspace Admin",
+  title: "Recent Activity — Twin Scene Admin",
   robots: { index: false, follow: false },
 };
 

@@ -4,7 +4,7 @@ import { fetchVenues } from "@/lib/fetchVenues";
 import VenueGrid from "@/components/VenueGrid";
 
 export const metadata: Metadata = {
-  title: "Venues — Crawlspace",
+  title: "Venues — Twin Scene",
   description: "Venues that host the Twin Cities music scene.",
 };
 

@@ -5,7 +5,7 @@ import { fetchVenues } from "@/lib/fetchVenues";
 import { NEIGHBORHOOD_OPTIONS } from "@/lib/neighborhoods";
 
 export const metadata: Metadata = {
-  title: "Add a venue — Crawlspace",
+  title: "Add a venue — Twin Scene",
   description: "Add a venue to the Twin Cities music scene directory.",
 };
 

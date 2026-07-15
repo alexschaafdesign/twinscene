@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const place = locationLabel(band);
   const description =
     band.bio ||
-    `${band.name}${place ? ` — ${place}` : ""} on Crawlspace, the Twin Cities music directory.`;
+    `${band.name}${place ? ` — ${place}` : ""} on Twin Scene, the Twin Cities music directory.`;
 
   return {
     title: band.name,

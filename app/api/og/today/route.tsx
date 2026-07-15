@@ -217,7 +217,7 @@ export async function GET() {
       }}
     >
       <div style={{ display: "flex", fontSize: 38, fontWeight: 800, color: CREAM, letterSpacing: 2 }}>
-        CRAWLSPACE
+        TWIN SCENE
       </div>
     </div>
   );
