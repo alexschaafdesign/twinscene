@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { upsertBand, type BandSubmissionInput } from "@/lib/bands";
 import { addVideo, removeVideos } from "@/lib/videos";
-import { uploadBandPhoto } from "@/lib/r2";
+import { uploadBandPhoto, generateThumbnail, uploadBandThumbnail } from "@/lib/r2";
 import { buildLineupEntries, insertManualShow } from "@/lib/shows";
 
 export const runtime = "nodejs";
@@ -65,11 +65,22 @@ export async function POST(request: NextRequest) {
     // photo keyed to "the slug this submission intends" is good enough; a
     // collision just means the new band's photo overwrites nothing live).
     let photoUrl: string | undefined;
+    let thumbnailUrl: string | undefined;
     const photo = form.get("photo");
     if (photo instanceof File && photo.size > 0) {
       const slugForPhoto = mode === "correct" && existingSlug ? existingSlug : bandSlug;
       const bytes = new Uint8Array(await photo.arrayBuffer());
       photoUrl = await uploadBandPhoto(slugForPhoto, bytes, photo.type || "image/jpeg");
+      // Generate the grid/list thumbnail from the same bytes. Best-effort: a
+      // failure here shouldn't sink the whole submission — the band still saves
+      // with its full-res photo, and BandImage falls back to it when there's no
+      // thumbnail. (A later edit, or the backfill script, can fill it in.)
+      try {
+        const thumb = await generateThumbnail(bytes);
+        thumbnailUrl = await uploadBandThumbnail(slugForPhoto, thumb);
+      } catch (err) {
+        console.error("submit: thumbnail generation failed", err);
+      }
     }
 
     const input: BandSubmissionInput = {
@@ -86,6 +97,7 @@ export async function POST(request: NextRequest) {
       bio: str(form.get("bio")).trim(),
       featuredLinks,
       photoUrl,
+      thumbnailUrl,
       removePhoto: str(form.get("removeImage")) === "true",
     };
 

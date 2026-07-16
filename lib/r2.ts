@@ -4,6 +4,7 @@
 // the Next.js app instead of through the Apps Script webhook.
 
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import sharp from "sharp";
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
@@ -62,4 +63,58 @@ export async function uploadBandPhoto(
   );
 
   return `${R2_PUBLIC_URL}/${key}`;
+}
+
+// --- Thumbnails -----------------------------------------------------------
+// Band photos are stored full-resolution (958–1080px, 60–220 KB) but the
+// directory renders them at 44px (mobile compact list) and 180px (gallery). A
+// single 400px square variant covers both — including ~2x DPR gallery cards
+// without upscaling — at ~20–35 KB. Both the backfill
+// (scripts/migrate/backfill-thumbnails.ts) and new uploads (the submit route)
+// go through generateThumbnail() so existing and future thumbnails are
+// byte-identical.
+
+export const THUMB_SIZE = 400;
+// Flatten any alpha onto the same color as the card's image container so a
+// transparent PNG source blends in rather than going black.
+const THUMB_BG = "#3A332D";
+
+/** Resize arbitrary image bytes to the standard 400px square band thumbnail
+ * (JPEG). `cover` fills the square and center-crops, so non-square sources are
+ * cropped rather than letterboxed. `rotate()` first honors EXIF orientation. */
+export async function generateThumbnail(bytes: Uint8Array): Promise<Buffer> {
+  return sharp(bytes)
+    .rotate()
+    .resize(THUMB_SIZE, THUMB_SIZE, { fit: "cover", position: "centre" })
+    .flatten({ background: THUMB_BG })
+    .jpeg({ quality: 80, mozjpeg: true })
+    .toBuffer();
+}
+
+/** Upload a band thumbnail to R2 under bands/thumb/<slug>.jpg and return its
+ * public URL. Overwrites any existing thumbnail for that slug (idempotent).
+ * `publicBase` defaults to R2_PUBLIC_URL (the live upload path); the backfill
+ * passes the origin derived from each band's own photo URL, since R2_PUBLIC_URL
+ * isn't present in local dev where the backfill runs. */
+export async function uploadBandThumbnail(
+  slug: string,
+  thumbBytes: Uint8Array | Buffer,
+  publicBase: string | undefined = R2_PUBLIC_URL,
+): Promise<string> {
+  if (!R2_BUCKET_NAME) throw new Error("lib/r2: R2_BUCKET_NAME is not set");
+  if (!publicBase) {
+    throw new Error("lib/r2: no R2 public base (set R2_PUBLIC_URL or pass publicBase)");
+  }
+  const key = `bands/thumb/${slug}.jpg`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: thumbBytes,
+      ContentType: "image/jpeg",
+    }),
+  );
+
+  return `${publicBase.replace(/\/$/, "")}/${key}`;
 }

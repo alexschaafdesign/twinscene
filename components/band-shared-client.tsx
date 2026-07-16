@@ -10,28 +10,43 @@ import { useState } from "react";
 import type { Band } from "@/lib/fetchBands";
 import { iconProps, initials } from "@/components/band-shared";
 
-/** Square band image with an initials fallback when missing or broken. */
+/** Square band image with an initials fallback when missing or broken.
+ *
+ * `thumb` opts into the small pre-generated 400px variant (bands/thumb/<slug>.jpg)
+ * — use it for grid/list cards, where the full-res photo is a 5–25x over-fetch.
+ * Leave it off for the profile hero, which is rendered large enough to want the
+ * original. The source degrades in order: thumbnail → full photo → initials, so
+ * a band not yet backfilled (no thumbnailUrl) or a 404'd thumbnail still shows
+ * its photo rather than dropping straight to initials. */
 export function BandImage({
   band,
   className = "",
+  thumb = false,
 }: {
   band: Band;
   className?: string;
+  thumb?: boolean;
 }) {
-  const [errored, setErrored] = useState(false);
-  const showImage = band.image && !errored;
+  const [failCount, setFailCount] = useState(0);
+
+  // Priority list of sources to try; onError advances to the next one.
+  const candidates = [
+    thumb && band.thumbnailUrl ? band.thumbnailUrl : null,
+    band.image || null,
+  ].filter((s): s is string => !!s);
+  const src = candidates[failCount] ?? null;
 
   return (
     <div
       className={`relative aspect-square w-full overflow-hidden bg-[#3A332D] ${className}`}
     >
-      {showImage ? (
+      {src ? (
         // eslint-disable-next-line @next/next/no-img-element -- band art comes from arbitrary external hosts
         <img
-          src={band.image}
+          src={src}
           alt={band.name}
           loading="lazy"
-          onError={() => setErrored(true)}
+          onError={() => setFailCount((c) => c + 1)}
           className="h-full w-full object-cover"
         />
       ) : (

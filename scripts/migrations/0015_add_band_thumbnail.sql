@@ -1,0 +1,12 @@
+-- Adds a small, pre-generated thumbnail URL for each band photo. The `photo`
+-- column (0010) holds full-resolution images (958–1080px, 60–220 KB) served
+-- from images.thebirdhaus.org, but the directory renders them at 44px (mobile
+-- compact list) and 180px (gallery) — a 5–25x over-fetch that dominates mobile
+-- load time. This column points at a 400px square variant (~20–35 KB) written
+-- to the same R2 bucket under bands/thumb/<slug>.jpg by
+-- scripts/backfill-thumbnails.mjs (backfill) and the submit route (new uploads).
+--
+-- Nullable, no tightening: mirrors bandcamp_embed_url / featured_links — the 80
+-- bands with no photo have no thumbnail, and that's permanent, not a backfill
+-- gap. The frontend falls back to `photo` when this is null.
+alter table bands add column thumbnail_url text;

@@ -45,6 +45,7 @@ function BandCard({ band }: { band: Band }) {
     >
       <BandImage
         band={band}
+        thumb
         className="rounded-sm ring-1 ring-[#E8E0D0]/10 transition group-hover:ring-[#E8E0D0]/40"
       />
       <h3 className="mt-2.5 truncate text-sm font-medium leading-snug">
@@ -68,7 +69,7 @@ function BandRow({ band }: { band: Band }) {
       className="animate-fade-in group flex w-full items-center gap-3 rounded-md border border-[#E8E0D0]/10 px-3 py-2 text-left transition hover:border-[#E8E0D0]/30 hover:bg-[#E8E0D0]/5"
     >
       <div className="h-11 w-11 shrink-0">
-        <BandImage band={band} className="rounded-sm ring-1 ring-[#E8E0D0]/10" />
+        <BandImage band={band} thumb className="rounded-sm ring-1 ring-[#E8E0D0]/10" />
       </div>
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-sm font-medium leading-snug">

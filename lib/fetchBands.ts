@@ -28,7 +28,8 @@ export type Band = {
   contactEmail: string; // public contact address, shown on the profile
   contactMethod: string; // "" | "email" | "instagram" | "website"
   bio: string;
-  image: string;
+  image: string; // full-resolution photo (profile hero, OG image)
+  thumbnailUrl: string; // 400px square variant for grid/list cards; "" when none
   website: string;
   instagram: string; // handle only (normalized from the stored socials URL)
   bandcamp: string; // raw Bandcamp URL the submitter provided
@@ -95,6 +96,7 @@ function fromTwinScene(b: BandRow): Band {
     contactMethod: b.contact_method ?? "",
     bio: b.bio ?? "",
     image: b.photo ?? "",
+    thumbnailUrl: b.thumbnail_url ?? "",
     website: socials.website,
     instagram: instagramHandle(socials.instagram),
     bandcamp: socials.bandcamp,
