@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { fetchBands } from "@/lib/fetchBands";
 import { fetchShows } from "@/lib/fetchShows";
+import { getSlugsWithVideos } from "@/lib/videos";
 import BandGrid from "@/components/BandGrid";
 import { SHOWS_ENABLED } from "@/lib/features";
 
@@ -12,9 +13,10 @@ export default async function Home() {
   // shows" band filter simply doesn't render. fetchShows() already excludes
   // past dates, so a band's slug showing up here means it has something
   // upcoming.
-  const [bands, shows] = await Promise.all([
+  const [bands, shows, bandsWithVideos] = await Promise.all([
     fetchBands(),
     SHOWS_ENABLED ? fetchShows() : Promise.resolve([]),
+    getSlugsWithVideos(),
   ]);
   const bandsWithUpcomingShows = [
     ...new Set(shows.flatMap((s) => s.bandSlugs)),
@@ -141,6 +143,7 @@ export default async function Home() {
       <BandGrid
         bands={bands}
         bandsWithUpcomingShows={SHOWS_ENABLED ? bandsWithUpcomingShows : undefined}
+        bandsWithVideos={bandsWithVideos}
         intro={
           <>
             <p className="text-[13px] leading-relaxed text-[#E8E0D0]/75">

@@ -89,12 +89,16 @@ export default function BandGrid({
   bands,
   intro,
   bandsWithUpcomingShows,
+  bandsWithVideos,
 }: {
   bands: Band[];
   intro?: ReactNode;
   // Slugs of bands with an upcoming show. Undefined (Shows feature disabled)
   // hides the filter entirely rather than rendering it against an empty set.
   bandsWithUpcomingShows?: string[];
+  // Slugs of bands with at least one visible video. Undefined hides the
+  // filter entirely rather than rendering it against an empty set.
+  bandsWithVideos?: string[];
 }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -104,6 +108,7 @@ export default function BandGrid({
   const [showAllGenres, setShowAllGenres] = useState(false);
   const [location, setLocation] = useState("All");
   const [upcomingShowsOnly, setUpcomingShowsOnly] = useState(false);
+  const [hasVideosOnly, setHasVideosOnly] = useState(false);
   // Neighborhood sub-filter (multi-select), scoped to the chosen city bucket.
   const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<string[]>(
     [],
@@ -226,6 +231,11 @@ export default function BandGrid({
     [bandsWithUpcomingShows],
   );
 
+  const videoSlugSet = useMemo(
+    () => new Set(bandsWithVideos ?? []),
+    [bandsWithVideos],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const genreSet = new Set(selectedGenres.map((g) => g.toLowerCase()));
@@ -235,6 +245,11 @@ export default function BandGrid({
     return bands.filter((band) => {
       // Upcoming shows toggle
       if (upcomingShowsOnly && !upcomingShowSlugSet.has(band.slug)) {
+        return false;
+      }
+
+      // Has videos toggle
+      if (hasVideosOnly && !videoSlugSet.has(band.slug)) {
         return false;
       }
 
@@ -279,10 +294,12 @@ export default function BandGrid({
     selectedNeighborhoods,
     upcomingShowsOnly,
     upcomingShowSlugSet,
+    hasVideosOnly,
+    videoSlugSet,
   ]);
 
   // Key changes whenever filters change, remounting the grid to replay the fade.
-  const gridKey = `${query}|${selectedGenres.join(",")}|${location}|${selectedNeighborhoods.join(",")}|${upcomingShowsOnly}`;
+  const gridKey = `${query}|${selectedGenres.join(",")}|${location}|${selectedNeighborhoods.join(",")}|${upcomingShowsOnly}|${hasVideosOnly}`;
 
   function surpriseMe() {
     if (filtered.length === 0) return;
@@ -401,22 +418,39 @@ export default function BandGrid({
           })}
         </div>
 
-        {/* Upcoming shows toggle — only shown when Shows data was provided
-            (the Shows feature is enabled). */}
-        {bandsWithUpcomingShows && (
+        {/* Toggle filters — upcoming shows only shown when Shows data was
+            provided (the Shows feature is enabled); has videos only shown
+            when there's at least one band with a video. */}
+        {(bandsWithUpcomingShows || bandsWithVideos) && (
           <div className="flex flex-wrap items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setUpcomingShowsOnly((v) => !v)}
-              aria-pressed={upcomingShowsOnly}
-              className={`${filterPillBase} ${
-                upcomingShowsOnly
-                  ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
-                  : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
-              }`}
-            >
-              Has upcoming shows
-            </button>
+            {bandsWithUpcomingShows && (
+              <button
+                type="button"
+                onClick={() => setUpcomingShowsOnly((v) => !v)}
+                aria-pressed={upcomingShowsOnly}
+                className={`${filterPillBase} ${
+                  upcomingShowsOnly
+                    ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                    : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                }`}
+              >
+                Has upcoming shows
+              </button>
+            )}
+            {bandsWithVideos && (
+              <button
+                type="button"
+                onClick={() => setHasVideosOnly((v) => !v)}
+                aria-pressed={hasVideosOnly}
+                className={`${filterPillBase} ${
+                  hasVideosOnly
+                    ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                    : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                }`}
+              >
+                Has videos
+              </button>
+            )}
           </div>
         )}
 

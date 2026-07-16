@@ -33,6 +33,18 @@ export async function getVisibleVideosBySlug(slug: string): Promise<VideoRow[]> 
   `;
 }
 
+/** Slugs of every band with at least one visible video, for the "has videos"
+ * directory filter. */
+export async function getSlugsWithVideos(): Promise<string[]> {
+  const rows = await sql<{ slug: string }[]>`
+    select distinct b.slug
+    from videos v
+    join bands b on b.id = v.band_id
+    where v.status in ${sql(VISIBLE_STATUSES)}
+  `;
+  return rows.map((r) => r.slug);
+}
+
 /** Every video row for a band (any status), used to seed the edit form so a
  * submitter can also remove a scraper-matched video, not just their own. */
 export async function getAllVideosForBand(bandId: number): Promise<VideoRow[]> {
