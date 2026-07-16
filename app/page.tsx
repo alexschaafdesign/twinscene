@@ -36,11 +36,21 @@ export default async function Home() {
     <main className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
       <header className="mb-5 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <h1 className="m-0 order-1 sm:order-none">
+          {/*
+            Optimized 400px WebP (~36 KB) — this logo is the LCP element on
+            mobile, so the old 828 KB /logo.png (1003×958 for a 180px slot)
+            gated the whole page's LCP. The full-res PNG stays as the OG-image
+            source (app/api/og/today), which renders it at 120px. Explicit
+            width/height reserve the box before load so it can't shift layout
+            in (CLS).
+          */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/logo.png"
+            src="/logo.webp"
             alt="Twin Scene"
-            className="mx-auto block w-full max-w-[180px] sm:mx-0"
+            width={400}
+            height={382}
+            className="mx-auto block h-auto w-full max-w-[180px] sm:mx-0"
           />
         </h1>
 
