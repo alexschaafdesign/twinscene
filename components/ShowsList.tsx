@@ -7,6 +7,12 @@ import { matchVenue, type Venue } from "@/lib/fetchVenues";
 import type { Press } from "@/lib/fetchPress";
 import ShowsTimeline from "@/components/ShowsTimeline";
 
+// Canonical display name for a show's venue, falling back to the raw scraped
+// string when it doesn't resolve to an entry in the venue directory.
+function venueName(directory: Venue[], s: Show): string {
+  return matchVenue(directory, s.venue)?.name ?? s.venue.trim();
+}
+
 export default function ShowsList({
   shows,
   venues: venueDirectory,
@@ -39,16 +45,19 @@ export default function ShowsList({
   );
 
   // Distinct venues (with counts), busiest first (ties broken alphabetically).
+  // Resolved through matchVenue so scraper spellings (e.g. "Icehouse Mpls")
+  // group under the canonical venue name ("Icehouse") instead of splitting
+  // into a separate entry.
   const venues = useMemo(() => {
     const counts = new Map<string, number>();
     for (const s of baseShows) {
-      const v = s.venue.trim();
+      const v = venueName(venueDirectory, s);
       if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
     }
     return [...counts.entries()]
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-  }, [baseShows]);
+  }, [baseShows, venueDirectory]);
 
   // Distinct venue types (with counts) among upcoming shows, busiest first —
   // same derivation as `venues` above, since the vocabulary lives in the
@@ -78,7 +87,7 @@ export default function ShowsList({
 
   const visible = baseShows.filter(
     (s) =>
-      (!venue || s.venue.trim() === venue) &&
+      (!venue || venueName(venueDirectory, s) === venue) &&
       (!venueType || matchVenue(venueDirectory, s.venue)?.type === venueType) &&
       (!localBandsOnly || s.bandSlugs.length > 0) &&
       (!pressRecommendedOnly || s.starredBy.length > 0),
