@@ -130,7 +130,15 @@ function BandVideos({ videos }: { videos: VideoRow[] }) {
   return (
     <div>
       <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-        Videos
+        Videos from{" "}
+        <a
+          href="https://www.youtube.com/@UnderCurrentMPLS"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline decoration-[#E8E0D0]/30 underline-offset-2 transition hover:text-[#E8E0D0]/85"
+        >
+          UnderCurrentMPLS
+        </a>
       </h2>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {videos.map((video) => {
