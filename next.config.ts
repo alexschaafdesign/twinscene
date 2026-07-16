@@ -6,7 +6,11 @@ const nextConfig: NextConfig = {
   // mangles that into a runtime helper that has no BigInt, throwing "e.BigInt
   // is not a function" on import. Opting out of bundling (native require
   // instead) avoids the transform entirely.
-  serverExternalPackages: ["node-ical", "temporal-polyfill", "rrule-temporal"],
+  // sharp is a native module (libvips bindings). We call it directly in the
+  // band-photo upload route (lib/r2.ts thumbnail generation) — not through
+  // next/image — so it must not be bundled by the server transform; require it
+  // natively instead, same as the other native/ESM-fussy packages here.
+  serverExternalPackages: ["node-ical", "temporal-polyfill", "rrule-temporal", "sharp"],
   async headers() {
     return [
       {

@@ -20,6 +20,7 @@ export interface Band {
   bio: string | null;
   hometown: string | null;
   photo: string | null; // full absolute URL (Birdhaus image host); null if none
+  thumbnail_url: string | null; // 400px square variant of `photo` (bands/thumb/<slug>.jpg); null if no photo
   city: string | null;
   neighborhoods: unknown; // jsonb — string[] of finer-grained areas; null if none
   bandcamp_embed_url: string | null; // resolved Bandcamp EmbeddedPlayer URL
@@ -152,6 +153,7 @@ export interface BandSubmissionInput {
   bio: string;
   featuredLinks: FeaturedLinkInput[];
   photoUrl?: string; // set when a new photo was just uploaded (lib/r2.ts)
+  thumbnailUrl?: string; // 400px thumbnail generated alongside a new photoUrl
   removePhoto?: boolean;
 }
 
@@ -263,9 +265,17 @@ export async function upsertBand(
       existing?.bandcamp_embed_height ?? null,
     );
 
+    // Thumbnail tracks the photo one-for-one: cleared when the photo is
+    // removed, replaced when a new photo (and its freshly generated thumbnail)
+    // comes in, otherwise left as-is.
     let photo = existing?.photo ?? null;
-    if (input.removePhoto) photo = null;
+    let thumbnailUrl = existing?.thumbnail_url ?? null;
+    if (input.removePhoto) {
+      photo = null;
+      thumbnailUrl = null;
+    }
     if (input.photoUrl) photo = input.photoUrl;
+    if (input.thumbnailUrl) thumbnailUrl = input.thumbnailUrl;
 
     if (existing) {
       const [updated] = await tx<Band[]>`
@@ -280,6 +290,7 @@ export async function upsertBand(
           contact_email = ${input.contactEmail || null},
           contact_method = ${input.contactMethod || null},
           photo = ${photo},
+          thumbnail_url = ${thumbnailUrl},
           bandcamp_embed_url = ${embed.embedUrl || null},
           bandcamp_embed_height = ${embed.height || null},
           featured_links = ${featuredLinks ? sql.json(featuredLinks) : null},
@@ -294,14 +305,14 @@ export async function upsertBand(
     const [created] = await tx<Band[]>`
       insert into bands (
         slug, name, genre, socials, bio, city, neighborhoods, members,
-        contact_email, contact_method, photo, bandcamp_embed_url,
+        contact_email, contact_method, photo, thumbnail_url, bandcamp_embed_url,
         bandcamp_embed_height, featured_links
       ) values (
         ${slug}, ${input.name}, ${genre}, ${socials ? sql.json(socials) : null},
         ${input.bio || null}, ${input.city || null},
         ${neighborhoods.length ? sql.json(neighborhoods) : null},
         ${members.length ? sql.json(members) : null}, ${input.contactEmail || null},
-        ${input.contactMethod || null}, ${photo}, ${embed.embedUrl || null},
+        ${input.contactMethod || null}, ${photo}, ${thumbnailUrl}, ${embed.embedUrl || null},
         ${embed.height || null}, ${featuredLinks ? sql.json(featuredLinks) : null}
       )
       returning *
