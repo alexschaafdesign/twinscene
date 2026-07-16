@@ -1,10 +1,24 @@
-# Perf baseline — band photo thumbnails (images-only pass)
+# Perf baseline — Twin Scene image audit
 
-Tracks the before/after for swapping the bands directory's grid/list cards from
-full-resolution band photos (958–1080px, 60–220 KB) to a pre-generated 400px
-square thumbnail (~20–35 KB). Scope is **images only** — no caching/ISR (#2/#3)
-or query-pattern (#4/#5) changes, so any delta here is attributable to the image
-change alone.
+## Two independent levers — report them separately, never as one score
+
+This audit found **two unrelated problems** on `/bands`, fixed by **two unrelated
+changes**. Keep their metrics split; do **not** collapse into a single "score went
+from 77 → X" headline — that would hide which change fixed what, and mislead the
+next audit.
+
+| Lever | Change (PR) | Metric it owns | Why |
+|---|---|---|---|
+| Band-photo over-fetch | 400px thumbnails (`perf/band-thumbnails`) | **Total transferred bytes** (the ~7.3 MB) | The grid downloaded 958–1080px photos for 44–180px cards. Doesn't touch LCP in mobile compact view. |
+| Oversized hero logo | `logo.webp` + intrinsic dims (`perf/logo-lcp`) | **LCP** (and the CLS) | `logo.png` was 828 KB, eager, above-fold — the largest contentful paint, and unsized (0-height until load). |
+
+**If LCP regresses in a future audit, check the hero/logo path first** — not band
+photos. The thumbnail work was never going to move the mobile-compact LCP, because
+that LCP element is the header logo, not a band card (verify via the LCP-element
+audit each time). The two previews isolate the levers: the `perf/logo-lcp` preview
+still serves full-res band photos, so any LCP drop there is the logo alone; the
+`perf/band-thumbnails` preview still serves the 828 KB logo, so any byte drop there
+is the thumbnails alone.
 
 ## How to measure (keep before/after identical)
 
