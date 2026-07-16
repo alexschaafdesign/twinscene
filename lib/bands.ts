@@ -2,7 +2,7 @@
 // Neon DB is becoming the home for this data (it currently lives on Birdhaus);
 // this module is the raw-SQL data layer over the `bands` table.
 
-import { sql } from "@/lib/db";
+import { sql } from "./db.ts";
 import type postgres from "postgres";
 
 // Mirrors the `bands` columns exactly (snake_case), so a `select *` row IS a

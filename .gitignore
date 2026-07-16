@@ -44,3 +44,9 @@ next-env.d.ts
 bands-export.json
 bands-import-preview.json
 bands-id-mapping.json
+
+# undercurrent video-matcher backfill artifacts (local only)
+undercurrent-videos-raw.json
+review-queue.json
+unmatched.json
+unparsed.json

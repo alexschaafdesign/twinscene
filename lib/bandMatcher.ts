@@ -11,17 +11,17 @@
 import Fuse from "fuse.js";
 import type { Band } from "@/lib/fetchBands";
 import type { ScrapedShow } from "@/lib/scrapers/pilllar";
-import { normalizeText, similarity } from "@/lib/textSimilarity";
+import { normalizeText, similarity } from "./textSimilarity.ts";
 
-export type MatchResult = {
+export type MatchResult<B> = {
   name: string;
-  match: Band | null;
+  match: B | null;
   confidence: "auto" | "review" | "none";
   score: number; // whole-string similarity, 0 (unrelated) → 1 (identical)
 };
 
 export type MatchedShow = ScrapedShow & {
-  bandMatches: MatchResult[];
+  bandMatches: MatchResult<Band>[];
 };
 
 // Similarity of the scraped name to the candidate's name, as a whole. Tuned so
@@ -30,9 +30,13 @@ export type MatchedShow = ScrapedShow & {
 const AUTO_MIN_SIM = 0.85;
 const REVIEW_MIN_SIM = 0.7;
 
-type Indexed = { _normalized: string; band: Band };
+// Generic over the band shape so callers can match against anything with a
+// `name` — not just fetchBands.ts's full profile Band — e.g. lib/bands.ts's
+// leaner DB row, which is what carries the numeric `id` a caller needs for an
+// FK. matchBand/matchShow behavior is unchanged for existing callers.
+export function createMatcher<B extends { name: string }>(bands: B[]) {
+  type Indexed = { _normalized: string; band: B };
 
-export function createMatcher(bands: Band[]) {
   const indexed: Indexed[] = bands.map((band) => ({
     _normalized: normalizeText(band.name),
     band,
@@ -46,7 +50,7 @@ export function createMatcher(bands: Band[]) {
     minMatchCharLength: 2,
   });
 
-  function matchBand(name: string): MatchResult {
+  function matchBand(name: string): MatchResult<B> {
     const normalized = normalizeText(name);
     if (!normalized) {
       return { name, match: null, confidence: "none", score: 0 };
@@ -60,7 +64,7 @@ export function createMatcher(bands: Band[]) {
 
     const score = similarity(normalized, best.item._normalized);
 
-    let confidence: MatchResult["confidence"];
+    let confidence: MatchResult<B>["confidence"];
     if (score >= AUTO_MIN_SIM) confidence = "auto";
     else if (score >= REVIEW_MIN_SIM) confidence = "review";
     else confidence = "none";
@@ -73,7 +77,7 @@ export function createMatcher(bands: Band[]) {
     };
   }
 
-  function matchShow(show: ScrapedShow): MatchedShow {
+  function matchShow(show: ScrapedShow): ScrapedShow & { bandMatches: MatchResult<B>[] } {
     return {
       ...show,
       bandMatches: show.allBands.map(matchBand),
