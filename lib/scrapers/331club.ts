@@ -25,9 +25,10 @@
 //    whatever real name preceded it (or nothing, for a bare series title;
 //    that just falls back to the review queue like any other scraper's
 //    ambiguous case).
-//  - A few slots have no lineup yet ("TBA") or are known non-music fixtures
-//    (movie trivia, bingo, a drawing-class night) — both are dropped rather
-//    than queued, same as other venues' open-mic/bingo filtering.
+//  - A few slots have no lineup yet ("TBA", dropped — nothing to show) or are
+//    known non-music fixtures (movie trivia, bingo, a drawing-class night).
+//    The latter are kept and labeled with an event-type tag rather than
+//    dropped, mirroring hookandladder.ts/acadia.ts.
 //
 // No ticket links, prices, or flyer images appear anywhere on this page.
 
@@ -54,8 +55,21 @@ const MONTHS: Record<string, number> = {
   dec: 11,
 };
 
-// Recurring non-band fixtures on this calendar.
-const NON_MUSIC_RE = /\btrivia\b|\bbingo\b|spelling bee|dr\.?\s*sketchy/i;
+// Recurring non-band fixtures on this calendar, matched against a column's
+// joined text and labeled rather than dropped (mirrors acadia.ts).
+const EVENT_TYPE_RULES: [RegExp, string][] = [
+  [/\btrivia\b/i, "Trivia"],
+  [/\bbingo\b/i, "Bingo"],
+  [/spelling bee/i, "Spelling Bee"],
+  [/dr\.?\s*sketchy/i, "Life Drawing"],
+];
+
+function classifyEventType(text: string): string | null {
+  for (const [re, label] of EVENT_TYPE_RULES) {
+    if (re.test(text)) return label;
+  }
+  return null;
+}
 
 // A line that's just a header introducing the names on the following lines
 // ("July Conspiracy Series featuring", "Gabe Barnett presents").
@@ -107,15 +121,25 @@ function parseColumn($: cheerio.CheerioAPI, column: cheerio.Cheerio<any>, date: 
   }
 
   const joined = nameLines.join(" ");
-  if (NON_MUSIC_RE.test(joined)) return null;
+  const tag = classifyEventType(joined);
 
-  const allBands = nameLines
-    .filter((line) => !(line.startsWith("(") && line.endsWith(")"))) // parenthetical asides
-    .map((line) => stripQuotes(line.replace(TRAILING_FILLER_RE, "")).trim())
-    .filter((line) => line && !/^tba$/i.test(line));
-  if (allBands.length === 0) return null;
-
-  const [headliner, ...supporting] = allBands;
+  let headliner: string;
+  let supporting: string[];
+  let allBands: string[];
+  if (tag) {
+    // A non-band fixture: keep the joined column text as the display title
+    // rather than splitting it into "acts", mirroring hookandladder.ts.
+    headliner = joined;
+    supporting = [];
+    allBands = [];
+  } else {
+    allBands = nameLines
+      .filter((line) => !(line.startsWith("(") && line.endsWith(")"))) // parenthetical asides
+      .map((line) => stripQuotes(line.replace(TRAILING_FILLER_RE, "")).trim())
+      .filter((line) => line && !/^tba$/i.test(line));
+    if (allBands.length === 0) return null;
+    [headliner, ...supporting] = allBands;
+  }
 
   return {
     venue: VENUE,
@@ -130,6 +154,7 @@ function parseColumn($: cheerio.CheerioAPI, column: cheerio.Cheerio<any>, date: 
     advancePrice: null,
     dosPrice: null,
     sourceUrl: CALENDAR_URL,
+    tag,
   };
 }
 

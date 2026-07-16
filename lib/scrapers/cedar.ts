@@ -14,7 +14,8 @@
 // stripped as known prefixes so the artist name underneath can fuzzy-match
 // the directory, same approach as berlin.ts's SERIES_PREFIXES. Genuinely
 // non-band listings (private rentals, volunteer orientation, a film
-// screening) are dropped outright.
+// screening) are kept and labeled with an event-type tag rather than
+// dropped, mirroring hookandladder.ts/acadia.ts.
 //
 // The body HTML embeds an Eventbrite checkout widget for most shows, but also
 // a couple of generic `thecedar.org/ticket-info` and `/access` links that
@@ -37,8 +38,20 @@ const JSON_URL = `${EVENTS_URL}?format=json`;
 const USER_AGENT = "TwinScene/1.0 (+https://twinscene.org)";
 const TIMEZONE = "America/Chicago";
 
-// Rentals, orientations, and screenings — no lineup to attach a show to.
-const NON_MUSIC_RE = /\b(private event|volunteer orientation|film screening)\b/i;
+// Rentals, orientations, and screenings — no lineup to attach a show to,
+// labeled rather than dropped (mirrors acadia.ts).
+const EVENT_TYPE_RULES: [RegExp, string][] = [
+  [/\bprivate event\b/i, "Private Event"],
+  [/\bvolunteer orientation\b/i, "Volunteer Orientation"],
+  [/\bfilm screening\b/i, "Film Screening"],
+];
+
+function classifyEventType(title: string): string | null {
+  for (const [re, label] of EVENT_TYPE_RULES) {
+    if (re.test(title)) return label;
+  }
+  return null;
+}
 
 // Status markers and "X presents"/series prefixes worth stripping so the
 // artist name underneath has a chance to fuzzy-match the directory.
@@ -189,11 +202,22 @@ function parseEvent(event: CedarEvent): ScrapedShow | null {
     .replace(DECORATION_RE, " ")
     .replace(/\s+/g, " ")
     .trim();
-  if (NON_MUSIC_RE.test(rawTitle)) return null;
+  const tag = classifyEventType(rawTitle);
 
-  const allBands = splitBands(stripSeriesPrefix(rawTitle));
-  if (allBands.length === 0) return null;
-  const [headliner, ...supporting] = allBands;
+  let headliner: string;
+  let supporting: string[];
+  let allBands: string[];
+  if (tag) {
+    // A non-band fixture: keep the raw title as the display name rather than
+    // splitting it into "acts", mirroring hookandladder.ts.
+    headliner = rawTitle;
+    supporting = [];
+    allBands = [];
+  } else {
+    allBands = splitBands(stripSeriesPrefix(rawTitle));
+    if (allBands.length === 0) return null;
+    [headliner, ...supporting] = allBands;
+  }
 
   const body = event.body || "";
   const text = extractText(body);
@@ -213,6 +237,7 @@ function parseEvent(event: CedarEvent): ScrapedShow | null {
     advancePrice,
     dosPrice,
     sourceUrl: event.fullUrl ? `https://www.thecedar.org${event.fullUrl}` : EVENTS_URL,
+    tag,
   };
 }
 

@@ -12,11 +12,13 @@
 // (POST https://www.venuepilot.co/graphql, query `publicEvents`) to load the
 // events grid. That API is far richer than anything on the rendered page: it
 // returns each show's artist lineup as a structured array rather than a title
-// to parse, so there's no band-name-splitting heuristics needed here. It also
-// naturally distinguishes shows from non-band listings (open mics, private
-// parties, dance nights) — those come back with an empty `announceArtists`
-// array — so filtering on that array being non-empty does the same job the
-// keyword blocklists in other scrapers do, without the guesswork.
+// to parse, so there's no band-name-splitting heuristics needed for ordinary
+// shows. Some listings — open mics, private parties, DJ/dance nights — come
+// back with an empty `announceArtists` array (confirmed live: e.g. "REVENTON"
+// and "Rainforest RAVE" carry no structured lineup at all, even though the
+// venue's own event description sometimes names the DJs in prose). Those are
+// kept rather than dropped, labeled with an event-type tag derived from the
+// event's `name` field, mirroring hookandladder.ts/acadia.ts.
 //
 // No ticket price is exposed by this query (the widget's own grid doesn't
 // display one either — it defers to the ticketsUrl), so advancePrice/dosPrice
@@ -33,6 +35,7 @@ const PUBLIC_EVENTS_QUERY = `
   query ($accountIds: [Int!]!, $startDate: String!) {
     publicEvents(accountIds: $accountIds, startDate: $startDate) {
       id
+      name
       date
       doorTime
       startTime
@@ -52,8 +55,29 @@ const PUBLIC_EVENTS_QUERY = `
   }
 `;
 
+// Event-type labels for listings that arrive with no structured lineup,
+// matched against the event name in order (first hit wins). Anything
+// unrecognized falls back to a generic "Event" so it's still visibly flagged
+// as a non-show — mirrors hookandladder.ts's classifyEventType, which always
+// returns a label rather than null: this only runs once we already know
+// there's no lineup, so there's no "is this even a non-show?" call to make,
+// just "what kind."
+const EVENT_TYPE_RULES: [RegExp, string][] = [
+  [/open mic/i, "Open Mic"],
+  [/\btribute\b/i, "Tribute Night"],
+  [/\brave\b|\bclub night\b|\bthrowback\b/i, "DJ Night"],
+];
+
+function classifyEventType(name: string): string {
+  for (const [re, label] of EVENT_TYPE_RULES) {
+    if (re.test(name)) return label;
+  }
+  return "Event";
+}
+
 type PublicEvent = {
   id: number;
+  name: string;
   date: string; // "YYYY-MM-DD"
   doorTime: string | null; // "HH:MM:SS", venue-local
   startTime: string | null;
@@ -131,9 +155,26 @@ async function fetchAccountId(): Promise<number> {
 }
 
 function parseEvent(event: PublicEvent): ScrapedShow | null {
-  const allBands = event.announceArtists.map((a) => a.name).filter(Boolean);
-  if (allBands.length === 0) return null; // no lineup — open mic, private event, etc.
-  const [headliner, ...supporting] = allBands;
+  const announced = event.announceArtists.map((a) => a.name).filter(Boolean);
+
+  let headliner: string;
+  let supporting: string[];
+  let allBands: string[];
+  let tag: string | null;
+  if (announced.length > 0) {
+    [headliner, ...supporting] = announced;
+    allBands = announced;
+    tag = null;
+  } else {
+    // No structured lineup — open mic, private event, DJ/dance night, etc.
+    // Keep it, but label what kind of event it is (mirrors hookandladder.ts).
+    const name = event.name?.trim();
+    if (!name) return null; // nothing to show
+    headliner = name;
+    supporting = [];
+    allBands = [];
+    tag = classifyEventType(name);
+  }
 
   const flyer =
     event.announceImages.find((img) => img.highlighted) ?? event.announceImages[0];
@@ -151,6 +192,7 @@ function parseEvent(event: PublicEvent): ScrapedShow | null {
     advancePrice: null,
     dosPrice: null,
     sourceUrl: `${EVENTS_URL}#/events/${event.id}`,
+    tag,
   };
 }
 

@@ -20,46 +20,63 @@ export default function ShowsList({
   const [venueType, setVenueType] = useState<string>("");
   const [localBandsOnly, setLocalBandsOnly] = useState(false);
   const [pressRecommendedOnly, setPressRecommendedOnly] = useState(false);
+  const [showAllEvents, setShowAllEvents] = useState(false);
+
+  // Shows tagged with a non-band event type (open mic, trivia, DJ night,
+  // etc. — see the scrapers' classifyEventType helpers). Hidden by default;
+  // the "Show all events" toggle below reveals them.
+  const nonBandEventsCount = useMemo(
+    () => shows.filter((s) => s.eventType).length,
+    [shows],
+  );
+
+  // Everything downstream (venue/type filters, the other toggles, and the
+  // final visible list) derives from this, so counts and dropdowns stay
+  // consistent with what "Show all events" actually reveals.
+  const baseShows = useMemo(
+    () => (showAllEvents ? shows : shows.filter((s) => !s.eventType)),
+    [shows, showAllEvents],
+  );
 
   // Distinct venues (with counts), busiest first (ties broken alphabetically).
   const venues = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const s of shows) {
+    for (const s of baseShows) {
       const v = s.venue.trim();
       if (v) counts.set(v, (counts.get(v) ?? 0) + 1);
     }
     return [...counts.entries()]
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-  }, [shows]);
+  }, [baseShows]);
 
   // Distinct venue types (with counts) among upcoming shows, busiest first —
   // same derivation as `venues` above, since the vocabulary lives in the
   // sheet's TYPE column rather than a fixed list.
   const venueTypeCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const s of shows) {
+    for (const s of baseShows) {
       const type = matchVenue(venueDirectory, s.venue)?.type;
       if (type) counts.set(type, (counts.get(type) ?? 0) + 1);
     }
     return [...counts.entries()]
       .map(([type, count]) => ({ type, count }))
       .sort((a, b) => b.count - a.count || a.type.localeCompare(b.type));
-  }, [shows, venueDirectory]);
+  }, [baseShows, venueDirectory]);
 
   // Shows with at least one band linked to the directory.
   const localBandsCount = useMemo(
-    () => shows.filter((s) => s.bandSlugs.length > 0).length,
-    [shows],
+    () => baseShows.filter((s) => s.bandSlugs.length > 0).length,
+    [baseShows],
   );
 
   // Shows starred by at least one Press outlet.
   const pressRecommendedCount = useMemo(
-    () => shows.filter((s) => s.starredBy.length > 0).length,
-    [shows],
+    () => baseShows.filter((s) => s.starredBy.length > 0).length,
+    [baseShows],
   );
 
-  const visible = shows.filter(
+  const visible = baseShows.filter(
     (s) =>
       (!venue || s.venue.trim() === venue) &&
       (!venueType || matchVenue(venueDirectory, s.venue)?.type === venueType) &&
@@ -85,9 +102,9 @@ export default function ShowsList({
 
   return (
     <div>
-      {/* Local bands / press-recommended toggles — only worth showing when
-          some shows qualify. */}
-      {(localBandsCount > 0 || pressRecommendedCount > 0) && (
+      {/* Local bands / press-recommended / show-all-events toggles — only
+          worth showing when some shows qualify. */}
+      {(localBandsCount > 0 || pressRecommendedCount > 0 || nonBandEventsCount > 0) && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {localBandsCount > 0 && (
             <FilterChip
@@ -105,6 +122,14 @@ export default function ShowsList({
               onClick={() => setPressRecommendedOnly((v) => !v)}
             />
           )}
+          {nonBandEventsCount > 0 && (
+            <FilterChip
+              label="Show all events"
+              count={nonBandEventsCount}
+              active={showAllEvents}
+              onClick={() => setShowAllEvents((v) => !v)}
+            />
+          )}
         </div>
       )}
 
@@ -113,7 +138,7 @@ export default function ShowsList({
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <FilterChip
             label="All types"
-            count={shows.length}
+            count={baseShows.length}
             active={venueType === ""}
             onClick={() => setVenueType("")}
           />
@@ -137,7 +162,7 @@ export default function ShowsList({
             onChange={(e) => setVenue(e.target.value)}
             className="rounded-md border border-[#E8E0D0]/25 bg-[#2A2420] px-3 py-1.5 text-sm font-medium text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/50 focus:border-[#E8E0D0]/50 focus:outline-none"
           >
-            <option value="">All venues ({shows.length} shows)</option>
+            <option value="">All venues ({baseShows.length} shows)</option>
             {venues.map((v) => (
               <option key={v.name} value={v.name}>
                 {v.name} ({v.count} shows)

@@ -9,11 +9,12 @@
 //
 // Berlin's calendar mixes real bookings with recurring non-band series:
 // a weekly open jam and a "Crates" album-listening-party series (they play a
-// classic album front to back — no performer to attach the show to). Both
-// are excluded by title. Everything else is a booking, but the titles
-// themselves are inconsistent: most are "Headliner w/ Support" or a bare
-// artist name, but recurring curated nights prefix the artist with a series
-// name ("Late Night Lounge: ", "Early Evening Jazz: ", "Nocturne: ",
+// classic album front to back — no performer to attach the show to). Both are
+// kept and labeled with an event-type tag by title rather than dropped,
+// mirroring hookandladder.ts/acadia.ts. Everything else is a booking, but the
+// titles themselves are inconsistent: most are "Headliner w/ Support" or a
+// bare artist name, but recurring curated nights prefix the artist with a
+// series name ("Late Night Lounge: ", "Early Evening Jazz: ", "Nocturne: ",
 // "Curated by X: feat. "). We strip those known prefixes so the artist name
 // underneath has a chance to fuzzy-match the directory; anything else
 // (tribute-show subtitles, "Artist: Event Name" listings, dense multi-act
@@ -30,9 +31,19 @@ const JSON_URL = `${CALENDAR_URL}?format=json`;
 const USER_AGENT = "TwinScene/1.0 (+https://twinscene.org)";
 const TIMEZONE = "America/Chicago";
 
-// Recurring listings with no performer to attach the show to.
-const NON_MUSIC_RE = /\b(open jam|jam session)\b/i;
-const CRATES_RE = /^crates:/i;
+// Recurring listings with no performer to attach the show to, labeled rather
+// than dropped (mirrors acadia.ts).
+const EVENT_TYPE_RULES: [RegExp, string][] = [
+  [/\b(open jam|jam session)\b/i, "Jam"],
+  [/^crates:/i, "Album Listening Party"],
+];
+
+function classifyEventType(title: string): string | null {
+  for (const [re, label] of EVENT_TYPE_RULES) {
+    if (re.test(title)) return label;
+  }
+  return null;
+}
 
 // "Series: Artist" prefixes worth stripping so the artist name underneath can
 // fuzzy-match the directory. Order doesn't matter; only one will ever match.
@@ -146,11 +157,22 @@ function localDateAndTime(ms: number): { date: string; time: string } {
 
 function parseEvent(event: SquarespaceEvent): ScrapedShow | null {
   const rawTitle = decodeEntities(event.title);
-  if (NON_MUSIC_RE.test(rawTitle) || CRATES_RE.test(rawTitle)) return null;
+  const tag = classifyEventType(rawTitle);
 
-  const allBands = splitBands(stripSeriesPrefix(rawTitle));
-  if (allBands.length === 0) return null;
-  const [headliner, ...supporting] = allBands;
+  let headliner: string;
+  let supporting: string[];
+  let allBands: string[];
+  if (tag) {
+    // A non-band fixture: keep the raw title as the display name rather than
+    // splitting it into "acts", mirroring hookandladder.ts.
+    headliner = rawTitle;
+    supporting = [];
+    allBands = [];
+  } else {
+    allBands = splitBands(stripSeriesPrefix(rawTitle));
+    if (allBands.length === 0) return null;
+    [headliner, ...supporting] = allBands;
+  }
 
   const excerptText = event.excerpt
     ? cheerio.load(event.excerpt).text()
@@ -173,6 +195,7 @@ function parseEvent(event: SquarespaceEvent): ScrapedShow | null {
     sourceUrl: event.fullUrl
       ? `https://www.berlinmpls.com${event.fullUrl}`
       : CALENDAR_URL,
+    tag,
   };
 }
 

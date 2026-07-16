@@ -11,12 +11,13 @@
 // One wrinkle this venue has that Pilllar/First Avenue don't: its calendar
 // lists *every* bar event — yoga, bingo, karaoke, open jam — not just music
 // shows, and Tribe's categories/tags are unused on this site (always empty),
-// so there's no structured way to tell them apart. We skip a short list of
-// known non-music keywords. It's not exhaustive — an ambiguous one-off title
-// can still slip through — but anything that does just fails to fuzzy-match a
-// directory band and sits harmlessly in the review queue rather than
-// auto-importing (same fallback the flyer scrapers already lean on for bad
-// matches).
+// so there's no structured way to tell them apart. We match a short list of
+// known non-music keywords and label those with an event-type tag rather
+// than dropping them, mirroring hookandladder.ts/acadia.ts. It's not
+// exhaustive — an ambiguous one-off title can still slip through untagged —
+// but anything that does just fails to fuzzy-match a directory band and sits
+// harmlessly in the review queue rather than auto-importing (same fallback
+// the flyer scrapers already lean on for bad matches).
 //
 // Show titles pack the whole bill into one string (e.g. "Gradience w. Heed
 // The Warning, Buzz Box"), so we split on "w./w/" for the headliner/support
@@ -39,8 +40,25 @@ const PER_PAGE = 50;
 // Recurring non-music bar events. Deliberately short and specific rather than
 // broad, so it doesn't risk swallowing a real band name. Extend this list if
 // another recurring non-music event type shows up in the review queue.
-const NON_MUSIC_RE =
-  /\b(yoga|bingo|trivia|open jam|jam session|drag|movie night)\b|oke\b/i;
+const EVENT_TYPE_RULES: [RegExp, string][] = [
+  [/\byoga\b/i, "Yoga"],
+  [/\bbingo\b/i, "Bingo"],
+  [/\btrivia\b/i, "Trivia"],
+  [/\b(open jam|jam session)\b/i, "Jam"],
+  [/\bdrag\b/i, "Drag Show"],
+  [/\bmovie night\b/i, "Movie Night"],
+  // Catches "karaoke" and stylized "-oke"/"⭑oke" suffixes ("COUNTRY⭑OKE")
+  // without a letter immediately before "oke" — so it doesn't also match a
+  // real name that happens to end in "oke" ("Alex & Toke's Acoustic Tuesdays").
+  [/karaoke|(?<![a-z])oke\b/i, "Karaoke"],
+];
+
+function classifyEventType(title: string): string | null {
+  for (const [re, label] of EVENT_TYPE_RULES) {
+    if (re.test(title)) return label;
+  }
+  return null;
+}
 
 // Tribe REST API shapes, trimmed to the fields we use.
 type TribeEvent = {
@@ -101,11 +119,23 @@ function timePart(s: string): string | null {
 }
 
 function parseEvent(event: TribeEvent): ScrapedShow | null {
-  if (NON_MUSIC_RE.test(decodeEntities(event.title))) return null;
+  const decodedTitle = decodeEntities(event.title);
+  const tag = classifyEventType(decodedTitle);
 
-  const allBands = splitBands(event.title);
-  if (allBands.length === 0) return null;
-  const [headliner, ...supporting] = allBands;
+  let headliner: string;
+  let supporting: string[];
+  let allBands: string[];
+  if (tag) {
+    // A non-music bar event: keep the raw title as the display name rather
+    // than splitting it into "acts", mirroring hookandladder.ts.
+    headliner = decodedTitle;
+    supporting = [];
+    allBands = [];
+  } else {
+    allBands = splitBands(event.title);
+    if (allBands.length === 0) return null;
+    [headliner, ...supporting] = allBands;
+  }
 
   return {
     venue: VENUE,
@@ -122,6 +152,7 @@ function parseEvent(event: TribeEvent): ScrapedShow | null {
     advancePrice: null,
     dosPrice: null,
     sourceUrl: event.url || CALENDAR_URL,
+    tag,
   };
 }
 
