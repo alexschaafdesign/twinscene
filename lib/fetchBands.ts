@@ -24,9 +24,9 @@ export type Band = {
   genres: string[];
   city: string;
   neighborhoods: string[]; // finer-grained areas within the city; may be empty
-  members: string[]; // individual people in the band; may be empty — not modeled in the bands table yet
-  contactEmail: string; // public contact address, shown on the profile — not modeled in the bands table yet
-  contactMethod: string; // "" | "email" | "instagram" | "website" — not modeled in the bands table yet
+  members: string[]; // individual people in the band; may be empty
+  contactEmail: string; // public contact address, shown on the profile
+  contactMethod: string; // "" | "email" | "instagram" | "website"
   bio: string;
   image: string;
   website: string;
@@ -90,9 +90,9 @@ function fromTwinScene(b: BandRow): Band {
       .filter(Boolean),
     city: b.city ?? "",
     neighborhoods: asStringArray(b.neighborhoods),
-    members: [],
-    contactEmail: "",
-    contactMethod: "",
+    members: asStringArray(b.members),
+    contactEmail: b.contact_email ?? "",
+    contactMethod: b.contact_method ?? "",
     bio: b.bio ?? "",
     image: b.photo ?? "",
     website: socials.website,

@@ -73,6 +73,7 @@ export default async function SubmitPage({
         initialBio={param("bio")}
         initialImage={param("image")}
         initialFeaturedLinks={param("featuredLinks")}
+        initialVideos={param("videos")}
         genreOptions={genreOptions}
         neighborhoodOptions={neighborhoodOptions}
         memberOptions={memberOptions}

@@ -4,6 +4,8 @@
 
 import { sql } from "./db.ts";
 import type postgres from "postgres";
+import { resolveBandcampEmbedUrl } from "./bandcamp.ts";
+import { extractOgImage } from "./ogImage.ts";
 
 // Mirrors the `bands` columns exactly (snake_case), so a `select *` row IS a
 // Band with no transform. The public allowlist below is keyed off this type, so
@@ -23,6 +25,9 @@ export interface Band {
   bandcamp_embed_url: string | null; // resolved Bandcamp EmbeddedPlayer URL
   bandcamp_embed_height: number | null; // iframe height in px for that embed
   featured_links: unknown; // jsonb — { url, label, image }[] highlight cards; null if none
+  members: unknown; // jsonb — string[] of band member names; null if none
+  contact_email: string | null; // not exposed publicly — see PUBLIC_BAND_FIELDS
+  contact_method: string | null; // "" | "email" | "instagram" | "website"; not exposed publicly
   created_at: string;
   updated_at: string;
 }
@@ -46,6 +51,7 @@ export const PUBLIC_BAND_FIELDS = [
   "bandcamp_embed_url",
   "bandcamp_embed_height",
   "featured_links",
+  "members",
   "created_at",
   "updated_at",
 ] as const;
@@ -119,5 +125,187 @@ export async function findOrCreateBandByName(name: string): Promise<FindOrCreate
       returning *
     `;
     return { band: created, matched: false };
+  });
+}
+
+// --- Write path for the "Add your band" / "Edit this band" form -----------
+// Replaces the legacy Apps Script webhook (apps-script/Code.js), which wrote
+// into a Google Sheet that nothing reads anymore once fetchBands() cut over
+// to this table. Mirrors the enrichment that webhook used to do server-side
+// (Bandcamp embed resolution, featured-link og:image scraping) so submitting
+// a band here has the same effect it always visually appeared to have.
+
+type FeaturedLinkInput = { url: string; label: string };
+type FeaturedLink = { url: string; label: string; image: string };
+
+export interface BandSubmissionInput {
+  name: string;
+  genres: string[];
+  city: string;
+  neighborhoods: string[];
+  members: string[];
+  contactEmail: string;
+  contactMethod: string;
+  website: string;
+  instagram: string;
+  bandcamp: string; // raw URL or a pasted <iframe> embed snippet
+  bio: string;
+  featuredLinks: FeaturedLinkInput[];
+  photoUrl?: string; // set when a new photo was just uploaded (lib/r2.ts)
+  removePhoto?: boolean;
+}
+
+export interface UpsertBandResult {
+  band: Band;
+  action: "created" | "updated";
+}
+
+function socialsOf(v: unknown): { instagram: string; website: string; bandcamp: string } {
+  const o = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  const str = (x: unknown) => (typeof x === "string" ? x : "");
+  return { instagram: str(o.instagram), website: str(o.website), bandcamp: str(o.bandcamp) };
+}
+
+function featuredLinksOf(v: unknown): FeaturedLink[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((l): l is Record<string, unknown> => !!l && typeof l === "object")
+    .map((l) => ({
+      url: typeof l.url === "string" ? l.url : "",
+      label: typeof l.label === "string" ? l.label : "",
+      image: typeof l.image === "string" ? l.image : "",
+    }))
+    .filter((l) => l.url);
+}
+
+function socialsJson(input: {
+  website: string;
+  instagram: string;
+  bandcamp: string;
+}): Record<string, string> | null {
+  const out: Record<string, string> = {};
+  if (input.website.trim()) out.website = input.website.trim();
+  if (input.instagram.trim()) out.instagram = input.instagram.trim();
+  if (input.bandcamp.trim()) out.bandcamp = input.bandcamp.trim();
+  return Object.keys(out).length ? out : null;
+}
+
+// Fetches an og:image for each new featured link, reusing the previously
+// stored image when its URL is unchanged (avoids a network fetch on every
+// unrelated edit) — mirrors featuredLinksFor_ in apps-script/Code.js.
+async function resolveFeaturedLinks(
+  links: FeaturedLinkInput[],
+  oldLinks: FeaturedLink[],
+): Promise<FeaturedLink[] | null> {
+  const filled = links.filter((l) => l.url.trim());
+  if (filled.length === 0) return null;
+
+  const oldImageByUrl = new Map(oldLinks.map((l) => [l.url, l.image]));
+  const resolved = await Promise.all(
+    filled.map(async (l) => {
+      const url = l.url.trim();
+      const image = oldImageByUrl.get(url) || (await extractOgImage(url));
+      return { url, label: l.label.trim(), image: image || "" };
+    }),
+  );
+  return resolved;
+}
+
+// Resolves the Bandcamp embed for a submission, reusing the stored embed when
+// the raw Bandcamp field hasn't changed — mirrors bandcampEmbedFor_ in
+// apps-script/Code.js.
+async function resolveBandcampEmbed(
+  newBandcamp: string,
+  oldBandcamp: string,
+  oldEmbedUrl: string,
+  oldEmbedHeight: number | null,
+): Promise<{ embedUrl: string; height: number }> {
+  const trimmed = newBandcamp.trim();
+  if (!trimmed) return { embedUrl: "", height: 0 };
+  if (trimmed === oldBandcamp.trim() && oldEmbedUrl) {
+    return { embedUrl: oldEmbedUrl, height: oldEmbedHeight ?? 0 };
+  }
+  return resolveBandcampEmbedUrl(trimmed);
+}
+
+/**
+ * Create or update a band from the public submit/correct form. `mode:
+ * "correct"` looks the row up by `existingSlug` and updates it in place
+ * (the slug itself never changes on a correction, matching the old Apps
+ * Script behavior); `mode: "add"` generates a fresh unique slug from the
+ * name. Runs in a transaction so the lookup/slug-generation/write can't race
+ * a concurrent submission.
+ */
+export async function upsertBand(
+  input: BandSubmissionInput,
+  mode: "add" | "correct",
+  existingSlug?: string,
+): Promise<UpsertBandResult> {
+  return sql.begin(async (tx) => {
+    const existing =
+      mode === "correct" && existingSlug
+        ? ((await tx<Band[]>`select * from bands where slug = ${existingSlug} limit 1`)[0] ?? null)
+        : null;
+
+    const genre = input.genres.map((g) => g.trim()).filter(Boolean).join(", ") || null;
+    const neighborhoods = input.neighborhoods.map((n) => n.trim()).filter(Boolean);
+    const members = input.members.map((m) => m.trim()).filter(Boolean);
+    const socials = socialsJson(input);
+
+    const featuredLinks = await resolveFeaturedLinks(
+      input.featuredLinks,
+      featuredLinksOf(existing?.featured_links),
+    );
+    const embed = await resolveBandcampEmbed(
+      input.bandcamp,
+      socialsOf(existing?.socials).bandcamp,
+      existing?.bandcamp_embed_url ?? "",
+      existing?.bandcamp_embed_height ?? null,
+    );
+
+    let photo = existing?.photo ?? null;
+    if (input.removePhoto) photo = null;
+    if (input.photoUrl) photo = input.photoUrl;
+
+    if (existing) {
+      const [updated] = await tx<Band[]>`
+        update bands set
+          name = ${input.name},
+          genre = ${genre},
+          socials = ${socials ? sql.json(socials) : null},
+          bio = ${input.bio || null},
+          city = ${input.city || null},
+          neighborhoods = ${neighborhoods.length ? sql.json(neighborhoods) : null},
+          members = ${members.length ? sql.json(members) : null},
+          contact_email = ${input.contactEmail || null},
+          contact_method = ${input.contactMethod || null},
+          photo = ${photo},
+          bandcamp_embed_url = ${embed.embedUrl || null},
+          bandcamp_embed_height = ${embed.height || null},
+          featured_links = ${featuredLinks ? sql.json(featuredLinks) : null},
+          updated_at = now()
+        where id = ${existing.id}
+        returning *
+      `;
+      return { band: updated, action: "updated" as const };
+    }
+
+    const slug = await uniqueSlug(tx, slugify(input.name) || "band");
+    const [created] = await tx<Band[]>`
+      insert into bands (
+        slug, name, genre, socials, bio, city, neighborhoods, members,
+        contact_email, contact_method, photo, bandcamp_embed_url,
+        bandcamp_embed_height, featured_links
+      ) values (
+        ${slug}, ${input.name}, ${genre}, ${socials ? sql.json(socials) : null},
+        ${input.bio || null}, ${input.city || null},
+        ${neighborhoods.length ? sql.json(neighborhoods) : null},
+        ${members.length ? sql.json(members) : null}, ${input.contactEmail || null},
+        ${input.contactMethod || null}, ${photo}, ${embed.embedUrl || null},
+        ${embed.height || null}, ${featuredLinks ? sql.json(featuredLinks) : null}
+      )
+      returning *
+    `;
+    return { band: created, action: "created" as const };
   });
 }

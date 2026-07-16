@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { fetchBands } from "@/lib/fetchBands";
 import { fetchShows } from "@/lib/fetchShows";
 import { fetchPress } from "@/lib/fetchPress";
+import { getVisibleVideosBySlug } from "@/lib/videos";
 import { SHOWS_ENABLED } from "@/lib/features";
 import BandProfile, { editHref } from "@/components/BandProfile";
 import { iconProps, locationLabel } from "@/components/band-shared";
@@ -51,6 +52,7 @@ export default async function BandProfilePage({ params }: Props) {
   const shows = SHOWS_ENABLED ? await fetchShows() : [];
   const press = SHOWS_ENABLED ? await fetchPress() : [];
   const bandShows = shows.filter((s) => s.bandSlugs.includes(slug));
+  const videos = await getVisibleVideosBySlug(slug);
 
   return (
     <div>
@@ -63,7 +65,7 @@ export default async function BandProfilePage({ params }: Props) {
         </Link>
 
         <Link
-          href={editHref(band)}
+          href={editHref(band, videos)}
           className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
         >
           {/* ti-edit (Tabler) */}
@@ -77,7 +79,7 @@ export default async function BandProfilePage({ params }: Props) {
         </Link>
       </div>
 
-      <BandProfile band={band} shows={bandShows} press={press} />
+      <BandProfile band={band} shows={bandShows} press={press} videos={videos} />
     </div>
   );
 }

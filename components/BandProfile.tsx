@@ -11,6 +11,7 @@
 import type { Band } from "@/lib/fetchBands";
 import type { Show } from "@/lib/fetchShows";
 import type { Press } from "@/lib/fetchPress";
+import type { VideoRow } from "@/lib/videos";
 import { pressNotes } from "@/lib/press";
 import BandcampPlayer from "@/components/BandcampPlayer";
 import {
@@ -21,9 +22,10 @@ import {
   iconProps,
 } from "@/components/band-shared";
 import { BandImage, CopyButton } from "@/components/band-shared-client";
+import { parseYoutubeId } from "@/lib/youtube";
 
 /** Prefilled "correct this band" submit URL — shown in the profile header. */
-export function editHref(band: Band): string {
+export function editHref(band: Band, videos: VideoRow[] = []): string {
   const params = new URLSearchParams({
     correct: "true",
     band: band.slug,
@@ -42,6 +44,9 @@ export function editHref(band: Band): string {
     // Round-trip only url + label; the image is re-resolved server-side.
     featuredLinks: JSON.stringify(
       band.featuredLinks.map((l) => ({ url: l.url, label: l.label })),
+    ),
+    videos: JSON.stringify(
+      videos.map((v) => ({ id: v.id, url: v.video_url, title: v.video_title })),
     ),
   });
   return `/submit?${params.toString()}`;
@@ -111,6 +116,42 @@ function FeaturedLinks({ band }: { band: Band }) {
             </div>
           </a>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** Band's YouTube videos — scraper-matched (UnderCurrentMPLS backfill) and/or
+ * hand-entered via the edit form. Each renders as a responsive embed with its
+ * title as a caption. */
+function BandVideos({ videos }: { videos: VideoRow[] }) {
+  if (videos.length === 0) return null;
+
+  return (
+    <div>
+      <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+        Videos
+      </h2>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {videos.map((video) => {
+          const videoId = parseYoutubeId(video.video_url);
+          if (!videoId) return null;
+          return (
+            <div key={video.id}>
+              <div className="aspect-video w-full overflow-hidden rounded-md bg-black">
+                <iframe
+                  title={video.video_title}
+                  src={`https://www.youtube.com/embed/${videoId}`}
+                  className="h-full w-full border-0"
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+              <p className="mt-1.5 truncate text-xs text-[#E8E0D0]/70">{video.video_title}</p>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -214,10 +255,12 @@ export default function BandProfile({
   band,
   shows = [],
   press = [],
+  videos = [],
 }: {
   band: Band;
   shows?: Show[];
   press?: Press[];
+  videos?: VideoRow[];
 }) {
   const hasBandcamp = band.bandcampEmbedUrl || band.bandcamp;
 
@@ -289,6 +332,9 @@ export default function BandProfile({
             bandcampEmbedHeight={band.bandcampEmbedHeight}
           />
         )}
+
+        {/* Videos */}
+        <BandVideos videos={videos} />
 
         {/* Upcoming shows */}
         {shows.length > 0 && (

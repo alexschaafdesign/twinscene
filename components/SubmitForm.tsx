@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SHOWS_ENABLED } from "@/lib/features";
-import { postToAppsScript } from "@/lib/postToAppsScript";
 
 type Mode = "add" | "correct";
 
 const BIO_MAX = 1500;
 
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8MB
+// Keeps the multipart body comfortably under Vercel Functions' request-body
+// cap now that uploads go through our own API route instead of Apps Script.
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB
 
 const inputClass =
   "w-full rounded-md border border-ink/20 bg-transparent px-3.5 py-2 text-sm text-ink placeholder:text-ink/35 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ink";
@@ -47,21 +48,6 @@ function normalizeName(name: string): string {
     .trim();
 }
 
-/** Read a file as base64, stripping the "data:image/...;base64," prefix. */
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
-      const comma = result.indexOf(",");
-      resolve(comma >= 0 ? result.slice(comma + 1) : result);
-    };
-    reader.onerror = () =>
-      reject(reader.error ?? new Error("Failed to read file"));
-    reader.readAsDataURL(file);
-  });
-}
-
 type FormState = {
   bandName: string;
   submitterName: string;
@@ -92,6 +78,35 @@ const emptyShow = (): ShowInput => ({
   notes: "",
   link: "",
 });
+
+// New YouTube videos to attach — dynamic add/remove list, same shape as shows.
+type VideoInput = { url: string; label: string };
+
+const emptyVideo = (): VideoInput => ({ url: "", label: "" });
+
+// A video already on the band (scraper-matched or previously hand-entered),
+// seeded from the correction round-trip. Only exists in "correct" mode.
+type ExistingVideo = { id: number; url: string; title: string };
+
+/** Parse the correction round-trip JSON (see editHref in BandProfile.tsx). */
+function parseInitialVideos(raw: string): ExistingVideo[] {
+  try {
+    const parsed = JSON.parse(raw || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (v): v is { id: unknown; url: unknown; title: unknown } => !!v && typeof v === "object",
+      )
+      .map((v) => ({
+        id: typeof v.id === "number" ? v.id : NaN,
+        url: typeof v.url === "string" ? v.url : "",
+        title: typeof v.title === "string" ? v.title : "",
+      }))
+      .filter((v) => Number.isInteger(v.id) && v.url);
+  } catch {
+    return [];
+  }
+}
 
 // Featured "linktree" links — a fixed set of highlight slots (url + label).
 const FEATURED_LINK_SLOTS = 3;
@@ -384,6 +399,7 @@ export default function SubmitForm({
   initialBio = "",
   initialImage = "",
   initialFeaturedLinks = "",
+  initialVideos = "",
   genreOptions = [],
   neighborhoodOptions = [],
   memberOptions = [],
@@ -404,6 +420,7 @@ export default function SubmitForm({
   initialBio?: string;
   initialImage?: string;
   initialFeaturedLinks?: string;
+  initialVideos?: string;
   genreOptions?: string[];
   neighborhoodOptions?: string[];
   memberOptions?: string[];
@@ -438,6 +455,13 @@ export default function SubmitForm({
   const [featuredLinks, setFeaturedLinks] = useState<LinkInput[]>(() =>
     initialFeaturedLinkSlots(initialFeaturedLinks),
   );
+  // Videos already on the band (correction mode), each removable, plus a
+  // dynamic add-list of new YouTube URLs — mirrors the shows list below.
+  const [existingVideos, setExistingVideos] = useState<ExistingVideo[]>(() =>
+    parseInitialVideos(initialVideos),
+  );
+  const [removedVideoIds, setRemovedVideoIds] = useState<number[]>([]);
+  const [videos, setVideos] = useState<VideoInput[]>([emptyVideo()]);
   const [status, setStatus] = useState<
     "idle" | "submitting" | "success" | "error"
   >("idle");
@@ -562,6 +586,26 @@ export default function SubmitForm({
     );
   }
 
+  function updateVideo(index: number, key: keyof VideoInput, value: string) {
+    setVideos((prev) => prev.map((v, i) => (i === index ? { ...v, [key]: value } : v)));
+  }
+
+  function addVideo() {
+    setVideos((prev) => [...prev, emptyVideo()]);
+  }
+
+  function removeVideo(index: number) {
+    setVideos((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length ? next : [emptyVideo()];
+    });
+  }
+
+  function removeExistingVideo(id: number) {
+    setExistingVideos((prev) => prev.filter((v) => v.id !== id));
+    setRemovedVideoIds((prev) => [...prev, id]);
+  }
+
   const isCorrect = mode === "correct";
 
   // Duplicate detection (add mode only): flag when the typed name matches a band
@@ -627,7 +671,7 @@ export default function SubmitForm({
     // (restore the `if (!isCorrect) imgErr = "Required";` line to revert).
     let imgErr = "";
     if (imageFile && imageFile.size > MAX_IMAGE_BYTES) {
-      imgErr = "Image too large — please use a file under 8MB";
+      imgErr = "Image too large — please use a file under 4MB";
     }
     setImageError(imgErr);
 
@@ -645,15 +689,6 @@ export default function SubmitForm({
       return;
     }
 
-    const url = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
-    if (!url) {
-      setStatus("error");
-      setErrorMsg(
-        "Submission endpoint isn't configured yet. Please email alex@thebirdhaus.org.",
-      );
-      return;
-    }
-
     setStatus("submitting");
     setErrorMsg("");
 
@@ -661,27 +696,24 @@ export default function SubmitForm({
       const bandSlug =
         isCorrect && initialSlug ? initialSlug : slugify(form.bandName);
 
-      const payload = new URLSearchParams({
-        ...form,
-        existingSlug: isCorrect ? initialSlug : "",
-        mode,
-        bandSlug,
-        // Signals the Apps Script to blank the IMAGE column when no new photo
-        // is uploaded. Ignored server-side when a new imageBase64 is present.
-        removeImage: removeExistingImage ? "true" : "false",
-      });
+      const payload = new FormData();
+      for (const [key, value] of Object.entries(form)) {
+        payload.set(key, value);
+      }
+      payload.set("existingSlug", isCorrect ? initialSlug : "");
+      payload.set("mode", mode);
+      payload.set("bandSlug", bandSlug);
+      // Signals the server to blank the photo when no new one is uploaded.
+      payload.set("removeImage", removeExistingImage ? "true" : "false");
 
-      // Only send the photo if one was selected. Omitting the fields
-      // entirely (rather than sending empty strings) lets the Apps Script's
-      // `if (p.imageBase64)` check skip the image update on corrections.
-      // base64 inflates the payload ~33%, but that's fine for Apps Script.
+      // Only send the photo if one was selected — the server leaves the
+      // existing photo alone when this field is absent.
       if (imageFile) {
-        payload.set("imageBase64", await fileToBase64(imageFile));
-        payload.set("imageMimeType", imageFile.type);
+        payload.set("photo", imageFile);
       }
 
-      // Shows are optional and feature-flagged. Only include rows with at least
-      // a date or venue, serialized as JSON the Apps Script parses into rows.
+      // Shows are optional and feature-flagged. Only include rows with at
+      // least a date or venue.
       if (SHOWS_ENABLED) {
         const filledShows = shows
           .filter((s) => s.date.trim() || s.venue.trim())
@@ -704,10 +736,16 @@ export default function SubmitForm({
         .map((l) => ({ url: l.url.trim(), label: l.label.trim() }));
       payload.set("featuredLinks", JSON.stringify(filledLinks));
 
-      // Form-encoded body keeps this a "simple" CORS request (no preflight),
-      // matching the Birdhaus RSVP webhook pattern. postToAppsScript parses the
-      // reply defensively and retries the occasional non-JSON error page.
-      const data = await postToAppsScript(url, payload);
+      // New videos — keep only rows with a URL. Existing videos the user
+      // removed are sent separately by id.
+      const filledVideos = videos
+        .filter((v) => v.url.trim())
+        .map((v) => ({ url: v.url.trim(), label: v.label.trim() }));
+      payload.set("newVideos", JSON.stringify(filledVideos));
+      payload.set("removeVideoIds", JSON.stringify(removedVideoIds));
+
+      const res = await fetch("/api/bands/submit", { method: "POST", body: payload });
+      const data = await res.json();
       if (!data.success) {
         throw new Error(data.error || "Submission failed");
       }
@@ -1108,6 +1146,91 @@ export default function SubmitForm({
               </div>
             ))}
           </div>
+        </Section>
+
+        <Section
+          title="Videos"
+          description="YouTube videos of the band — a live set, a music video, whatever. Paste a link per row."
+        >
+          {existingVideos.length > 0 && (
+            <div className="space-y-2">
+              {existingVideos.map((video) => (
+                <div
+                  key={video.id}
+                  className="flex items-center justify-between gap-3 rounded-md bg-ink/5 px-3.5 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-ink">{video.title}</p>
+                    <p className="truncate text-xs text-ink/50">{video.url}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeExistingVideo(video.id)}
+                    className="shrink-0 rounded-md border border-ink/20 px-2.5 py-1 text-xs text-ink/70 transition hover:border-danger/50 hover:text-danger"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {videos.map((video, i) => (
+              <div key={i} className="relative rounded-md bg-ink/5 p-4 pr-10">
+                <button
+                  type="button"
+                  aria-label="Remove this video"
+                  onClick={() => removeVideo(i)}
+                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 text-sm leading-none text-ink/70 transition hover:text-ink"
+                >
+                  ×
+                </button>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor={`video-${i}-url`}
+                      className="mb-1 block text-xs text-ink/70"
+                    >
+                      YouTube link
+                    </label>
+                    <input
+                      id={`video-${i}-url`}
+                      type="url"
+                      value={video.url}
+                      onChange={(e) => updateVideo(i, "url", e.target.value)}
+                      placeholder="https://youtube.com/watch?v=…"
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor={`video-${i}-label`}
+                      className="mb-1 block text-xs text-ink/70"
+                    >
+                      Caption (optional)
+                    </label>
+                    <input
+                      id={`video-${i}-label`}
+                      type="text"
+                      value={video.label}
+                      onChange={(e) => updateVideo(i, "label", e.target.value)}
+                      placeholder="e.g. Live at the Turf Club"
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={addVideo}
+            className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-ink/30 px-3 py-1.5 text-sm text-ink/80 transition hover:bg-ink/10 hover:text-ink"
+          >
+            + Add another video
+          </button>
         </Section>
 
         <Section title="Bio & photo">
