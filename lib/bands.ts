@@ -17,6 +17,12 @@ export interface Band {
   socials: unknown; // jsonb — arbitrary { platform: url } shape, not modeled yet
   bio: string | null;
   hometown: string | null;
+  photo: string | null; // full absolute URL (Birdhaus image host); null if none
+  city: string | null;
+  neighborhoods: unknown; // jsonb — string[] of finer-grained areas; null if none
+  bandcamp_embed_url: string | null; // resolved Bandcamp EmbeddedPlayer URL
+  bandcamp_embed_height: number | null; // iframe height in px for that embed
+  featured_links: unknown; // jsonb — { url, label, image }[] highlight cards; null if none
   created_at: string;
   updated_at: string;
 }
@@ -34,6 +40,12 @@ export const PUBLIC_BAND_FIELDS = [
   "socials",
   "bio",
   "hometown",
+  "photo",
+  "city",
+  "neighborhoods",
+  "bandcamp_embed_url",
+  "bandcamp_embed_height",
+  "featured_links",
   "created_at",
   "updated_at",
 ] as const;

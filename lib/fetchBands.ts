@@ -1,12 +1,17 @@
 // Data layer for the Twin Cities Music Scene directory.
 //
-// Bands now come from Birdhaus's public API (lib/birdhaus.ts) instead of the
-// Google Sheet this file used to read directly — see the dead code kept at
-// the bottom of this file. Consumers all go through fetchBands() below and
-// only ever see the Band shape, so this swap didn't require touching any
-// rendering code.
+// Bands now come from Twin Scene's own canonical `bands` table (lib/bands.ts) —
+// the migration from Birdhaus is complete, so the directory reads from the DB
+// it owns rather than proxying Birdhaus's public API. (This reads the DB layer
+// directly rather than hitting our own /api/public/bands over HTTP: same data,
+// same source of truth, no self-request round-trip or API key needed.) Consumers
+// all go through fetchBands() below and only ever see the Band shape, so this
+// swap didn't require touching any rendering code.
+//
+// History: this file first read a Google Sheet directly (dead code kept at the
+// bottom), then Birdhaus's API, and now Twin Scene's own table.
 
-import { fetchBirdhausBands, type BirdhausBand } from "./birdhaus";
+import { getAllBands, type Band as BandRow } from "./bands";
 
 // A band-curated "linktree" entry: the top things they want people to see
 // (show tickets, a new release, etc.). `image` is a best-effort og:image the
@@ -19,52 +24,94 @@ export type Band = {
   genres: string[];
   city: string;
   neighborhoods: string[]; // finer-grained areas within the city; may be empty
-  members: string[]; // individual people in the band; may be empty — Birdhaus doesn't provide this yet
-  contactEmail: string; // public contact address, shown on the profile — Birdhaus doesn't provide this yet
-  contactMethod: string; // "" | "email" | "instagram" | "website" — Birdhaus doesn't provide this yet
+  members: string[]; // individual people in the band; may be empty — not modeled in the bands table yet
+  contactEmail: string; // public contact address, shown on the profile — not modeled in the bands table yet
+  contactMethod: string; // "" | "email" | "instagram" | "website" — not modeled in the bands table yet
   bio: string;
   image: string;
   website: string;
-  instagram: string; // handle only
+  instagram: string; // handle only (normalized from the stored socials URL)
   bandcamp: string; // raw Bandcamp URL the submitter provided
   bandcampEmbedUrl: string; // resolved EmbeddedPlayer URL (blank if unresolved)
   bandcampEmbedHeight: number; // height to render the embed iframe at (px)
   featuredLinks: FeaturedLink[]; // up to 3 band-curated highlight links
-  added: string; // Birdhaus doesn't provide this yet
+  added: string; // not modeled as a distinct field; created_at could back it later
 };
 
-/** Map a Birdhaus API band onto this app's Band shape. `hometown` and
- * `isTouring` are available from Birdhaus but not yet surfaced in any Band
- * consumer — carry them over if/when the UI grows a use for them. */
-function fromBirdhaus(b: BirdhausBand): Band {
+/** Reduce a full URL or "@handle" to just the bare Instagram handle. The table
+ * stores socials.instagram as a full profile URL, but the profile UI renders
+ * "@{handle}" and rebuilds the link as instagram.com/{handle}, so we normalize
+ * back to a handle here. Same logic the original sheet-backed reader used. */
+function instagramHandle(value: string): string {
+  let s = value.trim();
+  if (!s) return "";
+  s = s.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+  s = s.replace(/^instagram\.com\//i, "");
+  s = s.replace(/^@/, "");
+  s = s.split(/[/?#]/)[0]; // drop trailing slash / query / hash
+  return s;
+}
+
+function asString(v: unknown): string {
+  return typeof v === "string" ? v : "";
+}
+
+function asStringArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+
+/** The `socials` jsonb column: an arbitrary { platform: url } object. Only the
+ * three link fields the UI reads are pulled out. */
+function socialsOf(v: unknown): { instagram: string; website: string; bandcamp: string } {
+  const o = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
+  return { instagram: asString(o.instagram), website: asString(o.website), bandcamp: asString(o.bandcamp) };
+}
+
+/** The `featured_links` jsonb column: a { url, label, image }[] array. */
+function featuredLinksOf(v: unknown): FeaturedLink[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((l): l is Record<string, unknown> => !!l && typeof l === "object")
+    .map((l) => ({ url: asString(l.url), label: asString(l.label), image: asString(l.image) }))
+    .filter((l) => l.url);
+}
+
+/** Map a canonical `bands` row onto this app's Band shape. `unreviewed` and
+ * `hometown` exist on the row but aren't surfaced in any Band consumer yet —
+ * carry them over if/when the UI grows a use for them. */
+function fromTwinScene(b: BandRow): Band {
+  const socials = socialsOf(b.socials);
   return {
     name: b.name,
     slug: b.slug,
-    genres: b.genres,
-    city: b.city,
-    neighborhoods: b.neighborhoods,
+    genres: (b.genre ?? "")
+      .split(",")
+      .map((g) => g.trim())
+      .filter(Boolean),
+    city: b.city ?? "",
+    neighborhoods: asStringArray(b.neighborhoods),
     members: [],
     contactEmail: "",
     contactMethod: "",
-    bio: b.bio,
-    image: b.photo,
-    website: b.website,
-    instagram: b.instagram,
-    bandcamp: b.bandcamp,
-    bandcampEmbedUrl: b.bandcampEmbedUrl,
-    bandcampEmbedHeight: b.bandcampEmbedHeight,
-    featuredLinks: b.featuredLinks,
+    bio: b.bio ?? "",
+    image: b.photo ?? "",
+    website: socials.website,
+    instagram: instagramHandle(socials.instagram),
+    bandcamp: socials.bandcamp,
+    bandcampEmbedUrl: b.bandcamp_embed_url ?? "",
+    // Default to 120px when the resolved embed carries no height, matching the
+    // fallback the sheet-backed and Birdhaus-backed readers both used.
+    bandcampEmbedHeight: b.bandcamp_embed_height ?? 120,
+    featuredLinks: featuredLinksOf(b.featured_links),
     added: "",
   };
 }
 
 export async function fetchBands(): Promise<Band[]> {
-  const bands = (await fetchBirdhausBands()).map(fromBirdhaus);
-
-  // Always alphabetical by name (case-insensitive), same ordering guarantee
-  // the sheet-backed version made.
+  // getAllBands() already orders by name; re-sort case-insensitively to preserve
+  // the exact ordering guarantee every earlier backing store made.
+  const bands = (await getAllBands()).map(fromTwinScene);
   bands.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
-
   return bands;
 }
 
