@@ -39,26 +39,56 @@ is the thumbnails alone.
 
 ## Results
 
-**Before** = live production (`twinscene.org`) captured 2026-07-16, before this
-branch deployed (still serving full-res). **After** = Vercel preview deploy of
-`perf/band-thumbnails`. (The automated claude-in-chrome bytes capture couldn't
-run — extension not connected — so the Before image-bytes number was read from
-the live Network tab.)
+**Before** = live production (`twinscene.org`) captured 2026-07-16 (full-res logo
++ full-res band photos). The two levers were measured on their **isolated preview
+deploys** so each metric change is attributable to exactly one fix. (Automated
+bytes capture couldn't run — extension not connected — so byte numbers were read
+from the live Network tab.)
 
-### `/bands` — bands directory (Lighthouse mobile)
+### Result — LCP lever: hero logo (`perf/logo-lcp` preview)
 
-| Metric | Before (full-res) | After (400px thumb) | Δ |
+Band photos are **still full-res** on this branch, so any LCP/score/CLS movement
+is the logo alone.
+
+| Metric (`/bands`, Lighthouse mobile) | Before (prod) | After (logo fix) | Δ |
 |---|---|---|---|
-| Lighthouse mobile score | **77** | _TBD_ | |
-| LCP | **6,415 ms** | _TBD_ | |
-| FCP | **1,171 ms** | _TBD_ | |
-| Image bytes (Network → Img, full load) | **7,316 KB** (37 requests) | _TBD_ | |
+| Lighthouse mobile score | **77** | **96** | **+19** |
+| LCP | **6,415 ms** | **2,750 ms** | **−57%** |
+| CLS | 0.00 (intermittent **0.15**) | **0.00** | fixed |
+| Image bytes | 7,316 KB | ~7,300 KB (unchanged) | — *(isolation: no thumbnails on this branch)* |
 
-> `/bands` LCP scores **10/100** in Lighthouse on its own — it is the primary
-> drag on the page's overall 77. The LCP element is a band photo, so the
-> thumbnail swap targets exactly this metric.
+**Proof, not assumption:** fixing *only* the 828 KB → 36 KB logo cut LCP 57% and
+lifted the score 77 → 96. That only happens if the header logo was the LCP
+element — so the earlier `perf-baseline.md` assumption ("LCP element is a band
+photo") was **wrong**, and the logo owns this metric. The unsized logo was also
+the intermittent 0.15 CLS; explicit `width`/`height` took it to a clean 0.00.
+Note the ~7 MB of lazy, below-fold band photos did **not** hold the score down —
+they're a data-cost problem, not an LCP one.
 
-### `/shows` — control (show/flyer images, not touched by this change)
+### Result — bytes lever: band thumbnails (`perf/band-thumbnails` preview)
+
+Logo is **still 828 KB** on this branch, so LCP/score stay ~baseline; the change
+here is payload.
+
+| Metric (`/bands`) | Before (prod) | After (thumbnails) | Δ |
+|---|---|---|---|
+| Per band image (over the wire) | 60–220 KB | **14–36 KB** | ~80–85% each |
+| Band-photo bytes (of the 7,316 KB total, ~6.5 MB was band photos) | ~6.5 MB | **~0.8 MB** (est.) | **~87%** |
+| Lighthouse score / LCP | 77 / 6,415 ms | ≈ unchanged | — *(isolation: logo still gates LCP)* |
+
+> The ~0.8 MB is derived from the confirmed 14–36 KB/image over 272 photo-bands;
+> drop in the measured thumbnails-preview Network→Img total if you grabbed it.
+
+### Combined (both levers on `main`)
+
+`/bands` should land at **score ~96 (LCP ~2.75 s, CLS 0)** *and* an image payload
+of **~1 MB** (36 KB logo + ~0.8 MB thumbs) vs. the 7,316 KB baseline — two
+independent wins from two independent PRs. Worth one confirming Lighthouse run
+once both merge.
+
+### `/shows` — control (show/flyer images, not touched by either change)
+
+Should stay ≈ baseline; a big move means something unrelated shifted.
 
 | Metric | Before | After | Δ |
 |---|---|---|---|
