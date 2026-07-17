@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SHOWS_ENABLED } from "@/lib/features";
 
 type Mode = "add" | "correct";
 
@@ -716,20 +715,17 @@ export default function SubmitForm({
         payload.set("photo", imageFile);
       }
 
-      // Shows are optional and feature-flagged. Only include rows with at
-      // least a date or venue.
-      if (SHOWS_ENABLED) {
-        const filledShows = shows
-          .filter((s) => s.date.trim() || s.venue.trim())
-          .map((s) => ({
-            date: s.date.trim(),
-            venue: s.venue.trim(),
-            notes: s.notes.trim(),
-            link: s.link.trim(),
-          }));
-        if (filledShows.length > 0) {
-          payload.set("shows", JSON.stringify(filledShows));
-        }
+      // Shows are optional. Only include rows with at least a date or venue.
+      const filledShows = shows
+        .filter((s) => s.date.trim() || s.venue.trim())
+        .map((s) => ({
+          date: s.date.trim(),
+          venue: s.venue.trim(),
+          notes: s.notes.trim(),
+          link: s.link.trim(),
+        }));
+      if (filledShows.length > 0) {
+        payload.set("shows", JSON.stringify(filledShows));
       }
 
       // Featured links — keep only rows with a URL, in slot order. Always send
@@ -1381,8 +1377,6 @@ export default function SubmitForm({
           </Field>
         </Section>
 
-        {/* Upcoming shows — feature-flagged; hidden while shows are disabled. */}
-        {SHOWS_ENABLED && (
         <Section
           title="Upcoming shows"
           description="Let people know where to catch you live."
@@ -1482,7 +1476,6 @@ export default function SubmitForm({
             + Add another show
           </button>
         </Section>
-        )}
 
         {status === "error" && (
           <p className="rounded-md border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-sm text-danger">

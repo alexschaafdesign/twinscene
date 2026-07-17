@@ -1,6 +1,4 @@
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { SHOWS_ENABLED } from "@/lib/features";
 import { fetchAllShows } from "@/lib/fetchShows";
 import AllShowsPanel from "@/components/AllShowsPanel";
 
@@ -17,8 +15,6 @@ export default async function AdminShowsPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  if (!SHOWS_ENABLED) notFound();
-
   const sp = await searchParams;
   const secret = process.env.SCRAPE_SECRET;
   const provided = typeof sp.secret === "string" ? sp.secret : "";

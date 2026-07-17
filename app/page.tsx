@@ -3,7 +3,6 @@ import { fetchBands } from "@/lib/fetchBands";
 import { fetchShows } from "@/lib/fetchShows";
 import { getSlugsWithVideos } from "@/lib/videos";
 import BandGrid from "@/components/BandGrid";
-import { SHOWS_ENABLED } from "@/lib/features";
 
 // fetchBands()/fetchShows() read the DB directly (no fetch()), which gives
 // Next no signal to render dynamically — without this, the grid gets
@@ -14,13 +13,11 @@ export const dynamic = "force-dynamic";
 // it lives at the root. Individual profiles are at /bands/[slug]; a dedicated
 // /bands index can be added later alongside sibling sections (/venues, …).
 export default async function Home() {
-  // Shows are gated behind SHOWS_ENABLED (see AGENTS.md); off, the "upcoming
-  // shows" band filter simply doesn't render. fetchShows() already excludes
-  // past dates, so a band's slug showing up here means it has something
-  // upcoming.
+  // fetchShows() already excludes past dates, so a band's slug showing up
+  // here means it has something upcoming.
   const [bands, shows, bandsWithVideos] = await Promise.all([
     fetchBands(),
-    SHOWS_ENABLED ? fetchShows() : Promise.resolve([]),
+    fetchShows(),
     getSlugsWithVideos(),
   ]);
   const bandsWithUpcomingShows = [
@@ -95,18 +92,15 @@ export default async function Home() {
           This site is in early beta — lots of in-progress sections and
           half-finished ideas. Hit up alex@thebirdhaus.org with any comments/suggestions!
         </p>
-        {SHOWS_ENABLED && (
-          <Link
-            href={adminHref}
-            className="mt-0.5 shrink-0 self-start rounded border border-[#E8E0D0]/20 px-2 py-0.5 text-xs font-medium text-[#E8E0D0]/55 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
-          >
-            Admin
-          </Link>
-        )}
+        <Link
+          href={adminHref}
+          className="mt-0.5 shrink-0 self-start rounded border border-[#E8E0D0]/20 px-2 py-0.5 text-xs font-medium text-[#E8E0D0]/55 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+        >
+          Admin
+        </Link>
       </div>
 
-      {/* Section nav. Bands, Playlists, and Venues are live; Shows is gated
-          behind SHOWS_ENABLED. */}
+      {/* Section nav. Bands, Shows, Venues, and Playlists. */}
       <nav className="mb-6 border-b border-[#E8E0D0]/20">
         <ul className="-mb-px flex flex-wrap items-end gap-x-6 gap-y-2">
           <li>
@@ -118,21 +112,12 @@ export default async function Home() {
             </span>
           </li>
           <li>
-            {SHOWS_ENABLED ? (
-              <Link
-                href="/shows"
-                className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
-              >
-                Shows
-              </Link>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/35">
-                Shows
-                <span className="rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 text-[10px] font-medium normal-case tracking-normal text-[#E8E0D0]/50">
-                  soon
-                </span>
-              </span>
-            )}
+            <Link
+              href="/shows"
+              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+            >
+              Shows
+            </Link>
           </li>
           <li>
             <Link
@@ -157,7 +142,7 @@ export default async function Home() {
           beside the search bar (keeps the band grid higher up the page). */}
       <BandGrid
         bands={bands}
-        bandsWithUpcomingShows={SHOWS_ENABLED ? bandsWithUpcomingShows : undefined}
+        bandsWithUpcomingShows={bandsWithUpcomingShows}
         bandsWithVideos={bandsWithVideos}
         intro={
           <>

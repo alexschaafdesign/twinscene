@@ -113,10 +113,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Upcoming shows attached from the band form — feature-flagged client-side
-    // (SHOWS_ENABLED), goes through the same write path /api/shows/submit
-    // uses so it lands in the DB rather than the legacy Apps Script Shows
-    // sheet nothing reads.
+    // Upcoming shows attached from the band form go through the same write
+    // path /api/shows/submit uses so it lands in the DB rather than the
+    // legacy Apps Script Shows sheet nothing reads.
     for (const show of shows) {
       if (!show.date?.trim() && !show.venue?.trim()) continue;
       await insertManualShow(

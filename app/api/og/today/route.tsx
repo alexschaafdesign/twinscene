@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
-import { SHOWS_ENABLED } from "@/lib/features";
 import { fetchShows } from "@/lib/fetchShows";
 
 // fs + Postgres access, so this needs the Node.js runtime, not Edge.
@@ -127,12 +126,6 @@ async function loadLogoDataUri(): Promise<string | null> {
 }
 
 export async function GET() {
-  // Mirrors every other Shows surface: with the flag off, this route 404s
-  // instead of rendering, so nothing leaks in production.
-  if (!SHOWS_ENABLED) {
-    return new Response("Not Found", { status: 404 });
-  }
-
   const showDate = showDateInChicago();
   const dateLabel = formatDateLabel(showDate);
 

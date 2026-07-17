@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { fetchShows } from "@/lib/fetchShows";
 import { fetchVenues } from "@/lib/fetchVenues";
 import { fetchPress } from "@/lib/fetchPress";
-import { SHOWS_ENABLED } from "@/lib/features";
 import ShowsList from "@/components/ShowsList";
 
 export const metadata: Metadata = {
@@ -13,7 +11,6 @@ export const metadata: Metadata = {
 };
 
 export default async function ShowsPage() {
-  if (!SHOWS_ENABLED) notFound();
   const [shows, venues, press] = await Promise.all([
     fetchShows(),
     fetchVenues(),
