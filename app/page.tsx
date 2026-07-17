@@ -135,6 +135,14 @@ export default async function Home() {
               Playlists
             </Link>
           </li>
+          <li>
+            <Link
+              href="/musicians"
+              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+            >
+              Musicians
+            </Link>
+          </li>
         </ul>
       </nav>
 
