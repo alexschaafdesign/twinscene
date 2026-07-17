@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
       website: str(form.get("website")).trim(),
       instagram: str(form.get("instagram")).trim(),
       bandcamp: str(form.get("bandcamp")).trim(),
+      bandcampLink: str(form.get("bandcampLink")).trim(),
       bio: str(form.get("bio")).trim(),
       featuredLinks,
       photoUrl,

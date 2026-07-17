@@ -33,6 +33,7 @@ export type Band = {
   website: string;
   instagram: string; // handle only (normalized from the stored socials URL)
   bandcamp: string; // raw Bandcamp URL the submitter provided
+  bandcampLink: string; // plain Bandcamp profile link, shown as a social icon
   bandcampEmbedUrl: string; // resolved EmbeddedPlayer URL (blank if unresolved)
   bandcampEmbedHeight: number; // height to render the embed iframe at (px)
   featuredLinks: FeaturedLink[]; // up to 3 band-curated highlight links
@@ -62,10 +63,17 @@ function asStringArray(v: unknown): string[] {
 }
 
 /** The `socials` jsonb column: an arbitrary { platform: url } object. Only the
- * three link fields the UI reads are pulled out. */
-function socialsOf(v: unknown): { instagram: string; website: string; bandcamp: string } {
+ * link fields the UI reads are pulled out. */
+function socialsOf(
+  v: unknown,
+): { instagram: string; website: string; bandcamp: string; bandcampLink: string } {
   const o = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
-  return { instagram: asString(o.instagram), website: asString(o.website), bandcamp: asString(o.bandcamp) };
+  return {
+    instagram: asString(o.instagram),
+    website: asString(o.website),
+    bandcamp: asString(o.bandcamp),
+    bandcampLink: asString(o.bandcampLink),
+  };
 }
 
 /** The `featured_links` jsonb column: a { url, label, image }[] array. */
@@ -100,6 +108,7 @@ function fromTwinScene(b: BandRow): Band {
     website: socials.website,
     instagram: instagramHandle(socials.instagram),
     bandcamp: socials.bandcamp,
+    bandcampLink: socials.bandcampLink,
     bandcampEmbedUrl: b.bandcamp_embed_url ?? "",
     // Default to 120px when the resolved embed carries no height, matching the
     // fallback the sheet-backed and Birdhaus-backed readers both used.

@@ -151,6 +151,7 @@ export interface BandSubmissionInput {
   website: string;
   instagram: string;
   bandcamp: string; // raw URL or a pasted <iframe> embed snippet
+  bandcampLink: string; // plain Bandcamp profile link, shown as a social icon
   bio: string;
   featuredLinks: FeaturedLinkInput[];
   photoUrl?: string; // set when a new photo was just uploaded (lib/r2.ts)
@@ -185,11 +186,13 @@ function socialsJson(input: {
   website: string;
   instagram: string;
   bandcamp: string;
+  bandcampLink: string;
 }): Record<string, string> | null {
   const out: Record<string, string> = {};
   if (input.website.trim()) out.website = input.website.trim();
   if (input.instagram.trim()) out.instagram = input.instagram.trim();
   if (input.bandcamp.trim()) out.bandcamp = input.bandcamp.trim();
+  if (input.bandcampLink.trim()) out.bandcampLink = input.bandcampLink.trim();
   return Object.keys(out).length ? out : null;
 }
 
