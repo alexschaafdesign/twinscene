@@ -4,6 +4,14 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# Cross-project architecture
+
+This repo is one of three sibling projects (twinscene, the-birdhaus, crawlspace)
+that share band and show data — Twin Scene owns the canonical `bands` table and
+the shared `shows` table both it and Crawlspace read/write. See
+[`ARCHITECTURE.md`](./ARCHITECTURE.md) before touching anything that crosses
+those boundaries (the public bands API, the lineup matcher, the shared DB).
+
 # Local-only scrapers
 
 Some venue sites (e.g. The Hook and Ladder, behind Cloudflare) return 403 to
