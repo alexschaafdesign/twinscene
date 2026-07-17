@@ -5,6 +5,10 @@
 export type ScrapedShow = {
   venue: string;
   date: string | null; // YYYY-MM-DD (venue-local)
+  // Explicit display title, when the source names the show separately from its
+  // lineup (e.g. Birdhaus frontmatter). null/absent means no override — callers
+  // fall back to headliner/allBands[0], same as before this field existed.
+  title?: string | null;
   headliner: string | null;
   supporting: string[];
   allBands: string[];
