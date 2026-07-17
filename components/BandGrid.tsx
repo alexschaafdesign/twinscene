@@ -9,11 +9,6 @@ import { BandImage } from "@/components/band-shared-client";
 
 const LOCATION_TAGS = ["All", "Minneapolis", "St. Paul", "Other"];
 
-// How many genre / neighborhood pills to show before the rest collapse
-// behind "See more".
-const COLLAPSED_GENRE_COUNT = 12;
-const COLLAPSED_NEIGHBORHOOD_COUNT = 10;
-
 /** Does a band's city match one of the top-level location buckets? */
 function matchesLocation(location: string, filter: string): boolean {
   if (filter === "All") return true;
@@ -86,6 +81,42 @@ function BandRow({ band }: { band: Band }) {
   );
 }
 
+/** Labeled group inside the filter panel (Genre, Location, Attributes, …). */
+function FilterSection({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#E8E0D0]/40">
+        {label}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
+/** Removable chip representing one currently-active filter. */
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      className="inline-flex items-center gap-1 rounded-full border border-[#E8E0D0]/30 bg-[#E8E0D0]/10 px-2.5 py-1 text-xs text-[#E8E0D0]/85 transition hover:border-[#E8E0D0]/60 hover:bg-[#E8E0D0]/15"
+    >
+      {label}
+      {/* ti-x (Tabler) */}
+      <svg {...iconProps} width={12} height={12}>
+        <path d="M18 6l-12 12" />
+        <path d="M6 6l12 12" />
+      </svg>
+    </button>
+  );
+}
+
 export default function BandGrid({
   bands,
   intro,
@@ -106,7 +137,6 @@ export default function BandGrid({
   // Genres are multi-select: a band matches if it has ANY of the chosen ones.
   // Empty = no genre filter (the "All" pill).
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-  const [showAllGenres, setShowAllGenres] = useState(false);
   const [location, setLocation] = useState("All");
   const [upcomingShowsOnly, setUpcomingShowsOnly] = useState(false);
   const [hasVideosOnly, setHasVideosOnly] = useState(false);
@@ -114,7 +144,8 @@ export default function BandGrid({
   const [selectedNeighborhoods, setSelectedNeighborhoods] = useState<string[]>(
     [],
   );
-  const [showAllNeighborhoods, setShowAllNeighborhoods] = useState(false);
+  // The full filter set is collapsed behind a "Filters" button by default.
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // Default per breakpoint: gallery on larger screens, compact list on mobile.
   // Starts "gallery" to match SSR, then corrected on mount (see effect below).
   // Once the user picks a view, `viewChosen` stops the breakpoint override.
@@ -154,20 +185,6 @@ export default function BandGrid({
     );
   }, [bands]);
 
-  // When collapsed, show the top N — plus any selected genre that falls beyond
-  // the cutoff, so an active filter never hides itself.
-  const visibleGenres = useMemo(() => {
-    if (showAllGenres) return genreOptions;
-    const head = genreOptions.slice(0, COLLAPSED_GENRE_COUNT);
-    const headLabels = new Set(head.map((g) => g.label));
-    const selectedExtras = genreOptions.filter(
-      (g) => !headLabels.has(g.label) && selectedGenres.includes(g.label),
-    );
-    return [...head, ...selectedExtras];
-  }, [genreOptions, showAllGenres, selectedGenres]);
-
-  const hiddenGenreCount = genreOptions.length - visibleGenres.length;
-
   function toggleGenre(label: string) {
     setSelectedGenres((prev) =>
       prev.includes(label)
@@ -195,22 +212,6 @@ export default function BandGrid({
     );
   }, [bands, location]);
 
-  // Collapsed view: the top N plus any selected neighborhood past the cutoff,
-  // so an active filter never hides itself.
-  const visibleNeighborhoods = useMemo(() => {
-    if (showAllNeighborhoods) return neighborhoodOptions;
-    const head = neighborhoodOptions.slice(0, COLLAPSED_NEIGHBORHOOD_COUNT);
-    const headLabels = new Set(head.map((n) => n.label));
-    const selectedExtras = neighborhoodOptions.filter(
-      (n) =>
-        !headLabels.has(n.label) && selectedNeighborhoods.includes(n.label),
-    );
-    return [...head, ...selectedExtras];
-  }, [neighborhoodOptions, showAllNeighborhoods, selectedNeighborhoods]);
-
-  const hiddenNeighborhoodCount =
-    neighborhoodOptions.length - visibleNeighborhoods.length;
-
   function toggleNeighborhood(label: string) {
     setSelectedNeighborhoods((prev) =>
       prev.includes(label)
@@ -219,12 +220,10 @@ export default function BandGrid({
     );
   }
 
-  // Switching the city bucket clears neighborhood picks (they're city-specific)
-  // and re-collapses the list.
+  // Switching the city bucket clears neighborhood picks (they're city-specific).
   function chooseLocation(tag: string) {
     setLocation(tag);
     setSelectedNeighborhoods([]);
-    setShowAllNeighborhoods(false);
   }
 
   const upcomingShowSlugSet = useMemo(
@@ -311,14 +310,30 @@ export default function BandGrid({
   const filterPillBase =
     "rounded-full border px-3 py-1 text-xs transition cursor-pointer";
 
+  const activeFilterCount =
+    selectedGenres.length +
+    (location !== "All" ? 1 : 0) +
+    (upcomingShowsOnly ? 1 : 0) +
+    (hasVideosOnly ? 1 : 0) +
+    selectedNeighborhoods.length;
+
+  function clearAllFilters() {
+    setSelectedGenres([]);
+    setLocation("All");
+    setUpcomingShowsOnly(false);
+    setHasVideosOnly(false);
+    setSelectedNeighborhoods([]);
+  }
+
   return (
     <div>
       {/* Controls on the left, the intro/CTA stacked in a column on the right
           so the grid isn't pushed down the page. Stacks on narrow screens. */}
       <div className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
       <div className="min-w-0 flex-1">
-      <div className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="space-y-3">
+        {/* Search + filters toggle + surprise me */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
             type="search"
             value={query}
@@ -326,6 +341,44 @@ export default function BandGrid({
             placeholder="Search by name, genre, location, or member…"
             className="w-full flex-1 rounded-md border border-[#E8E0D0]/25 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
           />
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            className={`relative inline-flex shrink-0 items-center gap-2 rounded-md border px-4 py-2 text-sm transition ${
+              filtersOpen
+                ? "border-[#E8E0D0]/70 bg-[#E8E0D0]/10"
+                : "border-[#E8E0D0]/40 hover:bg-[#E8E0D0]/10"
+            }`}
+          >
+            {/* ti-adjustments-horizontal (Tabler) */}
+            <svg {...iconProps} width={16} height={16}>
+              <path d="M4 6l8 0" />
+              <path d="M16 6l4 0" />
+              <path d="M4 12l2 0" />
+              <path d="M10 12l10 0" />
+              <path d="M4 18l11 0" />
+              <path d="M18 18l2 0" />
+              <circle cx="12" cy="6" r="2" />
+              <circle cx="8" cy="12" r="2" />
+              <circle cx="16" cy="18" r="2" />
+            </svg>
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-[#E8E0D0] px-1 text-[10px] font-semibold text-[#2A2420]">
+                {activeFilterCount}
+              </span>
+            )}
+            {/* ti-chevron-down (Tabler) */}
+            <svg
+              {...iconProps}
+              width={14}
+              height={14}
+              className={`transition-transform ${filtersOpen ? "rotate-180" : ""}`}
+            >
+              <path d="M6 9l6 6l6 -6" />
+            </svg>
+          </button>
           <button
             type="button"
             onClick={surpriseMe}
@@ -343,167 +396,186 @@ export default function BandGrid({
           </button>
         </div>
 
-        {/* Genre tags — multi-select, derived from submitted genres */}
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={() => setSelectedGenres([])}
-            className={`${filterPillBase} ${
-              selectedGenres.length === 0
-                ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
-                : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
-            }`}
-          >
-            All
-          </button>
-          {visibleGenres.map(({ label }) => {
-            const active = selectedGenres.includes(label);
-            return (
-              <button
-                key={label}
-                type="button"
-                onClick={() => toggleGenre(label)}
-                className={`${filterPillBase} ${
-                  active
-                    ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
-                    : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
-                }`}
-              >
-                {label}
-              </button>
-            );
-          })}
-          {(hiddenGenreCount > 0 || showAllGenres) && (
-            <button
-              type="button"
-              onClick={() => setShowAllGenres((v) => !v)}
-              className={`${filterPillBase} border-dashed border-[#E8E0D0]/40 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/70`}
-            >
-              {showAllGenres ? "See less" : `See more (${hiddenGenreCount})`}
-            </button>
-          )}
-          {selectedGenres.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setSelectedGenres([])}
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs text-[#E8E0D0]/60 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-            >
-              {/* ti-x (Tabler) */}
-              <svg {...iconProps} width={13} height={13}>
-                <path d="M18 6l-12 12" />
-                <path d="M6 6l12 12" />
-              </svg>
-              Clear {selectedGenres.length} selected
-            </button>
-          )}
-        </div>
-
-        {/* Location — top-level city bucket (single-select) */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {LOCATION_TAGS.map((tag) => {
-            const active = location === tag;
-            return (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => chooseLocation(tag)}
-                className={`${filterPillBase} ${
-                  active
-                    ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
-                    : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
-                }`}
-              >
-                {tag}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Toggle filters — upcoming shows only shown when Shows data was
-            provided (the Shows feature is enabled); has videos only shown
-            when there's at least one band with a video. */}
-        {(bandsWithUpcomingShows || bandsWithVideos) && (
+        {/* Active filters — always visible, even with the panel collapsed */}
+        {activeFilterCount > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
-            {bandsWithUpcomingShows && (
-              <button
-                type="button"
-                onClick={() => setUpcomingShowsOnly((v) => !v)}
-                aria-pressed={upcomingShowsOnly}
-                className={`${filterPillBase} ${
-                  upcomingShowsOnly
-                    ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
-                    : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
-                }`}
-              >
-                Has upcoming shows
-              </button>
+            {selectedGenres.map((label) => (
+              <FilterChip
+                key={`genre-${label}`}
+                label={label}
+                onRemove={() => toggleGenre(label)}
+              />
+            ))}
+            {location !== "All" && (
+              <FilterChip label={location} onRemove={() => chooseLocation("All")} />
             )}
-            {bandsWithVideos && (
-              <button
-                type="button"
-                onClick={() => setHasVideosOnly((v) => !v)}
-                aria-pressed={hasVideosOnly}
-                className={`${filterPillBase} ${
-                  hasVideosOnly
-                    ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
-                    : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
-                }`}
-              >
-                Has videos
-              </button>
+            {upcomingShowsOnly && (
+              <FilterChip
+                label="Has upcoming shows"
+                onRemove={() => setUpcomingShowsOnly(false)}
+              />
             )}
+            {hasVideosOnly && (
+              <FilterChip
+                label="Has videos"
+                onRemove={() => setHasVideosOnly(false)}
+              />
+            )}
+            {selectedNeighborhoods.map((label) => (
+              <FilterChip
+                key={`neighborhood-${label}`}
+                label={label}
+                onRemove={() => toggleNeighborhood(label)}
+              />
+            ))}
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="px-2 py-1 text-xs text-[#E8E0D0]/50 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
+            >
+              Clear all
+            </button>
           </div>
         )}
 
-        {/* Neighborhoods — city-scoped sub-filter (multi-select), popular
-            ones surfaced with the rest behind "See more" */}
-        {neighborhoodOptions.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="mr-0.5 text-xs uppercase tracking-wide text-[#E8E0D0]/40">
-              Neighborhoods
-            </span>
-            {visibleNeighborhoods.map(({ label }) => {
-              const active = selectedNeighborhoods.includes(label);
-              return (
+        {/* Full filter panel — collapsed by default, opened via the Filters button */}
+        {filtersOpen && (
+          <div className="space-y-4 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4">
+            <FilterSection label="Genre">
+              <div className="flex max-h-48 flex-wrap gap-1.5 overflow-y-auto pr-1">
                 <button
-                  key={label}
                   type="button"
-                  onClick={() => toggleNeighborhood(label)}
+                  onClick={() => setSelectedGenres([])}
                   className={`${filterPillBase} ${
-                    active
+                    selectedGenres.length === 0
                       ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
                       : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
                   }`}
                 >
-                  {label}
+                  All
                 </button>
-              );
-            })}
-            {(hiddenNeighborhoodCount > 0 || showAllNeighborhoods) && (
+                {genreOptions.map(({ label }) => {
+                  const active = selectedGenres.includes(label);
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => toggleGenre(label)}
+                      className={`${filterPillBase} ${
+                        active
+                          ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                          : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </FilterSection>
+
+            <div className="border-t border-[#E8E0D0]/10" />
+
+            <FilterSection label="Location">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {LOCATION_TAGS.map((tag) => {
+                  const active = location === tag;
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => chooseLocation(tag)}
+                      className={`${filterPillBase} ${
+                        active
+                          ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                          : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            </FilterSection>
+
+            {/* Attributes — upcoming shows only shown when Shows data was
+                provided (the Shows feature is enabled); has videos only shown
+                when there's at least one band with a video. */}
+            {(bandsWithUpcomingShows || bandsWithVideos) && (
+              <>
+                <div className="border-t border-[#E8E0D0]/10" />
+                <FilterSection label="Attributes">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {bandsWithUpcomingShows && (
+                      <button
+                        type="button"
+                        onClick={() => setUpcomingShowsOnly((v) => !v)}
+                        aria-pressed={upcomingShowsOnly}
+                        className={`${filterPillBase} ${
+                          upcomingShowsOnly
+                            ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                            : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                        }`}
+                      >
+                        Has upcoming shows
+                      </button>
+                    )}
+                    {bandsWithVideos && (
+                      <button
+                        type="button"
+                        onClick={() => setHasVideosOnly((v) => !v)}
+                        aria-pressed={hasVideosOnly}
+                        className={`${filterPillBase} ${
+                          hasVideosOnly
+                            ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                            : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                        }`}
+                      >
+                        Has videos
+                      </button>
+                    )}
+                  </div>
+                </FilterSection>
+              </>
+            )}
+
+            {/* Neighborhoods — city-scoped sub-filter (multi-select) */}
+            {neighborhoodOptions.length > 0 && (
+              <>
+                <div className="border-t border-[#E8E0D0]/10" />
+                <FilterSection label="Neighborhood">
+                  <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto pr-1">
+                    {neighborhoodOptions.map(({ label }) => {
+                      const active = selectedNeighborhoods.includes(label);
+                      return (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() => toggleNeighborhood(label)}
+                          className={`${filterPillBase} ${
+                            active
+                              ? "border-[#E8E0D0] bg-[#E8E0D0] text-[#2A2420]"
+                              : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </FilterSection>
+              </>
+            )}
+
+            <div className="flex justify-end border-t border-[#E8E0D0]/10 pt-3">
               <button
                 type="button"
-                onClick={() => setShowAllNeighborhoods((v) => !v)}
-                className={`${filterPillBase} border-dashed border-[#E8E0D0]/40 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/70`}
+                onClick={() => setFiltersOpen(false)}
+                className="rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-xs transition hover:bg-[#E8E0D0]/10"
               >
-                {showAllNeighborhoods
-                  ? "See less"
-                  : `See more (${hiddenNeighborhoodCount})`}
+                Done
               </button>
-            )}
-            {selectedNeighborhoods.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setSelectedNeighborhoods([])}
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs text-[#E8E0D0]/60 underline-offset-2 transition hover:text-[#E8E0D0] hover:underline"
-              >
-                {/* ti-x (Tabler) */}
-                <svg {...iconProps} width={13} height={13}>
-                  <path d="M18 6l-12 12" />
-                  <path d="M6 6l12 12" />
-                </svg>
-                Clear {selectedNeighborhoods.length} selected
-              </button>
-            )}
+            </div>
           </div>
         )}
       </div>
