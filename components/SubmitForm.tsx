@@ -1803,7 +1803,7 @@ export default function SubmitForm({
               {submitting
                 ? "Submitting…"
                 : isCorrect
-                  ? "Submit correction"
+                  ? "Update band"
                   : "Submit your band"}
             </button>
           </div>
