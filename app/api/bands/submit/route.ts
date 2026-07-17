@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { upsertBand, type BandSubmissionInput } from "@/lib/bands";
+import { upsertBand, getBandBySlug, type BandSubmissionInput } from "@/lib/bands";
 import { addVideo, removeVideos } from "@/lib/videos";
 import { uploadBandPhoto, generateThumbnail, uploadBandThumbnail } from "@/lib/r2";
 import { buildLineupEntries, insertManualShow } from "@/lib/shows";
+import { getCurrentUser, canEditBand } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,7 +12,13 @@ export const dynamic = "force-dynamic";
 // Apps Script webhook (apps-script/Code.js), which wrote into a Google Sheet
 // that nothing reads anymore now that fetchBands() reads this DB directly.
 // No secret gate, matching the old public /submit form and the Shows
-// feature's equivalent /api/shows/submit route.
+// feature's equivalent /api/shows/submit route — but `mode: "correct"` (an
+// edit of an *existing* band, as opposed to `"add"`, which only ever inserts
+// a fresh row) is gated by canEditBand. This is the real "band self-editing"
+// write path Phase 2 authorizes: the admin PATCH route
+// (app/api/admin/bands/[slug]/route.ts) was Phase 1's proof of the gate, but
+// this public form is how a band's own editors — and previously anyone at
+// all — actually edit it.
 
 function splitList(raw: FormDataEntryValue | null): string[] {
   const s = typeof raw === "string" ? raw : "";
@@ -46,6 +53,28 @@ export async function POST(request: NextRequest) {
   const mode = str(form.get("mode")) === "correct" ? "correct" : "add";
   const existingSlug = str(form.get("existingSlug")) || undefined;
   const bandSlug = str(form.get("bandSlug"));
+
+  // "add" always inserts a fresh row (see upsertBand) — no existing band to
+  // authorize against. "correct" updates a specific band in place, so it
+  // needs the same canEditBand gate as the admin PATCH route.
+  if (mode === "correct") {
+    const targetBand = existingSlug ? await getBandBySlug(existingSlug) : null;
+    if (!targetBand) {
+      return NextResponse.json({ success: false, error: "Band not found" }, { status: 404 });
+    }
+    const user = await getCurrentUser();
+    if (!(await canEditBand(user, targetBand.id))) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: user
+            ? "You don't have edit access to this band."
+            : "Log in to edit this band.",
+        },
+        { status: user ? 403 : 401 },
+      );
+    }
+  }
 
   const featuredLinks = parseJson<{ url: string; label: string }[]>(
     form.get("featuredLinks"),

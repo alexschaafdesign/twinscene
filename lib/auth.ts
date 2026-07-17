@@ -5,6 +5,7 @@
 
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
+import type postgres from "postgres";
 import { sql } from "./db.ts";
 import { sendEmail } from "./email.ts";
 
@@ -16,6 +17,11 @@ export interface User {
   is_admin: boolean;
   created_at: string;
 }
+
+// Either the top-level `sql` or a `tx` from `sql.begin` — postgres.js's Sql
+// and TransactionSql are siblings, not one a subtype of the other, so a
+// function usable both standalone and inside a transaction needs the union.
+type QueryExecutor = postgres.Sql | postgres.TransactionSql;
 
 export const SESSION_COOKIE = "ts_session";
 
@@ -54,6 +60,22 @@ export async function requestLoginLink(email: string, origin: string): Promise<v
   });
 }
 
+// Upserts a `users` row by email — creates it if new, otherwise returns the
+// existing row untouched. Shared by the login callback (a user's first
+// sign-in creates their row) and admin band-editor assignment (granting
+// access to an email that hasn't logged in yet still needs a users row for
+// band_editors to reference).
+export async function findOrCreateUserByEmail(email: string, tx: QueryExecutor = sql): Promise<User> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const [user] = await tx<User[]>`
+    insert into users (email)
+    values (${normalizedEmail})
+    on conflict (email) do update set email = excluded.email
+    returning *
+  `;
+  return user;
+}
+
 // Verifies a raw login token, consumes it (deletes it, single-use), and
 // upserts the corresponding `users` row by email. Returns null if the token
 // is missing, already used, or expired.
@@ -68,13 +90,7 @@ export async function consumeLoginToken(rawToken: string): Promise<User | null> 
     `;
     if (!tokenRow) return null;
 
-    const [user] = await tx<User[]>`
-      insert into users (email)
-      values (${tokenRow.email})
-      on conflict (email) do update set email = excluded.email
-      returning *
-    `;
-    return user;
+    return findOrCreateUserByEmail(tokenRow.email, tx);
   });
 }
 
@@ -126,10 +142,9 @@ export async function getCurrentUser(): Promise<User | null> {
 
 // --- Authorization -------------------------------------------------------
 
-// The single rule for "can this user edit this band", everywhere. Phase 1
-// only ever satisfies the is_admin branch — band_editors is created by this
-// phase's migration but nothing assigns rows to it yet (Phase 2) — but the
-// query already checks it so switching that phase on needs no change here.
+// The single rule for "can this user edit this band", everywhere.
+// band_editors rows come from either admin assignment (lib/bandEditors.ts)
+// or an approved claim (lib/bandClaims.ts).
 export async function canEditBand(user: User | null, bandId: number): Promise<boolean> {
   if (!user) return false;
   if (user.is_admin) return true;
@@ -138,4 +153,11 @@ export async function canEditBand(user: User | null, bandId: number): Promise<bo
     select 1 from band_editors where user_id = ${user.id} and band_id = ${bandId} limit 1
   `;
   return !!row;
+}
+
+// Gate for admin-only routes/pages (assigning editors, deciding claims). A
+// type guard so `if (!isAdmin(user)) return …` narrows `user` to non-null
+// afterward, no `!` assertions needed at the call site.
+export function isAdmin(user: User | null): user is User {
+  return !!user?.is_admin;
 }
