@@ -150,6 +150,31 @@ export async function fetchShowsForReview(days: number): Promise<Show[]> {
 }
 
 /**
+ * Every show in the table, any date or confidence — for /admin/shows, which
+ * exists so admins can find and delete arbitrary rows (old junk, past
+ * mistakes) that fetchShows()'s upcoming-only filter would otherwise hide.
+ * Sorted newest-date-first so upcoming/recent shows surface before old ones.
+ */
+export async function fetchAllShows(): Promise<Show[]> {
+  let rows: ShowsQueryRow[];
+  try {
+    rows = await sql<ShowsQueryRow[]>`
+      SELECT
+        id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
+        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        needs_review, confidence, review_reasons
+      FROM shows
+      ORDER BY date DESC
+    `;
+  } catch (err) {
+    console.error("fetchAllShows: query failed", err);
+    return [];
+  }
+
+  return rows.map(mapRow);
+}
+
+/**
  * Every needs_review show, any date — scrapers pull shows months out, so a
  * flag on a show outside fetchShowsForReview's window would otherwise never
  * be reachable from /admin/review. This is how "why is X flagged" stays

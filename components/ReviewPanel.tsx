@@ -193,9 +193,14 @@ export default function ReviewPanel({
               } further out`}
           </p>
         </div>
-        <a href={`/shows/import?${q}`} className={BTN}>
-          Live re-scrape import →
-        </a>
+        <div className="flex flex-wrap gap-2">
+          <a href={`/admin/shows?${q}`} className={BTN}>
+            All shows →
+          </a>
+          <a href={`/shows/import?${q}`} className={BTN}>
+            Live re-scrape import →
+          </a>
+        </div>
       </header>
 
       {flaggedBeyondWindow.length > 0 && (
@@ -349,13 +354,18 @@ function ShowCard({
           value={form.link}
           onChange={(e) => setForm((f) => ({ ...f, link: e.target.value }))}
         />
-        <div className="flex justify-end gap-2 pt-1">
-          <button type="button" className={BTN} onClick={() => setEditing(false)} disabled={saving}>
-            Cancel
+        <div className="flex justify-between gap-2 pt-1">
+          <button type="button" className={BTN_DANGER} onClick={onDelete} disabled={saving}>
+            Delete
           </button>
-          <button type="button" className={BTN_PRIMARY} onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
-          </button>
+          <div className="flex gap-2">
+            <button type="button" className={BTN} onClick={() => setEditing(false)} disabled={saving}>
+              Cancel
+            </button>
+            <button type="button" className={BTN_PRIMARY} onClick={save} disabled={saving}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
         </div>
       </div>
     );
