@@ -15,7 +15,6 @@
 import { randomUUID } from "node:crypto";
 import type postgres from "postgres";
 import { sql } from "@/lib/db";
-import { getCachedBirdhausBands } from "@/lib/birdhaus";
 
 type TransactionSql = postgres.TransactionSql;
 
@@ -36,7 +35,7 @@ function splitNames(s: string): string[] {
  * Build lineup entries from a free-text lineup string, pairing each name with
  * a linked band's slug when one matches by name (case-insensitive, exact).
  * Names with no matching linked band get bandSlug: null — resolveLineupBandSlugs
- * below fills those in against Birdhaus's directory.
+ * below fills those in against the canonical band directory.
  */
 export function buildLineupEntries(
   lineup: string,
@@ -49,27 +48,43 @@ export function buildLineupEntries(
   }));
 }
 
+// Lineup matching needs the directory once per show write, not once per lineup
+// entry — a 12-venue scrape run would otherwise re-query it dozens of times in a
+// few seconds. Short TTL cache over a name/slug projection of the canonical
+// `bands` table. Twin Scene owns this table (same DB), so this is a plain local
+// query — no HTTP, no API key — replacing the old Birdhaus-API fetch this used
+// to go through (getCachedBirdhausBands, lib/birdhaus.ts, removed post-migration).
+const MATCH_CACHE_TTL_MS = 60_000;
+let matchCache: { directory: { name: string; slug: string }[]; expiresAt: number } | null = null;
+
+async function getCachedBandDirectory(): Promise<{ name: string; slug: string }[]> {
+  if (matchCache && matchCache.expiresAt > Date.now()) return matchCache.directory;
+  const directory = await sql<{ name: string; slug: string }[]>`select name, slug from bands`;
+  matchCache = { directory, expiresAt: Date.now() + MATCH_CACHE_TTL_MS };
+  return directory;
+}
+
 /**
- * Forward-only Birdhaus matching: for every entry that's still unlinked after
+ * Forward-only directory matching: for every entry that's still unlinked after
  * buildLineupEntries (i.e. not already resolved via an explicit linkedBands
  * pairing — a scraper's confident match or a human's selection), try an exact
- * case-insensitive match against the cached directory. Entries that already
- * have a bandSlug are left untouched, so this never overwrites an admin's
+ * case-insensitive match against the cached canonical directory. Entries that
+ * already have a bandSlug are left untouched, so this never overwrites an admin's
  * manual link-band override or a scraper/human's explicit selection.
  *
- * Deliberately does NOT create a new Birdhaus band for a name with no match —
- * that used to happen here (matchOrCreateBirdhausBand), but once every scraped
- * show started auto-importing (not just confidently band-matched ones), it
- * flooded Birdhaus with bare stub bands for every unmatched opener/support act.
- * An unmatched name now just stays unlinked (bandSlug: null); it still shows up
- * as a name in the lineup, and surfaces in AdminPanel's "New bands discovered"
- * queue (via the scraper digest's confidence:'none' matches) for a human to
- * add deliberately, with an actual profile, via the normal /submit flow.
+ * Deliberately does NOT create a new band for a name with no match — that used
+ * to happen here (matchOrCreateBirdhausBand), but once every scraped show started
+ * auto-importing (not just confidently band-matched ones), it flooded the
+ * directory with bare stub bands for every unmatched opener/support act. An
+ * unmatched name now just stays unlinked (bandSlug: null); it still shows up as a
+ * name in the lineup, and surfaces in AdminPanel's "New bands discovered" queue
+ * (via the scraper digest's confidence:'none' matches) for a human to add
+ * deliberately, with an actual profile, via the normal /submit flow.
  */
 async function resolveLineupBandSlugs(entries: LineupEntry[]): Promise<LineupEntry[]> {
   if (entries.every((e) => e.bandSlug)) return entries;
 
-  const directory = await getCachedBirdhausBands();
+  const directory = await getCachedBandDirectory();
   const byName = new Map(directory.map((b) => [b.name.trim().toLowerCase(), b.slug]));
 
   return entries.map((entry) => {
