@@ -232,10 +232,10 @@ function StatusChip({ label }: { label: string }) {
   const empty = label === "Empty";
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+      className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
         empty
           ? "border-ink/15 bg-ink/5 text-ink/40"
-          : "border-accent/30 bg-accent/10 text-accent"
+          : "border-accent/40 bg-accent/15 text-ink"
       }`}
     >
       {label}
