@@ -92,6 +92,38 @@ export async function getBandBySlug(slug: string): Promise<Band | null> {
   return row ?? null;
 }
 
+export interface BandCoreFieldsInput {
+  name?: string;
+  bio?: string;
+  genre?: string;
+  hometown?: string;
+}
+
+// Minimal admin-only edit path — updates just the plain-text core fields,
+// skipping the public submit form's photo/embed/featured-link resolution
+// pipeline (upsertBand). Exists to prove out the auth gate (lib/auth.ts
+// canEditBand) end to end; a fuller admin editing UI is later scope.
+export async function updateBandCoreFields(
+  bandId: number,
+  input: BandCoreFieldsInput,
+): Promise<Band> {
+  const current = await sql<Band[]>`select * from bands where id = ${bandId} limit 1`;
+  const existing = current[0];
+  if (!existing) throw new Error(`updateBandCoreFields: no band with id ${bandId}`);
+
+  const [updated] = await sql<Band[]>`
+    update bands set
+      name = ${input.name ?? existing.name},
+      bio = ${input.bio ?? existing.bio},
+      genre = ${input.genre ?? existing.genre},
+      hometown = ${input.hometown ?? existing.hometown},
+      updated_at = now()
+    where id = ${bandId}
+    returning *
+  `;
+  return updated;
+}
+
 type Tx = postgres.TransactionSql;
 
 async function uniqueSlug(tx: Tx, base: string): Promise<string> {
