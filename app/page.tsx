@@ -39,19 +39,18 @@ export default async function Home() {
       <header className="mb-5 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <h1 className="m-0 order-1 sm:order-none">
           {/*
-            Optimized 400px WebP (~36 KB) — this logo is the LCP element on
-            mobile, so the old 828 KB /logo.png (1003×958 for a 180px slot)
-            gated the whole page's LCP. The full-res PNG stays as the OG-image
-            source (app/api/og/today), which renders it at 120px. Explicit
-            width/height reserve the box before load so it can't shift layout
-            in (CLS).
+            Optimized 400×400 WebP (~23 KB) — this logo is the LCP element on
+            mobile, so it's kept small rather than serving the full-res source.
+            The full-res PNG stays as the OG-image source (app/api/og/today),
+            which renders it at 120px. Explicit width/height reserve the box
+            before load so it can't shift layout in (CLS).
           */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.webp"
             alt="Twin Scene"
             width={400}
-            height={382}
+            height={400}
             className="mx-auto block h-auto w-full max-w-[180px] sm:mx-0"
           />
         </h1>
@@ -80,24 +79,56 @@ export default async function Home() {
 
       <div
         role="status"
-        className="mb-6 flex items-start gap-3 rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-3.5 py-2.5 text-[13px] leading-relaxed text-[#E8E0D0]/90"
+        className="mb-6 rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-4 py-3.5 text-[13px] leading-relaxed text-[#E8E0D0]/90"
       >
-        <span
-          aria-hidden
-          className="mt-0.5 shrink-0 rounded bg-[#E8B84B]/20 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-[#E8B84B]"
-        >
-          Beta
-        </span>
-        <p className="m-0">
-          This site is in early beta — lots of in-progress sections and
-          half-finished ideas. Hit up alex@thebirdhaus.org with any comments/suggestions!
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="shrink-0 rounded bg-[#E8B84B]/20 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-[#E8B84B]"
+            >
+              Beta
+            </span>
+            <p className="m-0 font-medium text-[#E8E0D0]">
+              This site is in early beta — here&apos;s where it&apos;s
+              headed, with more to come! Send me any ideas!
+            </p>
+          </div>
+          <Link
+            href={adminHref}
+            className="mt-0.5 shrink-0 rounded border border-[#E8E0D0]/20 px-2 py-0.5 text-xs font-medium text-[#E8E0D0]/55 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+          >
+            Admin
+          </Link>
+        </div>
+        <ul className="mt-2.5 list-disc space-y-1 pl-8 marker:text-[#E8B84B]/60">
+          <li>Every band in town can have a profile, free to edit as you like</li>
+          <li>
+            Every show in town is listed in the{" "}
+            <Link href="/shows" className="underline hover:text-[#E8E0D0]">
+              Shows
+            </Link>{" "}
+            tab (in progress)
+          </li>
+          <li>
+            Shows are automatically linked to bands, so a band&apos;s profile
+            shows any upcoming dates
+          </li>
+          <li>
+            The{" "}
+            <Link href="/musicians" className="underline hover:text-[#E8E0D0]">
+              Musicians
+            </Link>{" "}
+            tab lists individual members, tracing them across multiple bands
+          </li>
+          <li>
+            Band profiles include any undercurrentMPLS videos of them, pulled
+            from undercurrent&apos;s incredible YouTube channel
+          </li>
+        </ul>
+        <p className="m-0 mt-2.5">
+          Hit up alex@thebirdhaus.org with any comments/suggestions!
         </p>
-        <Link
-          href={adminHref}
-          className="mt-0.5 shrink-0 self-start rounded border border-[#E8E0D0]/20 px-2 py-0.5 text-xs font-medium text-[#E8E0D0]/55 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
-        >
-          Admin
-        </Link>
       </div>
 
       {/* Section nav. Bands, Shows, Venues, and Playlists. */}
