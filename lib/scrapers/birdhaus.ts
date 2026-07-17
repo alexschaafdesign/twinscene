@@ -138,6 +138,7 @@ async function fetchShow(
   return {
     venue: VENUE,
     date,
+    title: typeof fm.title === "string" ? fm.title.trim() || null : null,
     headliner,
     supporting,
     allBands,

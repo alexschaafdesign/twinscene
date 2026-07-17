@@ -472,9 +472,14 @@ export default function AdminPanel({
                     .join(" · ")}
                 </p>
               </div>
-              <a href={`/admin/review?${q}`} className={BTN}>
-                Review shows →
-              </a>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <a href={`/admin/shows?${q}`} className={BTN}>
+                  All shows →
+                </a>
+                <a href={`/admin/review?${q}`} className={BTN}>
+                  Review shows →
+                </a>
+              </div>
             </div>
           );
         })()}

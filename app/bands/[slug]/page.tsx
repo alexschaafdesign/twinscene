@@ -13,9 +13,13 @@ type Props = {
   params: Promise<{ slug: string }>;
 };
 
-// Same "fetch all, find by slug" pattern the rest of the app uses. fetchBands
-// is cache: 'no-store', so this runs on each request (as does the layout's own
-// fetch) — acceptable for a small directory that must reflect the live sheet.
+// fetchBands() reads the DB directly (no fetch()), which gives Next no signal
+// to render dynamically — without this, a slug page (no generateStaticParams)
+// gets cached after its first post-deploy render and goes stale on any later
+// edit to that band.
+export const dynamic = "force-dynamic";
+
+// Same "fetch all, find by slug" pattern the rest of the app uses.
 async function getBand(slug: string) {
   const bands = await fetchBands();
   return bands.find((b) => b.slug === slug) ?? null;

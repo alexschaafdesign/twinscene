@@ -70,6 +70,7 @@ export default async function SubmitPage({
         initialWebsite={param("website")}
         initialInstagram={param("instagram")}
         initialBandcamp={param("bandcamp")}
+        initialBandcampLink={param("bandcampLink")}
         initialBio={param("bio")}
         initialImage={param("image")}
         initialFeaturedLinks={param("featuredLinks")}

@@ -61,6 +61,7 @@ type FormState = {
   website: string;
   instagram: string;
   bandcamp: string;
+  bandcampLink: string;
   bio: string;
   notes: string;
 };
@@ -396,6 +397,7 @@ export default function SubmitForm({
   initialWebsite = "",
   initialInstagram = "",
   initialBandcamp = "",
+  initialBandcampLink = "",
   initialBio = "",
   initialImage = "",
   initialFeaturedLinks = "",
@@ -417,6 +419,7 @@ export default function SubmitForm({
   initialWebsite?: string;
   initialInstagram?: string;
   initialBandcamp?: string;
+  initialBandcampLink?: string;
   initialBio?: string;
   initialImage?: string;
   initialFeaturedLinks?: string;
@@ -439,6 +442,7 @@ export default function SubmitForm({
     website: initialWebsite,
     instagram: initialInstagram,
     bandcamp: initialBandcamp,
+    bandcampLink: initialBandcampLink,
     bio: initialBio,
     notes: "",
   });
@@ -1074,6 +1078,22 @@ export default function SubmitForm({
                 value={form.instagram}
                 onChange={set("instagram")}
                 placeholder="yourband"
+                className={inputClass}
+              />
+            </Field>
+
+            <Field
+              label="Bandcamp link"
+              htmlFor="bandcampLink"
+              error={errors.bandcampLink}
+              hint="Your Bandcamp page, shown as a link on your profile."
+            >
+              <input
+                id="bandcampLink"
+                type="url"
+                value={form.bandcampLink}
+                onChange={set("bandcampLink")}
+                placeholder="https://yourband.bandcamp.com"
                 className={inputClass}
               />
             </Field>

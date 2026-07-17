@@ -39,6 +39,7 @@ export function editHref(band: Band, videos: VideoRow[] = []): string {
     website: band.website,
     instagram: band.instagram,
     bandcamp: band.bandcamp,
+    bandcampLink: band.bandcampLink,
     bio: band.bio,
     image: band.image,
     // Round-trip only url + label; the image is re-resolved server-side.
@@ -166,7 +167,12 @@ function BandVideos({ videos }: { videos: VideoRow[] }) {
 }
 
 function BandLinks({ band }: { band: Band }) {
-  const hasAny = band.website || band.instagram || band.bandcamp;
+  // Prefer the plain bandcampLink field; fall back to the embed field's raw
+  // URL for bands that only ever filled that one in (never an <iframe>
+  // snippet, which isn't a usable href).
+  const bandcampHref =
+    band.bandcampLink || (band.bandcamp && !band.bandcamp.includes("<iframe") ? band.bandcamp : "");
+  const hasAny = band.website || band.instagram || bandcampHref;
   if (!hasAny) return null;
 
   return (
@@ -191,8 +197,8 @@ function BandLinks({ band }: { band: Band }) {
           </svg>
         </IconLink>
       )}
-      {band.bandcamp && !band.bandcamp.includes("<iframe") && (
-        <IconLink href={ensureUrl(band.bandcamp)} label="Bandcamp">
+      {bandcampHref && (
+        <IconLink href={ensureUrl(bandcampHref)} label="Bandcamp">
           <svg {...iconProps}>
             <path d="M4 16l5-8h11l-5 8z" />
           </svg>

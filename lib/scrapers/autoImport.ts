@@ -44,7 +44,7 @@ export async function autoImportShow(
   confidence?: ReviewConfidence;
   error?: string;
 }> {
-  const title = show.headliner || show.allBands[0] || "";
+  const title = show.title || show.headliner || show.allBands[0] || "";
   const lineup = show.allBands.join(", ");
   const sourceKey = `${scraperId}:${show.date}:${slugify(
     show.headliner || show.allBands[0] || "unknown",

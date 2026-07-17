@@ -161,7 +161,7 @@ export default async function ImportShowsPage({
         sourceKey,
         date: show.date ?? "",
         venue: show.venue,
-        title: headliner,
+        title: show.title || headliner,
         lineup: show.allBands.join(", "),
         tag: show.tag ?? null,
         notes: composeNotes(show),
