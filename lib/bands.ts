@@ -47,6 +47,7 @@ export const PUBLIC_BAND_FIELDS = [
   "bio",
   "hometown",
   "photo",
+  "thumbnail_url",
   "city",
   "neighborhoods",
   "bandcamp_embed_url",

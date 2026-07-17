@@ -5,6 +5,11 @@ import { getSlugsWithVideos } from "@/lib/videos";
 import BandGrid from "@/components/BandGrid";
 import { SHOWS_ENABLED } from "@/lib/features";
 
+// fetchBands()/fetchShows() read the DB directly (no fetch()), which gives
+// Next no signal to render dynamically — without this, the grid gets
+// prerendered once and cached indefinitely, going stale on every band edit.
+export const dynamic = "force-dynamic";
+
 // The home page: the band directory. It's the site's only section for now, so
 // it lives at the root. Individual profiles are at /bands/[slug]; a dedicated
 // /bands index can be added later alongside sibling sections (/venues, …).
