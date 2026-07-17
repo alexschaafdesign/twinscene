@@ -146,6 +146,9 @@ export default function BandGrid({
   );
   // The full filter set is collapsed behind a "Filters" button by default.
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Ordering of the visible grid. "name" is alphabetical (the default the DB
+  // layer already delivers); "recent" surfaces the most recently edited bands.
+  const [sort, setSort] = useState<"name" | "recent">("name");
   // Default per breakpoint: gallery on larger screens, compact list on mobile.
   // Starts "gallery" to match SSR, then corrected on mount (see effect below).
   // Once the user picks a view, `viewChosen` stops the breakpoint override.
@@ -298,13 +301,26 @@ export default function BandGrid({
     videoSlugSet,
   ]);
 
-  // Key changes whenever filters change, remounting the grid to replay the fade.
-  const gridKey = `${query}|${selectedGenres.join(",")}|${location}|${selectedNeighborhoods.join(",")}|${upcomingShowsOnly}|${hasVideosOnly}`;
+  // Apply the chosen ordering. `filtered` preserves the incoming alphabetical
+  // order, so "name" is a no-op; "recent" sorts by last-edit timestamp,
+  // newest first (blank timestamps sort last).
+  const sorted = useMemo(() => {
+    if (sort === "name") return filtered;
+    return [...filtered].sort((a, b) => {
+      if (!a.updatedAt) return 1;
+      if (!b.updatedAt) return -1;
+      return b.updatedAt.localeCompare(a.updatedAt);
+    });
+  }, [filtered, sort]);
+
+  // Key changes whenever filters or sort change, remounting the grid to replay
+  // the fade.
+  const gridKey = `${query}|${selectedGenres.join(",")}|${location}|${selectedNeighborhoods.join(",")}|${upcomingShowsOnly}|${hasVideosOnly}|${sort}`;
 
   function surpriseMe() {
-    if (filtered.length === 0) return;
-    const idx = Math.floor(Math.random() * filtered.length);
-    router.push(`/bands/${filtered[idx].slug}`);
+    if (sorted.length === 0) return;
+    const idx = Math.floor(Math.random() * sorted.length);
+    router.push(`/bands/${sorted[idx].slug}`);
   }
 
   const filterPillBase =
@@ -382,7 +398,7 @@ export default function BandGrid({
           <button
             type="button"
             onClick={surpriseMe}
-            disabled={filtered.length === 0}
+            disabled={sorted.length === 0}
             className="inline-flex shrink-0 items-center gap-2 rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm transition hover:bg-[#E8E0D0]/10 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {/* ti-arrows-shuffle (Tabler) */}
@@ -580,7 +596,38 @@ export default function BandGrid({
         )}
       </div>
 
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {/* Sort order */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-[#E8E0D0]/45">Sort</span>
+            <div className="flex items-center gap-0.5 rounded-md border border-[#E8E0D0]/20 p-0.5">
+              <button
+                type="button"
+                onClick={() => setSort("name")}
+                aria-pressed={sort === "name"}
+                className={`rounded px-2.5 py-1 text-xs transition ${
+                  sort === "name"
+                    ? "bg-[#E8E0D0] text-[#2A2420]"
+                    : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
+                }`}
+              >
+                A–Z
+              </button>
+              <button
+                type="button"
+                onClick={() => setSort("recent")}
+                aria-pressed={sort === "recent"}
+                className={`rounded px-2.5 py-1 text-xs transition ${
+                  sort === "recent"
+                    ? "bg-[#E8E0D0] text-[#2A2420]"
+                    : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
+                }`}
+              >
+                Recently updated
+              </button>
+            </div>
+          </div>
+
           <div className="flex items-center gap-0.5 rounded-md border border-[#E8E0D0]/20 p-0.5">
             <button
               type="button"
@@ -636,10 +683,10 @@ export default function BandGrid({
       </div>
 
       <p className="mb-4 text-center text-xs text-[#E8E0D0]/55">
-        Showing {filtered.length} of {bands.length} bands
+        Showing {sorted.length} of {bands.length} bands
       </p>
 
-      {filtered.length === 0 ? (
+      {sorted.length === 0 ? (
         <p className="py-16 text-center text-sm text-[#E8E0D0]/50">
           No bands match those filters.
         </p>
@@ -651,7 +698,7 @@ export default function BandGrid({
             gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
           }}
         >
-          {filtered.map((band) => (
+          {sorted.map((band) => (
             <BandCard key={band.slug} band={band} />
           ))}
         </div>
@@ -660,7 +707,7 @@ export default function BandGrid({
           key={gridKey}
           className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3"
         >
-          {filtered.map((band) => (
+          {sorted.map((band) => (
             <BandRow key={band.slug} band={band} />
           ))}
         </div>

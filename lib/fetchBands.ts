@@ -38,6 +38,7 @@ export type Band = {
   bandcampEmbedHeight: number; // height to render the embed iframe at (px)
   featuredLinks: FeaturedLink[]; // up to 3 band-curated highlight links
   added: string; // not modeled as a distinct field; created_at could back it later
+  updatedAt: string; // ISO timestamp of the row's last edit; backs "Recently updated" sort
 };
 
 /** Reduce a full URL or "@handle" to just the bare Instagram handle. The table
@@ -56,6 +57,17 @@ function instagramHandle(value: string): string {
 
 function asString(v: unknown): string {
   return typeof v === "string" ? v : "";
+}
+
+/** Normalize a timestamp column to an ISO string. The `postgres` driver hands
+ * back `timestamptz` columns as Date objects (despite the row type annotating
+ * them `string`), and a Date would survive RSC serialization as a Date on the
+ * client — where the grid's `.localeCompare` sort would throw. Coerce to a
+ * plain ISO string here so it's a real string end to end. "" when absent/invalid. */
+function isoTimestamp(v: unknown): string {
+  if (!v) return "";
+  const d = new Date(v as string | number | Date);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString();
 }
 
 function asStringArray(v: unknown): string[] {
@@ -115,6 +127,7 @@ function fromTwinScene(b: BandRow): Band {
     bandcampEmbedHeight: b.bandcamp_embed_height ?? 120,
     featuredLinks: featuredLinksOf(b.featured_links),
     added: "",
+    updatedAt: isoTimestamp(b.updated_at),
   };
 }
 
