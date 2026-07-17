@@ -49,7 +49,7 @@ export default async function SubmitPage({
   const existingBands = bands.map((b) => ({ name: b.name, slug: b.slug }));
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-14">
+    <main className="mx-auto w-full max-w-4xl px-5 py-10 sm:px-8 sm:py-14">
       <Link
         href="/"
         className="mb-8 inline-flex items-center gap-1.5 text-sm text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"

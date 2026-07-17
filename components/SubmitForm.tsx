@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { initials } from "@/components/band-shared";
 
 type Mode = "add" | "correct";
 
@@ -12,12 +13,36 @@ const BIO_MAX = 1500;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB
 
 const inputClass =
-  "w-full rounded-md border border-ink/20 bg-transparent px-3.5 py-2 text-sm text-ink placeholder:text-ink/35 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ink";
+  "w-full rounded-md border border-ink/20 bg-transparent px-3.5 py-2 text-sm text-ink placeholder:text-ink/35 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-accent";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Cities that get a one-tap button in the picker; anything else is "Other".
 const KNOWN_CITIES = ["Minneapolis", "St. Paul"] as const;
+
+// The four collapsible groups the form is organized into. Used to key open/
+// closed accordion state and to know which section to reveal when a field in
+// it fails validation.
+type SectionKey = "basics" | "musicLinks" | "bioShows" | "aboutYou";
+
+const FIELD_SECTION: Record<string, SectionKey> = {
+  bandName: "basics",
+  genres: "basics",
+  location: "basics",
+  submitterName: "aboutYou",
+  submitterEmail: "aboutYou",
+  contactEmail: "musicLinks",
+  website: "musicLinks",
+  instagram: "musicLinks",
+  bandPhoto: "bioShows",
+};
+
+function contactMethodLabel(method: string): string {
+  if (method === "email") return "Email";
+  if (method === "instagram") return "Instagram";
+  if (method === "website") return "Website";
+  return "";
+}
 
 /**
  * Lowercase, collapse non-alphanumeric runs into single hyphens, trim hyphens.
@@ -156,14 +181,14 @@ function Field({
     <div>
       <label
         htmlFor={htmlFor}
-        className="mb-1 block text-sm text-ink/85"
+        className="mb-1 block text-sm font-medium text-ink"
       >
         {label}
-        {required && <span className="text-ink/50"> *</span>}
+        {required && <span className="text-accent"> *</span>}
       </label>
       {children}
       {hint && !error && (
-        <p className="mt-1 text-xs text-ink/45">{hint}</p>
+        <p className="mt-1 text-[13px] text-ink/40">{hint}</p>
       )}
       {error && <p className="mt-1 text-xs text-danger">{error}</p>}
     </div>
@@ -171,29 +196,150 @@ function Field({
 }
 
 /**
- * A titled group of related fields. A hairline top rule plus a small uppercase
- * label give the long form a subtle visual rhythm without heavy boxes.
+ * A titled group of related fields nested inside an accordion section (e.g.
+ * "Contact & socials" inside "Music, Links & Video"). A hairline top rule
+ * gives adjacent subgroups a subtle break; the first one in a section omits
+ * it since the section's own header already provides separation.
  */
-function Section({
-  title,
+function SubGroup({
+  label,
   description,
   children,
 }: {
-  title: string;
+  label: string;
   description?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-t border-ink/10 pt-6">
-      <div className="mb-4">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/45">
-          {title}
-        </h2>
+    <div className="space-y-4 border-t border-ink/10 pt-5 first:border-t-0 first:pt-0">
+      <div>
+        <h3 className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/50">
+          {label}
+        </h3>
         {description && (
-          <p className="mt-1 text-xs text-ink/45">{description}</p>
+          <p className="mt-1 text-[13px] text-ink/45">{description}</p>
         )}
       </div>
-      <div className="space-y-5">{children}</div>
+      {children}
+    </div>
+  );
+}
+
+/** Small pill summarizing a section's current values, e.g. "Empty", "3 added",
+ * "Instagram set". Muted when empty, accent-colored once something's set, so
+ * the accent reads as "this has content" at a glance. */
+function StatusChip({ label }: { label: string }) {
+  const empty = label === "Empty";
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+        empty
+          ? "border-ink/15 bg-ink/5 text-ink/40"
+          : "border-accent/30 bg-accent/10 text-accent"
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
+/**
+ * A section of the form. When `collapsible` is true it renders as an
+ * accordion row (click/Enter/Space to toggle, full aria-expanded/aria-controls
+ * wiring); when false it renders as a plain always-open panel with the same
+ * header typography, used for the Basics/About You sections in add mode.
+ */
+function AccordionSection({
+  id,
+  title,
+  description,
+  statusChip,
+  open,
+  onToggle,
+  collapsible = true,
+  children,
+}: {
+  id: string;
+  title: string;
+  description?: string;
+  statusChip?: string;
+  open: boolean;
+  onToggle: () => void;
+  collapsible?: boolean;
+  children: React.ReactNode;
+}) {
+  const headerId = `${id}-header`;
+  const panelId = `${id}-panel`;
+  const showContent = !collapsible || open;
+
+  const headerInner = (
+    <div className="flex w-full items-center gap-4">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-semibold text-ink sm:text-[20px]">
+            {title}
+          </h2>
+          {statusChip && <StatusChip label={statusChip} />}
+        </div>
+        {description && (
+          <p className="mt-1 text-sm text-ink/55">{description}</p>
+        )}
+      </div>
+      {collapsible && (
+        <svg
+          aria-hidden
+          viewBox="0 0 24 24"
+          className={`h-5 w-5 shrink-0 transition-transform duration-200 ${
+            open ? "rotate-180 text-accent" : "text-ink/40"
+          }`}
+        >
+          <path
+            d="M6 9l6 6 6-6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )}
+    </div>
+  );
+
+  return (
+    <section
+      className={`overflow-hidden rounded-lg border bg-paper transition-colors ${
+        collapsible && open ? "border-accent/40" : "border-ink/15"
+      }`}
+    >
+      {collapsible ? (
+        <button
+          type="button"
+          id={headerId}
+          onClick={onToggle}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="flex w-full items-center px-4 py-4 text-left sm:px-5"
+        >
+          {headerInner}
+        </button>
+      ) : (
+        <div id={headerId} className="px-4 py-4 sm:px-5">
+          {headerInner}
+        </div>
+      )}
+      {showContent && (
+        <div
+          id={panelId}
+          role="region"
+          aria-labelledby={headerId}
+          className={`space-y-5 px-4 pb-5 sm:px-5 ${
+            collapsible ? "border-t border-ink/10 pt-5" : "pt-0"
+          }`}
+        >
+          {children}
+        </div>
+      )}
     </section>
   );
 }
@@ -320,7 +466,7 @@ function TagInput({
         onClick={() => inputRef.current?.focus()}
         className={`flex min-h-[2.6rem] w-full flex-wrap items-center gap-1.5 rounded-md border ${
           hasError ? "border-danger/60" : "border-ink/20"
-        } bg-transparent px-2 py-1.5 text-sm transition focus-within:border-transparent focus-within:ring-2 focus-within:ring-ink`}
+        } bg-transparent px-2 py-1.5 text-sm transition focus-within:border-transparent focus-within:ring-2 focus-within:ring-accent`}
       >
         {value.map((tag, i) => (
           <span
@@ -383,6 +529,63 @@ function TagInput({
   );
 }
 
+/**
+ * Small live preview of how the band will look as a directory card, styled to
+ * match BandCard in BandGrid.tsx exactly (dark card on the page background,
+ * not the light paper form panel) so it reads as "this is the real card,"
+ * not form chrome. `photoUrl` is whichever image currently wins: a freshly
+ * selected file, the existing photo (correction mode), or nothing.
+ */
+function LivePreviewCard({
+  name,
+  genres,
+  neighborhoods,
+  city,
+  photoUrl,
+}: {
+  name: string;
+  genres: string[];
+  neighborhoods: string[];
+  city: string;
+  photoUrl: string | null;
+}) {
+  const hasHoods = neighborhoods.length > 0;
+  const hasPlace = hasHoods || !!city;
+  return (
+    <div className="flex flex-col text-left">
+      <div className="relative aspect-square w-full overflow-hidden rounded-sm bg-[#3A332D] ring-1 ring-[#E8E0D0]/10">
+        {photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <span className="select-none text-4xl font-medium text-[#E8E0D0]/30">
+              {initials(name || "Your Band")}
+            </span>
+          </div>
+        )}
+      </div>
+      <h3 className="mt-2.5 truncate text-sm font-medium leading-snug text-[#E8E0D0]">
+        {name || "Your band name"}
+      </h3>
+      {hasPlace && (
+        <p className="mt-1 truncate text-xs text-[#E8E0D0]/55">
+          {hasHoods && (
+            <span className="text-[#E8E0D0]/85">{neighborhoods.join(", ")}</span>
+          )}
+          {hasHoods && city ? ", " : ""}
+          {city}
+        </p>
+      )}
+      {genres.length > 0 && (
+        <p className="mt-1 truncate text-xs italic text-[#E8E0D0]/45">
+          {genres.join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function SubmitForm({
   mode = "add",
   initialSlug = "",
@@ -428,6 +631,8 @@ export default function SubmitForm({
   memberOptions?: string[];
   existingBands?: { name: string; slug: string }[];
 }) {
+  const isCorrect = mode === "correct";
+
   const [form, setForm] = useState<FormState>({
     bandName: initialName,
     submitterName: "",
@@ -484,6 +689,20 @@ export default function SubmitForm({
   // (not a bool) auto-expires the confirmation if the name later collides with a
   // different band — no reset effect needed.
   const [overriddenSlug, setOverriddenSlug] = useState<string | null>(null);
+  // Accordion open/closed state per section. Add mode starts with Basics and
+  // About You open (they're not collapsible in add mode anyway) and the two
+  // enrichment sections collapsed & empty. Correct mode starts every section
+  // collapsed, so fixing one field means expanding only that section.
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>(
+    () =>
+      isCorrect
+        ? { basics: false, musicLinks: false, bioShows: false, aboutYou: false }
+        : { basics: true, musicLinks: false, bioShows: false, aboutYou: true },
+  );
+
+  function toggleSection(key: SectionKey) {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
 
   // Build a revocable object URL for the thumbnail preview, and revoke it
   // whenever the selected file changes or the component unmounts.
@@ -543,6 +762,21 @@ export default function SubmitForm({
       first.label.scrollIntoView({ behavior: "smooth", block: "center" });
       document.getElementById(first.id)?.focus({ preventScroll: true });
     });
+  }
+
+  // Expand whichever accordion section(s) contain the given field ids before
+  // focusing the first one — a collapsed section has nothing in the DOM to
+  // scroll to or focus.
+  function revealAndFocus(ids: string[]) {
+    setOpenSections((prev) => {
+      const next = { ...prev };
+      for (const id of ids) {
+        const key = FIELD_SECTION[id];
+        if (key) next[key] = true;
+      }
+      return next;
+    });
+    focusFirstError(ids);
   }
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -608,8 +842,6 @@ export default function SubmitForm({
     setExistingVideos((prev) => prev.filter((v) => v.id !== id));
     setRemovedVideoIds((prev) => [...prev, id]);
   }
-
-  const isCorrect = mode === "correct";
 
   // Duplicate detection (add mode only): flag when the typed name matches a band
   // already in the directory, by normalized name or resulting slug. Best-effort
@@ -681,14 +913,14 @@ export default function SubmitForm({
     if (Object.keys(found).length > 0 || imgErr) {
       const ids = Object.keys(found);
       if (imgErr) ids.push("bandPhoto");
-      focusFirstError(ids);
+      revealAndFocus(ids);
       return;
     }
 
     // Block a likely duplicate unless the user explicitly confirmed it's a
     // distinct band. Scrolls to the Band name field, where the notice sits.
     if (dupMatch && !duplicateConfirmed) {
-      focusFirstError(["bandName"]);
+      revealAndFocus(["bandName"]);
       return;
     }
 
@@ -788,99 +1020,161 @@ export default function SubmitForm({
   // button. Clears live as fields are fixed (see clearError).
   const invalidCount = Object.keys(errors).length + (imageError ? 1 : 0);
 
+  // Parsed list fields, reused by the TagInputs, status chips, and the live
+  // preview card.
+  const genresList = form.genres
+    ? form.genres.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  const neighborhoodsList = form.neighborhoods
+    ? form.neighborhoods.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+  const membersList = form.members
+    ? form.members.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  // Status-chip inputs for the two enrichment sections.
+  const filledFeaturedLinksList = featuredLinks.filter((l) => l.url.trim());
+  const filledShowsList = shows.filter((s) => s.date.trim() || s.venue.trim());
+  const filledNewVideosList = videos.filter((v) => v.url.trim());
+  const previewPhotoUrl = previewUrl ?? (showExistingImage ? initialImage : null);
+  const hasPhoto = !!previewPhotoUrl;
+
+  const musicLinksCount =
+    (form.contactMethod ? 1 : 0) +
+    (form.contactEmail.trim() ? 1 : 0) +
+    (form.website.trim() ? 1 : 0) +
+    (form.instagram.trim() ? 1 : 0) +
+    (form.bandcampLink.trim() ? 1 : 0) +
+    (form.bandcamp.trim() ? 1 : 0) +
+    filledFeaturedLinksList.length +
+    existingVideos.length +
+    filledNewVideosList.length;
+  const musicLinksChip =
+    musicLinksCount === 0
+      ? "Empty"
+      : musicLinksCount === 1 && form.contactMethod
+        ? `${contactMethodLabel(form.contactMethod)} set`
+        : `${musicLinksCount} added`;
+
+  const bioShowsCount =
+    (form.bio.trim() ? 1 : 0) + (hasPhoto ? 1 : 0) + filledShowsList.length;
+  const bioShowsChip =
+    bioShowsCount === 0
+      ? "Empty"
+      : bioShowsCount === 1 && hasPhoto
+        ? "Photo added"
+        : bioShowsCount === 1 && form.bio.trim()
+          ? "Bio added"
+          : `${bioShowsCount} added`;
+
+  const basicsChip = `${genresList.length} genre${
+    genresList.length === 1 ? "" : "s"
+  } · ${form.location || "No city"}`;
+
+  const aboutYouCount =
+    (form.submitterName.trim() ? 1 : 0) +
+    (form.submitterEmail.trim() ? 1 : 0) +
+    (form.notes.trim() ? 1 : 0);
+  const aboutYouChip = aboutYouCount === 0 ? "Empty" : `${aboutYouCount} added`;
+
   return (
-    <div className="rounded-lg border border-ink/15 bg-paper p-5 sm:p-7">
-      <div className="mb-6">
-        <h1 className="text-2xl font-medium tracking-tight text-ink sm:text-3xl">
-          {heading}
-        </h1>
-        <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink/70">
-          {subhead}
-        </p>
-      </div>
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,42rem)_220px] lg:items-start">
+      <div className="rounded-lg border border-ink/15 bg-paper p-5 sm:p-7">
+        <div className="mb-6">
+          <h1 className="text-2xl font-medium tracking-tight text-ink sm:text-3xl">
+            {heading}
+          </h1>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink/70">
+            {subhead}
+          </p>
+        </div>
 
-      <form onSubmit={handleSubmit} noValidate className="space-y-8">
-        <Section title="The basics">
-          <Field
-            label="Band name"
-            htmlFor="bandName"
-            required
-            error={errors.bandName}
+        <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          <AccordionSection
+            id="basics"
+            title="The Basics"
+            description="Name, genre, city, and who's in the band."
+            statusChip={isCorrect ? basicsChip : undefined}
+            open={openSections.basics}
+            onToggle={() => toggleSection("basics")}
+            collapsible={isCorrect}
           >
-            <input
-              id="bandName"
-              type="text"
-              value={form.bandName}
-              onChange={set("bandName")}
-              className={inputClass}
-            />
-            {dupMatch && (
-              <div
-                role="alert"
-                className="mt-2 rounded-md border border-[#B45309]/40 bg-[#B45309]/10 px-3.5 py-3 text-sm text-[#7c4406]"
-              >
-                <p className="font-semibold">
-                  “{dupMatch.name}” is already in the directory.
-                </p>
-                <p className="mt-1 text-[#7c4406]/90">
-                  If that&apos;s your band,{" "}
-                  <Link
-                    href={`/bands/${dupMatch.slug}`}
-                    target="_blank"
-                    className="font-medium underline underline-offset-2 hover:no-underline"
-                  >
-                    view its profile
-                  </Link>{" "}
-                  and use “Edit this band” there instead of adding it again.
-                </p>
-                <label className="mt-2.5 flex cursor-pointer items-start gap-2 font-medium">
-                  <input
-                    type="checkbox"
-                    checked={duplicateConfirmed}
-                    onChange={(e) =>
-                      setOverriddenSlug(e.target.checked ? dupMatch.slug : null)
-                    }
-                    className="mt-0.5 accent-[#7c4406]"
-                  />
-                  <span>
-                    This is a different band that happens to share the name — add
-                    it anyway
-                  </span>
-                </label>
-              </div>
-            )}
-          </Field>
+            <Field
+              label="Band name"
+              htmlFor="bandName"
+              required
+              error={errors.bandName}
+            >
+              <input
+                id="bandName"
+                type="text"
+                value={form.bandName}
+                onChange={set("bandName")}
+                className={inputClass}
+              />
+              {dupMatch && (
+                <div
+                  role="alert"
+                  className="mt-2 rounded-md border border-[#B45309]/40 bg-[#B45309]/10 px-3.5 py-3 text-sm text-[#7c4406]"
+                >
+                  <p className="font-semibold">
+                    “{dupMatch.name}” is already in the directory.
+                  </p>
+                  <p className="mt-1 text-[#7c4406]/90">
+                    If that&apos;s your band,{" "}
+                    <Link
+                      href={`/bands/${dupMatch.slug}`}
+                      target="_blank"
+                      className="font-medium underline underline-offset-2 hover:no-underline"
+                    >
+                      view its profile
+                    </Link>{" "}
+                    and use “Edit this band” there instead of adding it again.
+                  </p>
+                  <label className="mt-2.5 flex cursor-pointer items-start gap-2 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={duplicateConfirmed}
+                      onChange={(e) =>
+                        setOverriddenSlug(e.target.checked ? dupMatch.slug : null)
+                      }
+                      className="mt-0.5 accent-[#7c4406]"
+                    />
+                    <span>
+                      This is a different band that happens to share the name —
+                      add it anyway
+                    </span>
+                  </label>
+                </div>
+              )}
+            </Field>
 
-          <Field
-            label="Genre(s)"
-            htmlFor="genres"
-            required
-            error={errors.genres}
-            hint="Pick from existing genres or type your own — be as specific or weird as you want."
-          >
-            <TagInput
-              id="genres"
-              options={genreOptions}
-              placeholder="e.g. Baroque Yachtgaze, Sewer Punk"
-              value={
-                form.genres
-                  ? form.genres.split(",").map((s) => s.trim()).filter(Boolean)
-                  : []
-              }
-              onChange={(next) => {
-                setForm((f) => ({ ...f, genres: next.join(", ") }));
-                clearError("genres");
-              }}
-              hasError={!!errors.genres}
-            />
-          </Field>
+            <Field
+              label="Genre(s)"
+              htmlFor="genres"
+              required
+              error={errors.genres}
+              hint="Pick from existing genres or type your own — be as specific or weird as you want."
+            >
+              <TagInput
+                id="genres"
+                options={genreOptions}
+                placeholder="e.g. Baroque Yachtgaze, Sewer Punk"
+                value={genresList}
+                onChange={(next) => {
+                  setForm((f) => ({ ...f, genres: next.join(", ") }));
+                  clearError("genres");
+                }}
+                hasError={!!errors.genres}
+              />
+            </Field>
 
-          <Field
-            label="City"
-            htmlFor="location"
-            required
-            error={errors.location}
-          >
+            <Field
+              label="City"
+              htmlFor="location"
+              required
+              error={errors.location}
+            >
               <div className="flex flex-wrap gap-2">
                 {KNOWN_CITIES.map((c) => {
                   const active = !cityIsOther && form.location === c;
@@ -926,586 +1220,610 @@ export default function SubmitForm({
                   Other
                 </button>
               </div>
-            {cityIsOther && (
-              <input
-                id="location"
-                type="text"
-                value={form.location}
-                onChange={set("location")}
-                placeholder="e.g. Duluth, Hopkins"
-                className={`${inputClass} mt-2`}
-              />
-            )}
-          </Field>
+              {cityIsOther && (
+                <input
+                  id="location"
+                  type="text"
+                  value={form.location}
+                  onChange={set("location")}
+                  placeholder="e.g. Duluth, Hopkins"
+                  className={`${inputClass} mt-2`}
+                />
+              )}
+            </Field>
 
-          <Field
-            label="Neighborhood(s)"
-            htmlFor="neighborhoods"
-            hint="Optional — pick from the list or add your own, so people can find bands by their part of town."
-          >
-            <TagInput
-              id="neighborhoods"
-              options={neighborhoodOptions}
-              placeholder="e.g. Powderhorn, Seward"
-              value={
-                form.neighborhoods
-                  ? form.neighborhoods
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : []
-              }
-              onChange={(next) =>
-                setForm((f) => ({ ...f, neighborhoods: next.join(", ") }))
-              }
-            />
-          </Field>
-
-          <Field
-            label="Band members"
-            htmlFor="members"
-            hint="Optional — add each member's name. Start typing to see people already in the directory, so fans can find every project someone's in."
-          >
-            <TagInput
-              id="members"
-              options={memberOptions}
-              placeholder="e.g. Jane Doe, John Smith"
-              value={
-                form.members
-                  ? form.members
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean)
-                  : []
-              }
-              onChange={(next) =>
-                setForm((f) => ({ ...f, members: next.join(", ") }))
-              }
-            />
-          </Field>
-        </Section>
-
-        <Section
-          title="Links & contact"
-          description="Where fans and bookers can find and reach you."
-        >
-          <div>
-            <span className="mb-1 block text-sm text-ink/85">
-              How do you want to be contacted?
-            </span>
-            <div className="flex gap-2">
-              {(["email", "instagram", "website"] as const).map((m) => {
-                const active = form.contactMethod === m;
-                return (
-                  <button
-                    key={m}
-                    type="button"
-                    // Clicking the active choice again clears it (the choice is optional).
-                    onClick={() =>
-                      setForm((f) => ({
-                        ...f,
-                        contactMethod: active ? "" : m,
-                      }))
-                    }
-                    className={`rounded-md border px-3 py-1.5 text-sm transition ${
-                      active
-                        ? "border-ink bg-ink text-paper"
-                        : "border-ink/25 text-ink/70 hover:border-ink/60"
-                    }`}
-                  >
-                    {m === "email"
-                      ? "Email"
-                      : m === "instagram"
-                        ? "Instagram"
-                        : "Website"}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-1 text-xs text-ink/45">
-              Optional — choosing one makes that field required below.
-            </p>
-          </div>
-
-          <Field
-            label="Contact email"
-            htmlFor="contactEmail"
-            required={form.contactMethod === "email"}
-            error={errors.contactEmail}
-            hint="Shown publicly on your profile so people can reach you."
-          >
-            <input
-              id="contactEmail"
-              type="email"
-              value={form.contactEmail}
-              onChange={set("contactEmail")}
-              placeholder="band@example.com"
-              className={inputClass}
-            />
-          </Field>
-
-          <div className="grid gap-5 sm:grid-cols-2">
             <Field
-              label="Website"
-              htmlFor="website"
-              required={form.contactMethod === "website"}
-              error={errors.website}
+              label="Neighborhood(s)"
+              htmlFor="neighborhoods"
+              hint="Optional — pick from the list or add your own, so people can find bands by their part of town."
             >
-              <input
-                id="website"
-                type="url"
-                value={form.website}
-                onChange={set("website")}
-                placeholder="https://"
-                className={inputClass}
+              <TagInput
+                id="neighborhoods"
+                options={neighborhoodOptions}
+                placeholder="e.g. Powderhorn, Seward"
+                value={neighborhoodsList}
+                onChange={(next) =>
+                  setForm((f) => ({ ...f, neighborhoods: next.join(", ") }))
+                }
               />
             </Field>
 
             <Field
-              label="Instagram handle"
-              htmlFor="instagram"
-              required={form.contactMethod === "instagram"}
-              error={errors.instagram}
-              hint="Just the handle, no @"
+              label="Band members"
+              htmlFor="members"
+              hint="Optional — add each member's name. Start typing to see people already in the directory, so fans can find every project someone's in."
             >
-              <input
-                id="instagram"
-                type="text"
-                value={form.instagram}
-                onChange={set("instagram")}
-                placeholder="yourband"
-                className={inputClass}
+              <TagInput
+                id="members"
+                options={memberOptions}
+                placeholder="e.g. Jane Doe, John Smith"
+                value={membersList}
+                onChange={(next) =>
+                  setForm((f) => ({ ...f, members: next.join(", ") }))
+                }
               />
             </Field>
+          </AccordionSection>
 
-            <Field
-              label="Bandcamp link"
-              htmlFor="bandcampLink"
-              error={errors.bandcampLink}
-              hint="Your Bandcamp page, shown as a link on your profile."
-            >
-              <input
-                id="bandcampLink"
-                type="url"
-                value={form.bandcampLink}
-                onChange={set("bandcampLink")}
-                placeholder="https://yourband.bandcamp.com"
-                className={inputClass}
-              />
-            </Field>
-          </div>
-        </Section>
-
-        <Section
-          title="Embeddable music player"
-          description="Right now this is the only way to make your music playable directly on Twin Scene (fuck Spotify)."
-        >
-          <Field
-            label="Bandcamp"
-            htmlFor="bandcamp"
-            hint="Paste your Bandcamp link, or for a richer player, paste the embed code from Bandcamp's Share/Embed button."
+          <AccordionSection
+            id="musicLinks"
+            title="Music, Links & Video"
+            description="Contact info, Bandcamp player, featured links, and videos — all optional."
+            statusChip={musicLinksChip}
+            open={openSections.musicLinks}
+            onToggle={() => toggleSection("musicLinks")}
           >
-            <input
-              id="bandcamp"
-              type="text"
-              value={form.bandcamp}
-              onChange={set("bandcamp")}
-              placeholder="https://…  or  <iframe …>"
-              className={inputClass}
-            />
-          </Field>
-        </Section>
+            <SubGroup label="Contact & socials">
+              <div>
+                <span className="mb-1 block text-sm font-medium text-ink">
+                  How do you want to be contacted?
+                </span>
+                <div className="flex gap-2">
+                  {(["email", "instagram", "website"] as const).map((m) => {
+                    const active = form.contactMethod === m;
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        // Clicking the active choice again clears it (the choice is optional).
+                        onClick={() =>
+                          setForm((f) => ({
+                            ...f,
+                            contactMethod: active ? "" : m,
+                          }))
+                        }
+                        className={`rounded-md border px-3 py-1.5 text-sm transition ${
+                          active
+                            ? "border-ink bg-ink text-paper"
+                            : "border-ink/25 text-ink/70 hover:border-ink/60"
+                        }`}
+                      >
+                        {m === "email"
+                          ? "Email"
+                          : m === "instagram"
+                            ? "Instagram"
+                            : "Website"}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-[13px] text-ink/40">
+                  Optional — choosing one makes that field required below.
+                </p>
+              </div>
 
-        <Section
-          title="Featured links"
-          description="Up to three things you most want people to see — show tickets, a new release, a fundraiser, whatever. We'll try to pull in a preview image automatically."
-        >
-          <div className="space-y-4">
-            {featuredLinks.map((link, i) => (
-              <div key={i} className="grid gap-3 sm:grid-cols-[1fr_1fr]">
-                <div>
-                  <label
-                    htmlFor={`featured-${i}-url`}
-                    className="mb-1 block text-xs text-ink/70"
-                  >
-                    Link {i + 1}
-                  </label>
+              <Field
+                label="Contact email"
+                htmlFor="contactEmail"
+                required={form.contactMethod === "email"}
+                error={errors.contactEmail}
+                hint="Shown publicly on your profile so people can reach you."
+              >
+                <input
+                  id="contactEmail"
+                  type="email"
+                  value={form.contactEmail}
+                  onChange={set("contactEmail")}
+                  placeholder="band@example.com"
+                  className={inputClass}
+                />
+              </Field>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field
+                  label="Website"
+                  htmlFor="website"
+                  required={form.contactMethod === "website"}
+                  error={errors.website}
+                >
                   <input
-                    id={`featured-${i}-url`}
+                    id="website"
                     type="url"
-                    value={link.url}
-                    onChange={(e) =>
-                      updateFeaturedLink(i, "url", e.target.value)
-                    }
+                    value={form.website}
+                    onChange={set("website")}
                     placeholder="https://"
                     className={inputClass}
                   />
-                </div>
-                <div>
-                  <label
-                    htmlFor={`featured-${i}-label`}
-                    className="mb-1 block text-xs text-ink/70"
-                  >
-                    What is it?
-                  </label>
+                </Field>
+
+                <Field
+                  label="Instagram handle"
+                  htmlFor="instagram"
+                  required={form.contactMethod === "instagram"}
+                  error={errors.instagram}
+                  hint="Just the handle, no @"
+                >
                   <input
-                    id={`featured-${i}-label`}
+                    id="instagram"
                     type="text"
-                    value={link.label}
-                    onChange={(e) =>
-                      updateFeaturedLink(i, "label", e.target.value)
-                    }
-                    placeholder="e.g. Tickets to our EP release show"
+                    value={form.instagram}
+                    onChange={set("instagram")}
+                    placeholder="yourband"
                     className={inputClass}
                   />
-                </div>
-              </div>
-            ))}
-          </div>
-        </Section>
+                </Field>
 
-        <Section
-          title="Videos"
-          description="YouTube videos of the band — a live set, a music video, whatever. Paste a link per row."
-        >
-          {existingVideos.length > 0 && (
-            <div className="space-y-2">
-              {existingVideos.map((video) => (
-                <div
-                  key={video.id}
-                  className="flex items-center justify-between gap-3 rounded-md bg-ink/5 px-3.5 py-2.5"
+                <Field
+                  label="Bandcamp link"
+                  htmlFor="bandcampLink"
+                  error={errors.bandcampLink}
+                  hint="Your Bandcamp page, shown as a link on your profile."
                 >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm text-ink">{video.title}</p>
-                    <p className="truncate text-xs text-ink/50">{video.url}</p>
+                  <input
+                    id="bandcampLink"
+                    type="url"
+                    value={form.bandcampLink}
+                    onChange={set("bandcampLink")}
+                    placeholder="https://yourband.bandcamp.com"
+                    className={inputClass}
+                  />
+                </Field>
+              </div>
+            </SubGroup>
+
+            <SubGroup
+              label="Bandcamp player"
+              description="Right now this is the only way to make your music playable directly on Twin Scene (fuck Spotify)."
+            >
+              <Field
+                label="Bandcamp"
+                htmlFor="bandcamp"
+                hint="Paste your Bandcamp link, or for a richer player, paste the embed code from Bandcamp's Share/Embed button."
+              >
+                <input
+                  id="bandcamp"
+                  type="text"
+                  value={form.bandcamp}
+                  onChange={set("bandcamp")}
+                  placeholder="https://…  or  <iframe …>"
+                  className={inputClass}
+                />
+              </Field>
+            </SubGroup>
+
+            <SubGroup
+              label="Featured links"
+              description="Up to three things you most want people to see — show tickets, a new release, a fundraiser, whatever. We'll try to pull in a preview image automatically."
+            >
+              <div className="space-y-4">
+                {featuredLinks.map((link, i) => (
+                  <div key={i} className="grid gap-3 sm:grid-cols-[1fr_1fr]">
+                    <div>
+                      <label
+                        htmlFor={`featured-${i}-url`}
+                        className="mb-1 block text-xs text-ink/70"
+                      >
+                        Link {i + 1}
+                      </label>
+                      <input
+                        id={`featured-${i}-url`}
+                        type="url"
+                        value={link.url}
+                        onChange={(e) =>
+                          updateFeaturedLink(i, "url", e.target.value)
+                        }
+                        placeholder="https://"
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor={`featured-${i}-label`}
+                        className="mb-1 block text-xs text-ink/70"
+                      >
+                        What is it?
+                      </label>
+                      <input
+                        id={`featured-${i}-label`}
+                        type="text"
+                        value={link.label}
+                        onChange={(e) =>
+                          updateFeaturedLink(i, "label", e.target.value)
+                        }
+                        placeholder="e.g. Tickets to our EP release show"
+                        className={inputClass}
+                      />
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeExistingVideo(video.id)}
-                    className="shrink-0 rounded-md border border-ink/20 px-2.5 py-1 text-xs text-ink/70 transition hover:border-danger/50 hover:text-danger"
-                  >
-                    Remove
-                  </button>
+                ))}
+              </div>
+            </SubGroup>
+
+            <SubGroup
+              label="Videos"
+              description="YouTube videos of the band — a live set, a music video, whatever. Paste a link per row."
+            >
+              {existingVideos.length > 0 && (
+                <div className="space-y-2">
+                  {existingVideos.map((video) => (
+                    <div
+                      key={video.id}
+                      className="flex items-center justify-between gap-3 rounded-md bg-ink/5 px-3.5 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm text-ink">{video.title}</p>
+                        <p className="truncate text-xs text-ink/50">{video.url}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeExistingVideo(video.id)}
+                        className="shrink-0 rounded-md border border-ink/20 px-2.5 py-1 text-xs text-ink/70 transition hover:border-danger/50 hover:text-danger"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
+
+              <div className="space-y-3">
+                {videos.map((video, i) => (
+                  <div key={i} className="relative rounded-md bg-ink/5 p-4 pr-10">
+                    <button
+                      type="button"
+                      aria-label="Remove this video"
+                      onClick={() => removeVideo(i)}
+                      className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 text-sm leading-none text-ink/70 transition hover:text-ink"
+                    >
+                      ×
+                    </button>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor={`video-${i}-url`}
+                          className="mb-1 block text-xs text-ink/70"
+                        >
+                          YouTube link
+                        </label>
+                        <input
+                          id={`video-${i}-url`}
+                          type="url"
+                          value={video.url}
+                          onChange={(e) => updateVideo(i, "url", e.target.value)}
+                          placeholder="https://youtube.com/watch?v=…"
+                          className={inputClass}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          htmlFor={`video-${i}-label`}
+                          className="mb-1 block text-xs text-ink/70"
+                        >
+                          Caption (optional)
+                        </label>
+                        <input
+                          id={`video-${i}-label`}
+                          type="text"
+                          value={video.label}
+                          onChange={(e) => updateVideo(i, "label", e.target.value)}
+                          placeholder="e.g. Live at the Turf Club"
+                          className={inputClass}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={addVideo}
+                className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-ink/30 px-3 py-1.5 text-sm text-ink/80 transition hover:bg-ink/10 hover:text-ink"
+              >
+                + Add another video
+              </button>
+            </SubGroup>
+          </AccordionSection>
+
+          <AccordionSection
+            id="bioShows"
+            title="Bio, Photo & Shows"
+            description="Your bio, photo, and any upcoming shows fans should know about."
+            statusChip={bioShowsChip}
+            open={openSections.bioShows}
+            onToggle={() => toggleSection("bioShows")}
+          >
+            <SubGroup label="Bio & photo">
+              <Field label="Short bio" htmlFor="bio">
+                <textarea
+                  id="bio"
+                  value={form.bio}
+                  onChange={set("bio")}
+                  maxLength={BIO_MAX}
+                  rows={4}
+                  className={`${inputClass} resize-y`}
+                />
+                <p className="mt-1 text-right text-xs text-ink/45">
+                  {form.bio.length}/{BIO_MAX}
+                </p>
+              </Field>
+
+              <Field
+                label={
+                  isCorrect
+                    ? "Band photo (optional — only needed if you want to update the current photo)"
+                    : "Band photo"
+                }
+                htmlFor="bandPhoto"
+                required={!isCorrect}
+                error={imageError}
+                hint="This will appear on your directory card. JPG or PNG, at least 800px wide recommended."
+              >
+                <input
+                  id="bandPhoto"
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  required={!isCorrect}
+                  onChange={handleFileChange}
+                  className={`${inputClass} file:mr-3 file:rounded file:border-0 file:bg-ink/15 file:px-3 file:py-1 file:text-sm file:text-ink`}
+                />
+                {previewUrl && (
+                  <div className="relative mt-3 inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previewUrl}
+                      alt="Selected band photo preview"
+                      className="h-60 w-60 rounded-md border border-ink/20 object-cover"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remove selected photo"
+                      onClick={clearImageFile}
+                      className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 bg-paper/90 text-sm leading-none text-ink/80 transition hover:text-ink"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
+                {showExistingImage && (
+                  <div className="mt-3">
+                    <p className="mb-1 text-xs text-ink/60">Current photo:</p>
+                    <div className="relative inline-block">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={initialImage}
+                        alt="Current band photo"
+                        className="h-60 w-60 rounded-md border border-ink/20 object-cover"
+                      />
+                      <button
+                        type="button"
+                        aria-label="Remove current photo"
+                        onClick={() => setRemoveExistingImage(true)}
+                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 bg-paper/90 text-sm leading-none text-ink/80 transition hover:text-ink"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </Field>
+            </SubGroup>
+
+            <SubGroup
+              label="Upcoming shows"
+              description="Let people know where to catch you live."
+            >
+              <div className="space-y-3">
+                {shows.map((show, i) => (
+                  <div
+                    key={i}
+                    className="relative rounded-md bg-ink/5 p-4 pr-10"
+                  >
+                    <button
+                      type="button"
+                      aria-label="Remove this show"
+                      onClick={() => removeShow(i)}
+                      className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 text-sm leading-none text-ink/70 transition hover:text-ink"
+                    >
+                      ×
+                    </button>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor={`show-${i}-date`}
+                          className="mb-1 block text-xs text-ink/70"
+                        >
+                          Date
+                        </label>
+                        <input
+                          id={`show-${i}-date`}
+                          type="date"
+                          value={show.date}
+                          onChange={(e) => updateShow(i, "date", e.target.value)}
+                          className={`${inputClass} [color-scheme:light]`}
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor={`show-${i}-venue`}
+                          className="mb-1 block text-xs text-ink/70"
+                        >
+                          Venue
+                        </label>
+                        <input
+                          id={`show-${i}-venue`}
+                          type="text"
+                          value={show.venue}
+                          onChange={(e) => updateShow(i, "venue", e.target.value)}
+                          placeholder="e.g. 7th St Entry"
+                          className={inputClass}
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor={`show-${i}-notes`}
+                          className="mb-1 block text-xs text-ink/70"
+                        >
+                          Notes
+                        </label>
+                        <input
+                          id={`show-${i}-notes`}
+                          type="text"
+                          value={show.notes}
+                          onChange={(e) => updateShow(i, "notes", e.target.value)}
+                          placeholder="e.g. w/ other band, free entry"
+                          className={inputClass}
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor={`show-${i}-link`}
+                          className="mb-1 block text-xs text-ink/70"
+                        >
+                          Link
+                        </label>
+                        <input
+                          id={`show-${i}-link`}
+                          type="url"
+                          value={show.link}
+                          onChange={(e) => updateShow(i, "link", e.target.value)}
+                          placeholder="https://"
+                          className={inputClass}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={addShow}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-ink/30 px-3 py-1.5 text-sm text-ink/80 transition hover:bg-ink/10 hover:text-ink"
+              >
+                + Add another show
+              </button>
+            </SubGroup>
+          </AccordionSection>
+
+          <AccordionSection
+            id="aboutYou"
+            title="About You"
+            description="So we can follow up on your submission — never shown publicly."
+            statusChip={isCorrect ? aboutYouChip : undefined}
+            open={openSections.aboutYou}
+            onToggle={() => toggleSection("aboutYou")}
+            collapsible={isCorrect}
+          >
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Your name"
+                htmlFor="submitterName"
+                required
+                error={errors.submitterName}
+              >
+                <input
+                  id="submitterName"
+                  type="text"
+                  value={form.submitterName}
+                  onChange={set("submitterName")}
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field
+                label="Your email"
+                htmlFor="submitterEmail"
+                required
+                error={errors.submitterEmail}
+              >
+                <input
+                  id="submitterEmail"
+                  type="email"
+                  value={form.submitterEmail}
+                  onChange={set("submitterEmail")}
+                  className={inputClass}
+                />
+              </Field>
             </div>
+
+            <Field
+              label="Additional notes"
+              htmlFor="notes"
+              hint="Anything else we should know, or what you're correcting."
+            >
+              <textarea
+                id="notes"
+                value={form.notes}
+                onChange={set("notes")}
+                rows={3}
+                className={`${inputClass} resize-y`}
+              />
+            </Field>
+          </AccordionSection>
+
+          {status === "error" && (
+            <p className="rounded-md border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-sm text-danger">
+              {errorMsg}
+            </p>
           )}
 
-          <div className="space-y-3">
-            {videos.map((video, i) => (
-              <div key={i} className="relative rounded-md bg-ink/5 p-4 pr-10">
-                <button
-                  type="button"
-                  aria-label="Remove this video"
-                  onClick={() => removeVideo(i)}
-                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 text-sm leading-none text-ink/70 transition hover:text-ink"
-                >
-                  ×
-                </button>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label
-                      htmlFor={`video-${i}-url`}
-                      className="mb-1 block text-xs text-ink/70"
-                    >
-                      YouTube link
-                    </label>
-                    <input
-                      id={`video-${i}-url`}
-                      type="url"
-                      value={video.url}
-                      onChange={(e) => updateVideo(i, "url", e.target.value)}
-                      placeholder="https://youtube.com/watch?v=…"
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor={`video-${i}-label`}
-                      className="mb-1 block text-xs text-ink/70"
-                    >
-                      Caption (optional)
-                    </label>
-                    <input
-                      id={`video-${i}-label`}
-                      type="text"
-                      value={video.label}
-                      onChange={(e) => updateVideo(i, "label", e.target.value)}
-                      placeholder="e.g. Live at the Turf Club"
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={addVideo}
-            className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-ink/30 px-3 py-1.5 text-sm text-ink/80 transition hover:bg-ink/10 hover:text-ink"
-          >
-            + Add another video
-          </button>
-        </Section>
-
-        <Section title="Bio & photo">
-          <Field label="Short bio" htmlFor="bio">
-            <textarea
-              id="bio"
-              value={form.bio}
-              onChange={set("bio")}
-              maxLength={BIO_MAX}
-              rows={4}
-              className={`${inputClass} resize-y`}
-            />
-            <p className="mt-1 text-right text-xs text-ink/45">
-              {form.bio.length}/{BIO_MAX}
+          {invalidCount > 0 && (
+            <p
+              role="alert"
+              className="rounded-md border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-sm text-danger"
+            >
+              {invalidCount === 1
+                ? "Please fix the highlighted field above before submitting."
+                : `Please fix the ${invalidCount} highlighted fields above before submitting.`}
             </p>
-          </Field>
+          )}
 
-          <Field
-            label={
-              isCorrect
-                ? "Band photo (optional — only needed if you want to update the current photo)"
-                : "Band photo"
-            }
-            htmlFor="bandPhoto"
-            required={!isCorrect}
-            error={imageError}
-            hint="This will appear on your directory card. JPG or PNG, at least 800px wide recommended."
-          >
-            <input
-              id="bandPhoto"
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              required={!isCorrect}
-              onChange={handleFileChange}
-              className={`${inputClass} file:mr-3 file:rounded file:border-0 file:bg-ink/15 file:px-3 file:py-1 file:text-sm file:text-ink`}
-            />
-            {previewUrl && (
-              <div className="relative mt-3 inline-block">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewUrl}
-                  alt="Selected band photo preview"
-                  className="h-60 w-60 rounded-md border border-ink/20 object-cover"
-                />
-                <button
-                  type="button"
-                  aria-label="Remove selected photo"
-                  onClick={clearImageFile}
-                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 bg-paper/90 text-sm leading-none text-ink/80 transition hover:text-ink"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-            {showExistingImage && (
-              <div className="mt-3">
-                <p className="mb-1 text-xs text-ink/60">Current photo:</p>
-                <div className="relative inline-block">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={initialImage}
-                    alt="Current band photo"
-                    className="h-60 w-60 rounded-md border border-ink/20 object-cover"
-                  />
-                  <button
-                    type="button"
-                    aria-label="Remove current photo"
-                    onClick={() => setRemoveExistingImage(true)}
-                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 bg-paper/90 text-sm leading-none text-ink/80 transition hover:text-ink"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            )}
-          </Field>
-        </Section>
-
-        <Section
-          title="About you"
-          description="So we can follow up on your submission — never shown publicly."
-        >
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Field
-              label="Your name"
-              htmlFor="submitterName"
-              required
-              error={errors.submitterName}
+          <div className="sticky bottom-0 z-20 -mx-5 border-t border-ink/15 bg-paper/95 px-5 py-4 backdrop-blur sm:-mx-7 sm:px-7">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <input
-                id="submitterName"
-                type="text"
-                value={form.submitterName}
-                onChange={set("submitterName")}
-                className={inputClass}
-              />
-            </Field>
-
-            <Field
-              label="Your email"
-              htmlFor="submitterEmail"
-              required
-              error={errors.submitterEmail}
-            >
-              <input
-                id="submitterEmail"
-                type="email"
-                value={form.submitterEmail}
-                onChange={set("submitterEmail")}
-                className={inputClass}
-              />
-            </Field>
+              {submitting
+                ? "Submitting…"
+                : isCorrect
+                  ? "Submit correction"
+                  : "Submit your band"}
+            </button>
           </div>
+        </form>
+      </div>
 
-          <Field
-            label="Additional notes"
-            htmlFor="notes"
-            hint="Anything else we should know, or what you're correcting."
-          >
-            <textarea
-              id="notes"
-              value={form.notes}
-              onChange={set("notes")}
-              rows={3}
-              className={`${inputClass} resize-y`}
-            />
-          </Field>
-        </Section>
-
-        <Section
-          title="Upcoming shows"
-          description="Let people know where to catch you live."
-        >
-          <div className="space-y-3">
-            {shows.map((show, i) => (
-              <div
-                key={i}
-                className="relative rounded-md bg-ink/5 p-4 pr-10"
-              >
-                <button
-                  type="button"
-                  aria-label="Remove this show"
-                  onClick={() => removeShow(i)}
-                  className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 text-sm leading-none text-ink/70 transition hover:text-ink"
-                >
-                  ×
-                </button>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <label
-                      htmlFor={`show-${i}-date`}
-                      className="mb-1 block text-xs text-ink/70"
-                    >
-                      Date
-                    </label>
-                    <input
-                      id={`show-${i}-date`}
-                      type="date"
-                      value={show.date}
-                      onChange={(e) => updateShow(i, "date", e.target.value)}
-                      className={`${inputClass} [color-scheme:light]`}
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor={`show-${i}-venue`}
-                      className="mb-1 block text-xs text-ink/70"
-                    >
-                      Venue
-                    </label>
-                    <input
-                      id={`show-${i}-venue`}
-                      type="text"
-                      value={show.venue}
-                      onChange={(e) => updateShow(i, "venue", e.target.value)}
-                      placeholder="e.g. 7th St Entry"
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor={`show-${i}-notes`}
-                      className="mb-1 block text-xs text-ink/70"
-                    >
-                      Notes
-                    </label>
-                    <input
-                      id={`show-${i}-notes`}
-                      type="text"
-                      value={show.notes}
-                      onChange={(e) => updateShow(i, "notes", e.target.value)}
-                      placeholder="e.g. w/ other band, free entry"
-                      className={inputClass}
-                    />
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor={`show-${i}-link`}
-                      className="mb-1 block text-xs text-ink/70"
-                    >
-                      Link
-                    </label>
-                    <input
-                      id={`show-${i}-link`}
-                      type="url"
-                      value={show.link}
-                      onChange={(e) => updateShow(i, "link", e.target.value)}
-                      placeholder="https://"
-                      className={inputClass}
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={addShow}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-ink/30 px-3 py-1.5 text-sm text-ink/80 transition hover:bg-ink/10 hover:text-ink"
-          >
-            + Add another show
-          </button>
-        </Section>
-
-        {status === "error" && (
-          <p className="rounded-md border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-sm text-danger">
-            {errorMsg}
-          </p>
-        )}
-
-        {invalidCount > 0 && (
-          <p
-            role="alert"
-            className="rounded-md border border-danger/40 bg-danger/10 px-3.5 py-2.5 text-sm text-danger"
-          >
-            {invalidCount === 1
-              ? "Please fix the highlighted field above before submitting."
-              : `Please fix the ${invalidCount} highlighted fields above before submitting.`}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {submitting
-            ? "Submitting…"
-            : isCorrect
-              ? "Submit correction"
-              : "Submit your band"}
-        </button>
-      </form>
+      <aside className="lg:sticky lg:top-8">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#E8E0D0]/40">
+          How this looks in the directory
+        </p>
+        <div className="max-w-[220px]">
+          <LivePreviewCard
+            name={form.bandName}
+            genres={genresList}
+            neighborhoods={neighborhoodsList}
+            city={form.location}
+            photoUrl={previewPhotoUrl}
+          />
+        </div>
+      </aside>
     </div>
   );
 }

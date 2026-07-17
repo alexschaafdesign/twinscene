@@ -18,6 +18,12 @@
   --color-paper: #f7f3e9;
   --color-ink: #2a2420;
   --color-danger: #b42318;
+
+  /* Purposeful accent for the paper/ink form panel — a warm olive-brown used
+     sparingly (focused field borders, active accordion state, required
+     asterisks, status chips) so it reads as an intentional signal rather than
+     decoration. */
+  --color-accent: #7c5e35;
 }
 
 * {
