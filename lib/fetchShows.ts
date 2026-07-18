@@ -52,7 +52,7 @@ type ShowsQueryRow = {
 };
 
 /** Today's date as "YYYY-MM-DD" in America/Chicago (en-CA yields ISO order). */
-function todayInChicago(): string {
+export function todayInChicago(): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/Chicago",
     year: "numeric",
@@ -114,6 +114,37 @@ export async function fetchShows(): Promise<Show[]> {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/**
+ * Every show dated in the last `days` days, most recent first — the "Recent
+ * shows" tab on /shows, so a show that's already happened is still reachable
+ * (to mark "I went to this") even though fetchShows() drops it the moment its
+ * date passes. Windowed rather than "everything past" (unlike
+ * fetchAllShows()) to keep the query cheap as show history grows.
+ */
+export async function fetchPastShows(days: number): Promise<Show[]> {
+  const today = todayInChicago();
+  const start = new Date(`${today}T00:00:00Z`);
+  start.setUTCDate(start.getUTCDate() - days);
+  const startStr = start.toISOString().slice(0, 10);
+
+  let rows: ShowsQueryRow[];
+  try {
+    rows = await sql<ShowsQueryRow[]>`
+      SELECT
+        id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
+        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        needs_review, confidence, review_reasons
+      FROM shows
+      WHERE confidence IS DISTINCT FROM 'broken' AND date >= ${startStr} AND date < ${today}
+    `;
+  } catch (err) {
+    console.error("fetchPastShows: query failed", err);
+    return [];
+  }
+
+  return rows.map(mapRow).sort((a, b) => b.date.localeCompare(a.date));
+}
+
 /** Today + the next `days - 1` days, both as "YYYY-MM-DD" (America/Chicago). */
 export function reviewWindow(days: number): { start: string; end: string } {
   const start = todayInChicago();
@@ -147,6 +178,13 @@ export async function fetchShowsForReview(days: number): Promise<Show[]> {
   }
 
   return rows.map(mapRow).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** Whether a show id exists — used by the attendance-status route to 404
+ * instead of hitting the show_saves FK constraint on a bad id. */
+export async function showExists(id: string): Promise<boolean> {
+  const [row] = await sql`select 1 from shows where id = ${id} limit 1`;
+  return !!row;
 }
 
 /**

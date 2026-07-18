@@ -162,3 +162,85 @@ export function SaveBandButton({
     </button>
   );
 }
+
+const followButtonBaseClass =
+  "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50";
+const followButtonInactiveClass = `${followButtonBaseClass} border-[#E8E0D0]/25 text-[#E8E0D0]/80 hover:border-[#E8E0D0] hover:text-[#E8E0D0]`;
+const followButtonActiveClass = `${followButtonBaseClass} border-[#8FD693]/50 bg-[#8FD693]/10 text-[#8FD693]`;
+
+function BellIcon() {
+  return (
+    // ti-bell (Tabler) — deliberately different from the save heart, since
+    // Follow ("keep up with this band") is a different action from Save
+    // (bookmark/favorite).
+    <svg {...iconProps} width={15} height={15}>
+      <path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" />
+      <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
+    </svg>
+  );
+}
+
+/**
+ * Follow/unfollow toggle for a band, shown on the band profile page next to
+ * (but visually distinct from) SaveBandButton — a labeled pill rather than an
+ * icon-only heart, since following is a different, forward-looking action
+ * ("keep up with this band") from saving (a bookmark). Optimistic, same
+ * pattern as SaveBandButton: flips immediately, reverts on failure. Logged-out
+ * visitors get a plain link to /login instead of firing the toggle.
+ */
+export function FollowBandButton({
+  slug,
+  initialFollowing,
+  loggedIn,
+}: {
+  slug: string;
+  initialFollowing: boolean;
+  loggedIn: boolean;
+}) {
+  const [following, setFollowing] = useState(initialFollowing);
+  const [pending, setPending] = useState(false);
+
+  if (!loggedIn) {
+    return (
+      <Link
+        href={`/login?next=${encodeURIComponent(`/bands/${slug}`)}`}
+        aria-label="Log in to follow this band"
+        title="Log in to follow this band"
+        className={followButtonInactiveClass}
+      >
+        <BellIcon />
+        Follow
+      </Link>
+    );
+  }
+
+  async function toggle() {
+    const next = !following;
+    setFollowing(next);
+    setPending(true);
+    try {
+      const res = await fetch(`/api/bands/${slug}/follow`, { method: next ? "POST" : "DELETE" });
+      if (!res.ok) throw new Error(`follow toggle failed (${res.status})`);
+    } catch (err) {
+      console.error("FollowBandButton: toggle failed", err);
+      setFollowing(!next);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={pending}
+      aria-pressed={following}
+      aria-label={following ? "Unfollow this band" : "Follow this band"}
+      title={following ? "Unfollow this band" : "Follow this band"}
+      className={following ? followButtonActiveClass : followButtonInactiveClass}
+    >
+      <BellIcon />
+      {following ? "Following" : "Follow"}
+    </button>
+  );
+}

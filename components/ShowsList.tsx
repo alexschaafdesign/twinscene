@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import type { Show } from "@/lib/fetchShows";
 import { matchVenue, type Venue } from "@/lib/fetchVenues";
 import type { Press } from "@/lib/fetchPress";
+import type { ShowStatus } from "@/lib/showSaves";
 import ShowsTimeline from "@/components/ShowsTimeline";
 
 // Canonical display name for a show's venue, falling back to the raw scraped
@@ -15,33 +16,51 @@ function venueName(directory: Venue[], s: Show): string {
 
 export default function ShowsList({
   shows,
+  pastShows = [],
   venues: venueDirectory,
   press = [],
+  today,
+  statuses = {},
+  loggedIn = false,
 }: {
   shows: Show[];
+  /** Shows in the last N days (fetchPastShows) — the "Recent" tab, so a show
+   * that's already happened is still reachable to mark "I went to this". */
+  pastShows?: Show[];
   venues: Venue[];
   press?: Press[];
+  /** "YYYY-MM-DD" in America/Chicago, for ShowsTimeline's upcoming/past split. */
+  today: string;
+  /** Logged-in user's attendance status per show id. */
+  statuses?: Record<string, ShowStatus>;
+  loggedIn?: boolean;
 }) {
+  const [view, setView] = useState<"upcoming" | "recent">("upcoming");
   const [venue, setVenue] = useState<string>("");
   const [venueType, setVenueType] = useState<string>("");
   const [localBandsOnly, setLocalBandsOnly] = useState(false);
   const [pressRecommendedOnly, setPressRecommendedOnly] = useState(false);
   const [showAllEvents, setShowAllEvents] = useState(false);
 
+  // Everything below (filters, counts, the timeline itself) derives from
+  // whichever tab is active, so switching to "Recent" re-scopes the whole
+  // page to past shows instead of upcoming ones.
+  const activeShows = view === "recent" ? pastShows : shows;
+
   // Shows tagged with a non-band event type (open mic, trivia, DJ night,
   // etc. — see the scrapers' classifyEventType helpers). Hidden by default;
   // the "Show all events" toggle below reveals them.
   const nonBandEventsCount = useMemo(
-    () => shows.filter((s) => s.eventType).length,
-    [shows],
+    () => activeShows.filter((s) => s.eventType).length,
+    [activeShows],
   );
 
   // Everything downstream (venue/type filters, the other toggles, and the
   // final visible list) derives from this, so counts and dropdowns stay
   // consistent with what "Show all events" actually reveals.
   const baseShows = useMemo(
-    () => (showAllEvents ? shows : shows.filter((s) => !s.eventType)),
-    [shows, showAllEvents],
+    () => (showAllEvents ? activeShows : activeShows.filter((s) => !s.eventType)),
+    [activeShows, showAllEvents],
   );
 
   // Distinct venues (with counts), busiest first (ties broken alphabetically).
@@ -93,7 +112,7 @@ export default function ShowsList({
       (!pressRecommendedOnly || s.starredBy.length > 0),
   );
 
-  if (shows.length === 0) {
+  if (shows.length === 0 && pastShows.length === 0) {
     return (
       <div className="py-20 text-center">
         <p className="text-sm leading-relaxed text-[#E8E0D0]/60">
@@ -111,6 +130,27 @@ export default function ShowsList({
 
   return (
     <div>
+      {/* Upcoming/Recent tab — Recent only worth showing once there's
+          something in the last 30 days to look back at. Lets a past show
+          stay reachable (to mark "I went to this") after fetchShows() drops
+          it from the upcoming list. */}
+      {pastShows.length > 0 && (
+        <div className="mb-4 flex items-center gap-2">
+          <FilterChip
+            label="Upcoming"
+            count={shows.length}
+            active={view === "upcoming"}
+            onClick={() => setView("upcoming")}
+          />
+          <FilterChip
+            label="Recent"
+            count={pastShows.length}
+            active={view === "recent"}
+            onClick={() => setView("recent")}
+          />
+        </div>
+      )}
+
       {/* Local bands / press-recommended / show-all-events toggles — only
           worth showing when some shows qualify. */}
       {(localBandsCount > 0 || pressRecommendedCount > 0 || nonBandEventsCount > 0) && (
@@ -184,14 +224,22 @@ export default function ShowsList({
       <ShowsTimeline
         shows={visible}
         press={press}
+        today={today}
+        statuses={statuses}
+        loggedIn={loggedIn}
+        returnTo="/shows"
         emptyMessage={
-          venue
-            ? `No upcoming shows at ${venue}.`
-            : pressRecommendedOnly
-              ? "No upcoming shows recommended by local press."
-              : localBandsOnly
-                ? "No upcoming shows with local bands."
-                : "No upcoming shows."
+          view === "recent"
+            ? venue
+              ? `No recent shows at ${venue}.`
+              : "No recent shows in the last 30 days."
+            : venue
+              ? `No upcoming shows at ${venue}.`
+              : pressRecommendedOnly
+                ? "No upcoming shows recommended by local press."
+                : localBandsOnly
+                  ? "No upcoming shows with local bands."
+                  : "No upcoming shows."
         }
       />
     </div>

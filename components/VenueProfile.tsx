@@ -6,6 +6,7 @@
 import type { Show } from "@/lib/fetchShows";
 import type { Venue } from "@/lib/fetchVenues";
 import type { Press } from "@/lib/fetchPress";
+import type { ShowStatus } from "@/lib/showSaves";
 import ShowsTimeline from "@/components/ShowsTimeline";
 import { VenueIcon, VenuePlaceLine } from "@/components/venue-shared";
 
@@ -33,10 +34,18 @@ export default function VenueProfile({
   venue,
   shows = [],
   press = [],
+  today,
+  showStatuses = {},
+  loggedIn = false,
 }: {
   venue: Venue;
   shows?: Show[];
   press?: Press[];
+  /** "YYYY-MM-DD" in America/Chicago, for ShowsTimeline's upcoming/past split. */
+  today: string;
+  /** Logged-in user's attendance status per show id. */
+  showStatuses?: Record<string, ShowStatus>;
+  loggedIn?: boolean;
 }) {
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-[300px_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:gap-x-10">
@@ -83,6 +92,10 @@ export default function VenueProfile({
           <ShowsTimeline
             shows={shows}
             press={press}
+            today={today}
+            statuses={showStatuses}
+            loggedIn={loggedIn}
+            returnTo={`/venues/${venue.slug}`}
             emptyMessage="No upcoming shows listed at this venue yet."
           />
         </div>

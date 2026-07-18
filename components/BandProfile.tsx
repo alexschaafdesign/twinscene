@@ -12,6 +12,7 @@ import type { Band } from "@/lib/fetchBands";
 import type { Show } from "@/lib/fetchShows";
 import type { Press } from "@/lib/fetchPress";
 import type { VideoRow } from "@/lib/videos";
+import type { ShowStatus } from "@/lib/showSaves";
 import { pressNotes } from "@/lib/press";
 import BandcampPlayer from "@/components/BandcampPlayer";
 import {
@@ -22,6 +23,7 @@ import {
   iconProps,
 } from "@/components/band-shared";
 import { BandImage, CopyButton } from "@/components/band-shared-client";
+import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 import { parseYoutubeId } from "@/lib/youtube";
 
 /** Prefilled "correct this band" submit URL — shown in the profile header. */
@@ -270,11 +272,19 @@ export default function BandProfile({
   shows = [],
   press = [],
   videos = [],
+  today,
+  showStatuses = {},
+  loggedIn = false,
 }: {
   band: Band;
   shows?: Show[];
   press?: Press[];
   videos?: VideoRow[];
+  /** "YYYY-MM-DD" in America/Chicago, for the upcoming/past split on each show. */
+  today: string;
+  /** Logged-in user's attendance status per show id. */
+  showStatuses?: Record<string, ShowStatus>;
+  loggedIn?: boolean;
 }) {
   const hasBandcamp = band.bandcampEmbedUrl || band.bandcamp;
 
@@ -424,6 +434,17 @@ export default function BandProfile({
                         )}
                       </div>
                     ),
+                  )}
+                  {show.id && (
+                    <div className="mt-2">
+                      <ShowStatusButtons
+                        showId={show.id}
+                        isPast={show.date < today}
+                        initialStatus={showStatuses[show.id] ?? null}
+                        loggedIn={loggedIn}
+                        returnTo={`/bands/${band.slug}`}
+                      />
+                    </div>
                   )}
                 </li>
               ))}

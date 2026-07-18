@@ -2,15 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchBands } from "@/lib/fetchBands";
-import { fetchShows } from "@/lib/fetchShows";
+import { fetchShows, todayInChicago } from "@/lib/fetchShows";
 import { fetchPress } from "@/lib/fetchPress";
 import { getVisibleVideosBySlug } from "@/lib/videos";
 import { getBandBySlug } from "@/lib/bands";
 import { getCurrentUser } from "@/lib/auth";
 import { isBandSaved } from "@/lib/savedBands";
+import { isBandFollowing } from "@/lib/bandFollows";
+import { listShowStatuses } from "@/lib/showSaves";
 import BandProfile, { editHref } from "@/components/BandProfile";
 import { iconProps, locationLabel } from "@/components/band-shared";
-import { SaveBandButton } from "@/components/band-shared-client";
+import { SaveBandButton, FollowBandButton } from "@/components/band-shared-client";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -67,6 +69,8 @@ export default async function BandProfilePage({ params }: Props) {
   // isBandSaved.
   const bandRow = await getBandBySlug(slug);
   const initialSaved = user && bandRow ? await isBandSaved(user.id, bandRow.id) : false;
+  const initialFollowing = user && bandRow ? await isBandFollowing(user.id, bandRow.id) : false;
+  const showStatuses = user ? await listShowStatuses(user.id, bandShows.map((s) => s.id)) : {};
 
   return (
     <div>
@@ -80,6 +84,7 @@ export default async function BandProfilePage({ params }: Props) {
 
         <div className="flex items-center gap-3">
           <SaveBandButton slug={slug} initialSaved={initialSaved} loggedIn={!!user} />
+          <FollowBandButton slug={slug} initialFollowing={initialFollowing} loggedIn={!!user} />
 
           <Link
             href={editHref(band, videos)}
@@ -97,7 +102,15 @@ export default async function BandProfilePage({ params }: Props) {
         </div>
       </div>
 
-      <BandProfile band={band} shows={bandShows} press={press} videos={videos} />
+      <BandProfile
+        band={band}
+        shows={bandShows}
+        press={press}
+        videos={videos}
+        today={todayInChicago()}
+        showStatuses={showStatuses}
+        loggedIn={!!user}
+      />
     </div>
   );
 }

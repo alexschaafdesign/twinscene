@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchVenues, matchVenue } from "@/lib/fetchVenues";
-import { fetchShows } from "@/lib/fetchShows";
+import { fetchShows, todayInChicago } from "@/lib/fetchShows";
 import { fetchPress } from "@/lib/fetchPress";
+import { getCurrentUser } from "@/lib/auth";
+import { listShowStatuses } from "@/lib/showSaves";
 import VenueProfile from "@/components/VenueProfile";
 import { venueEditHref, venueLocationLabel } from "@/components/venue-shared";
 import { iconProps } from "@/components/band-shared";
@@ -43,6 +45,8 @@ export default async function VenueProfilePage({ params }: Props) {
   const venueShows = shows.filter(
     (s) => matchVenue(venues, s.venue)?.slug === venue.slug,
   );
+  const user = await getCurrentUser();
+  const showStatuses = user ? await listShowStatuses(user.id, venueShows.map((s) => s.id)) : {};
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
@@ -69,7 +73,14 @@ export default async function VenueProfilePage({ params }: Props) {
         </Link>
       </div>
 
-      <VenueProfile venue={venue} shows={venueShows} press={press} />
+      <VenueProfile
+        venue={venue}
+        shows={venueShows}
+        press={press}
+        today={todayInChicago()}
+        showStatuses={showStatuses}
+        loggedIn={!!user}
+      />
     </main>
   );
 }

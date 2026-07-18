@@ -7,8 +7,10 @@
 import Link from "next/link";
 import type { Show } from "@/lib/fetchShows";
 import type { Press } from "@/lib/fetchPress";
+import type { ShowStatus } from "@/lib/showSaves";
 import { pressNotes } from "@/lib/press";
 import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
+import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 
 /** Prefix a bare URL with https:// so hrefs from the sheet always resolve. */
 function ensureUrl(value: string): string {
@@ -63,10 +65,22 @@ export default function ShowsTimeline({
   shows,
   press = [],
   emptyMessage = "No upcoming shows.",
+  today,
+  statuses = {},
+  loggedIn = false,
+  returnTo = "/shows",
 }: {
   shows: Show[];
   press?: Press[];
   emptyMessage?: string;
+  /** "YYYY-MM-DD" in America/Chicago — a show dated before this is past. Plain
+   * string comparison works since dates are already ISO-ordered. */
+  today: string;
+  /** Logged-in user's attendance status per show id, from listShowStatuses. */
+  statuses?: Record<string, ShowStatus>;
+  loggedIn?: boolean;
+  /** Where a logged-out attendance click's /login redirects back to. */
+  returnTo?: string;
 }) {
   const groups = groupByDate(shows);
 
@@ -191,25 +205,36 @@ export default function ShowsTimeline({
                       )}
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    {show.link && (
-                      <a
-                        href={ensureUrl(show.link)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-sm text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10"
-                      >
-                        Tickets / Info →
-                      </a>
-                    )}
+                  <div className="flex shrink-0 flex-col items-end gap-2">
                     {show.id && (
-                      <Link
-                        href={editHref(show)}
-                        className="text-xs text-[#E8E0D0]/40 transition hover:text-[#E8E0D0]/80"
-                      >
-                        Edit
-                      </Link>
+                      <ShowStatusButtons
+                        showId={show.id}
+                        isPast={show.date < today}
+                        initialStatus={statuses[show.id] ?? null}
+                        loggedIn={loggedIn}
+                        returnTo={returnTo}
+                      />
                     )}
+                    <div className="flex items-center gap-3">
+                      {show.link && (
+                        <a
+                          href={ensureUrl(show.link)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-sm text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10"
+                        >
+                          Tickets / Info →
+                        </a>
+                      )}
+                      {show.id && (
+                        <Link
+                          href={editHref(show)}
+                          className="text-xs text-[#E8E0D0]/40 transition hover:text-[#E8E0D0]/80"
+                        >
+                          Edit
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
               </li>

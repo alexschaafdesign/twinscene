@@ -1,8 +1,10 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { fetchShows } from "@/lib/fetchShows";
+import { fetchShows, fetchPastShows, todayInChicago } from "@/lib/fetchShows";
 import { fetchVenues } from "@/lib/fetchVenues";
 import { fetchPress } from "@/lib/fetchPress";
+import { getCurrentUser } from "@/lib/auth";
+import { listShowStatuses } from "@/lib/showSaves";
 import ShowsList from "@/components/ShowsList";
 
 export const metadata: Metadata = {
@@ -10,12 +12,21 @@ export const metadata: Metadata = {
   description: "This list is mostly created automatically by pulling info from venue websites. Still in beta!",
 };
 
+// How far back the "Recent" tab looks — just enough to make a just-happened
+// show reachable for marking "I went to this", not a full history browser.
+const PAST_SHOWS_DAYS = 30;
+
 export default async function ShowsPage() {
-  const [shows, venues, press] = await Promise.all([
+  const [shows, pastShows, venues, press, user] = await Promise.all([
     fetchShows(),
+    fetchPastShows(PAST_SHOWS_DAYS),
     fetchVenues(),
     fetchPress(),
+    getCurrentUser(),
   ]);
+  const statuses = user
+    ? await listShowStatuses(user.id, [...shows, ...pastShows].map((s) => s.id))
+    : {};
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
@@ -50,7 +61,15 @@ export default async function ShowsPage() {
         </p>
       </header>
 
-      <ShowsList shows={shows} venues={venues} press={press} />
+      <ShowsList
+        shows={shows}
+        pastShows={pastShows}
+        venues={venues}
+        press={press}
+        today={todayInChicago()}
+        statuses={statuses}
+        loggedIn={!!user}
+      />
     </main>
   );
 }
