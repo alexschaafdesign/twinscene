@@ -176,3 +176,41 @@ export async function deleteAvatar(publicUrl: string): Promise<void> {
     console.error("lib/r2: failed to delete previous avatar", err);
   }
 }
+
+// Musician avatars (Musicians Slice 3) reuse generateAvatar above — same
+// sharp resize/re-encode pipeline — but live under their own musicians/<id>/
+// prefix (rather than avatars/<userId>/) since a musician's avatar and its
+// linked user's avatar (if any) are independent uploads.
+
+/** Upload a processed musician avatar under musicians/<musicianId>/<random>.webp
+ * and return its public URL. */
+export async function uploadMusicianAvatar(musicianId: number, bytes: Buffer): Promise<string> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
+  }
+  const key = `musicians/${musicianId}/${crypto.randomUUID()}.webp`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: bytes,
+      ContentType: "image/webp",
+    }),
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
+/** Best-effort delete of a previous musician avatar, given its public URL. */
+export async function deleteMusicianAvatar(publicUrl: string): Promise<void> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) return;
+  if (!publicUrl.startsWith(`${R2_PUBLIC_URL}/musicians/`)) return;
+  const key = publicUrl.slice(`${R2_PUBLIC_URL}/`.length);
+
+  try {
+    await client().send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+  } catch (err) {
+    console.error("lib/r2: failed to delete previous musician avatar", err);
+  }
+}

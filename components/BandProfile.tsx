@@ -8,6 +8,7 @@
 // links → contact). The surrounding chrome (back / edit links) is supplied by
 // the page, using `editHref` below.
 
+import Link from "next/link";
 import type { Band } from "@/lib/fetchBands";
 import type { Show } from "@/lib/fetchShows";
 import type { Press } from "@/lib/fetchPress";
@@ -339,12 +340,13 @@ export default function BandProfile({
             </h2>
             <div className="flex flex-wrap gap-1.5">
               {members.map((m) => (
-                <span
+                <Link
                   key={m.id}
-                  className="rounded-full bg-[#E8E0D0]/10 px-2.5 py-0.5 text-xs text-[#E8E0D0]/80"
+                  href={`/m/${m.slug}`}
+                  className="rounded-full bg-[#E8E0D0]/10 px-2.5 py-0.5 text-xs text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/20 hover:text-[#E8E0D0]"
                 >
                   {m.name}
-                </span>
+                </Link>
               ))}
             </div>
           </div>

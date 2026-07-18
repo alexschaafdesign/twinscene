@@ -7,6 +7,7 @@
 import { sql } from "./db.ts";
 import type postgres from "postgres";
 import { slugify } from "./bands.ts";
+import type { User } from "./auth.ts";
 
 export interface Musician {
   id: number;
@@ -68,6 +69,136 @@ export async function getMusicianForUser(
     order by bands.name asc
   `;
   return { ...musician, bands };
+}
+
+// The single rule for "can this user edit this musician's profile" — mirrors
+// canEditBand in lib/auth.ts. Unlike band editing (many editors per band via
+// band_editors), a musician has at most one linked user (musicians.user_id,
+// unique), so this is a direct column check rather than a join table.
+export async function canEditMusician(user: User | null, musicianId: number): Promise<boolean> {
+  if (!user) return false;
+  if (user.is_admin) return true;
+
+  const [row] = await sql`
+    select 1 from musicians where id = ${musicianId} and user_id = ${user.id} limit 1
+  `;
+  return !!row;
+}
+
+export class MusicianNotFoundError extends Error {
+  constructor() {
+    super("Musician not found");
+  }
+}
+
+export class ForbiddenMusicianEditError extends Error {
+  constructor() {
+    super("You don't have edit access to this musician");
+  }
+}
+
+export class InvalidMusicianNameError extends Error {
+  constructor() {
+    super("Name is required");
+  }
+}
+
+const MAX_MUSICIAN_BIO_LENGTH = 280;
+
+export class InvalidMusicianBioError extends Error {
+  constructor() {
+    super(`Bio must be ${MAX_MUSICIAN_BIO_LENGTH} characters or fewer`);
+  }
+}
+
+export interface MusicianProfileUpdate {
+  name?: string;
+  bio?: string | null;
+}
+
+// Updates a musician's own-editable fields (name, bio) — gated by
+// canEditMusician, checked again here (not just at the route) so the rule
+// holds regardless of caller. `slug` is deliberately never written: it's the
+// URL (/m/[slug]), so a name edit must never move it.
+export async function updateMusicianProfile(
+  musicianId: number,
+  update: MusicianProfileUpdate,
+  actingUser: User,
+): Promise<Musician> {
+  if (!(await canEditMusician(actingUser, musicianId))) {
+    throw new ForbiddenMusicianEditError();
+  }
+
+  const fields: Partial<Record<"name" | "bio", string | null>> = {};
+  if (update.name !== undefined) {
+    const name = update.name.trim();
+    if (!name) throw new InvalidMusicianNameError();
+    fields.name = name;
+  }
+  if (update.bio !== undefined) {
+    const bio = update.bio?.trim() || null;
+    if (bio && bio.length > MAX_MUSICIAN_BIO_LENGTH) throw new InvalidMusicianBioError();
+    fields.bio = bio;
+  }
+
+  if (Object.keys(fields).length === 0) {
+    const [musician] = await sql<Musician[]>`select * from musicians where id = ${musicianId}`;
+    if (!musician) throw new MusicianNotFoundError();
+    return musician;
+  }
+
+  const [musician] = await sql<Musician[]>`
+    update musicians set ${sql(fields)} where id = ${musicianId} returning *
+  `;
+  if (!musician) throw new MusicianNotFoundError();
+  return musician;
+}
+
+// Points a musician's image_url at a freshly uploaded avatar. The upload
+// itself (validate, resize via sharp, put to R2) happens in the route
+// handler via lib/r2.ts; the caller is responsible for deleting the previous
+// avatar object.
+export async function setMusicianAvatar(musicianId: number, imageUrl: string): Promise<Musician> {
+  const [musician] = await sql<Musician[]>`
+    update musicians set image_url = ${imageUrl} where id = ${musicianId} returning *
+  `;
+  if (!musician) throw new MusicianNotFoundError();
+  return musician;
+}
+
+export interface MusicianPageData extends Musician {
+  bands: { name: string; slug: string }[];
+  // The linked user's public identity — only populated when musicians.user_id
+  // is set AND that user's profile_public is true, so app/m/[slug] never
+  // leaks a link to a private profile.
+  linkedUser: { username: string; name: string | null } | null;
+}
+
+// Everything app/m/[slug] needs in one call: the musician, their bands, and
+// (conditionally) their linked Twin Scene account.
+export async function getMusicianPageData(slug: string): Promise<MusicianPageData | null> {
+  const musician = await getMusicianBySlug(slug);
+  if (!musician) return null;
+
+  const bands = await sql<{ name: string; slug: string }[]>`
+    select bands.name, bands.slug
+    from band_members
+    join bands on bands.id = band_members.band_id
+    where band_members.musician_id = ${musician.id}
+    order by bands.name asc
+  `;
+
+  let linkedUser: { username: string; name: string | null } | null = null;
+  if (musician.user_id) {
+    const [user] = await sql<{ username: string | null; name: string | null; profile_public: boolean }[]>`
+      select username, name, profile_public from users where id = ${musician.user_id} limit 1
+    `;
+    if (user?.profile_public && user.username) {
+      linkedUser = { username: user.username, name: user.name };
+    }
+  }
+
+  return { ...musician, bands, linkedUser };
 }
 
 export class UserAlreadyHasMusicianError extends Error {

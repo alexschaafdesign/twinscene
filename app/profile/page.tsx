@@ -97,7 +97,11 @@ export default async function ProfilePage() {
               </>
             ) : (
               " Not a member of any band yet."
-            )}
+            )}{" "}
+            <Link href={`/m/${musician.slug}`} className="underline underline-offset-2 hover:text-[#E8E0D0]">
+              View / edit your musician page
+            </Link>
+            .
           </p>
         ) : pendingClaim ? (
           <p className="mt-2 text-sm text-[#E8E0D0]/70">

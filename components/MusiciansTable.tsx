@@ -94,7 +94,9 @@ export default function MusiciansTable({ musicians }: { musicians: MusicianEntry
                   className="border-b border-[#E8E0D0]/10 last:border-0"
                 >
                   <td className="px-4 py-2.5 font-medium text-[#E8E0D0]">
-                    {musician.name}
+                    <Link href={`/m/${musician.slug}`} className="hover:underline">
+                      {musician.name}
+                    </Link>
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex flex-wrap gap-1.5">
