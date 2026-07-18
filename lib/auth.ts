@@ -83,26 +83,43 @@ export async function requestLoginLink(email: string, origin: string, next?: str
   });
 }
 
+// Upserts a `users` row by email, reporting whether the row was newly created.
+// The `(xmax = 0)` flag is Postgres's standard "was this an INSERT?" trick:
+// freshly inserted rows have xmax 0, rows that took the ON CONFLICT update
+// path do not — which lets the login callback show first-time users a welcome
+// screen without a second round-trip.
+async function upsertUserByEmail(
+  email: string,
+  tx: QueryExecutor = sql,
+): Promise<{ user: User; isNew: boolean }> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const [row] = await tx<(User & { is_new: boolean })[]>`
+    insert into users (email)
+    values (${normalizedEmail})
+    on conflict (email) do update set email = excluded.email
+    returning *, (xmax = 0) as is_new
+  `;
+  const { is_new, ...user } = row;
+  return { user, isNew: is_new };
+}
+
 // Upserts a `users` row by email — creates it if new, otherwise returns the
 // existing row untouched. Shared by the login callback (a user's first
 // sign-in creates their row) and admin band-editor assignment (granting
 // access to an email that hasn't logged in yet still needs a users row for
 // band_editors to reference).
 export async function findOrCreateUserByEmail(email: string, tx: QueryExecutor = sql): Promise<User> {
-  const normalizedEmail = email.trim().toLowerCase();
-  const [user] = await tx<User[]>`
-    insert into users (email)
-    values (${normalizedEmail})
-    on conflict (email) do update set email = excluded.email
-    returning *
-  `;
+  const { user } = await upsertUserByEmail(email, tx);
   return user;
 }
 
 // Verifies a raw login token, consumes it (deletes it, single-use), and
 // upserts the corresponding `users` row by email. Returns null if the token
-// is missing, already used, or expired.
-export async function consumeLoginToken(rawToken: string): Promise<User | null> {
+// is missing, already used, or expired — otherwise the user plus whether this
+// sign-in just created their account (drives the one-time welcome screen).
+export async function consumeLoginToken(
+  rawToken: string,
+): Promise<{ user: User; isNew: boolean } | null> {
   const tokenHash = hashToken(rawToken);
 
   return sql.begin(async (tx) => {
@@ -113,7 +130,7 @@ export async function consumeLoginToken(rawToken: string): Promise<User | null> 
     `;
     if (!tokenRow) return null;
 
-    return findOrCreateUserByEmail(tokenRow.email, tx);
+    return upsertUserByEmail(tokenRow.email, tx);
   });
 }
 

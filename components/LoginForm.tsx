@@ -8,7 +8,15 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * `next`, when set, rides along in the emailed magic link so the callback
  * route can send the user back where they started (e.g. the band page a
  * logged-out save-button click bounced them from) instead of always home. */
-export default function LoginForm({ next, isDev = false }: { next?: string; isDev?: boolean }) {
+export default function LoginForm({
+  next,
+  isDev = false,
+  autoFocus = true,
+}: {
+  next?: string;
+  isDev?: boolean;
+  autoFocus?: boolean;
+}) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState("");
@@ -74,7 +82,7 @@ export default function LoginForm({ next, isDev = false }: { next?: string; isDe
         id="login-email"
         type="email"
         name="email"
-        autoFocus
+        autoFocus={autoFocus}
         autoComplete="email"
         inputMode="email"
         required

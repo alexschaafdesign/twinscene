@@ -2,7 +2,9 @@ import Link from "next/link";
 import { fetchBands } from "@/lib/fetchBands";
 import { fetchShows } from "@/lib/fetchShows";
 import { getSlugsWithVideos } from "@/lib/videos";
+import { getCurrentUser } from "@/lib/auth";
 import BandGrid from "@/components/BandGrid";
+import LoginForm from "@/components/LoginForm";
 
 // fetchBands()/fetchShows() read the DB directly (no fetch()), which gives
 // Next no signal to render dynamically — without this, the grid gets
@@ -15,11 +17,13 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   // fetchShows() already excludes past dates, so a band's slug showing up
   // here means it has something upcoming.
-  const [bands, shows, bandsWithVideos] = await Promise.all([
+  const [bands, shows, bandsWithVideos, user] = await Promise.all([
     fetchBands(),
     fetchShows(),
     getSlugsWithVideos(),
+    getCurrentUser(),
   ]);
+  const isDev = process.env.NODE_ENV !== "production";
   const bandsWithUpcomingShows = [
     ...new Set(shows.flatMap((s) => s.bandSlugs)),
   ];
@@ -77,9 +81,15 @@ export default async function Home() {
         </div>
       </header>
 
+      {/* Two-up row: the beta explainer (left) sits beside a sign-in card
+          (right) so logged-out visitors have an obvious, one-step way in. On
+          mobile they stack. items-start keeps each card its natural height
+          rather than stretching the short sign-in card to match the tall
+          bullet list. */}
+      <div className="mb-6 grid items-start gap-4 sm:grid-cols-2">
       <div
         role="status"
-        className="mb-6 rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-4 py-3.5 text-[13px] leading-relaxed text-[#E8E0D0]/90"
+        className="rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-4 py-3.5 text-[13px] leading-relaxed text-[#E8E0D0]/90"
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -129,6 +139,43 @@ export default async function Home() {
         <p className="m-0 mt-2.5">
           Hit up alex@thebirdhaus.org with any comments/suggestions!
         </p>
+      </div>
+
+      {/* Right column: sign-in for logged-out visitors, a quick link to the
+          profile for signed-in ones. The magic-link flow is the same whether
+          you have an account or not, so the copy leads with that. */}
+      {user ? (
+        <div className="rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-4 py-3.5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]">
+            You&apos;re signed in
+          </h2>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-[#E8E0D0]/70">
+            Signed in as{" "}
+            <span className="text-[#E8E0D0]">{user.email}</span>. Save bands,
+            follow them for show updates, and manage your account from your
+            profile.
+          </p>
+          <Link
+            href="/profile"
+            className="mt-3 inline-flex items-center gap-1 rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm transition hover:bg-[#E8E0D0]/10"
+          >
+            Go to your profile
+          </Link>
+        </div>
+      ) : (
+        <div className="rounded-md border border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.03] px-4 py-3.5">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]">
+            Sign up or log in
+          </h2>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-[#E8E0D0]/70">
+            New here or coming back — it&apos;s the same step. Drop in your
+            email and we&apos;ll send a one-tap login link. No password, no
+            signup form; if you don&apos;t have an account yet, the link
+            creates one.
+          </p>
+          <LoginForm isDev={isDev} autoFocus={false} />
+        </div>
+      )}
       </div>
 
       {/* Section nav. Bands, Shows, Venues, and Playlists. */}
