@@ -7,6 +7,7 @@ import { listFollowedBands } from "@/lib/bandFollows";
 import { listUpcomingForUser, listAttended } from "@/lib/showSaves";
 import { getMusicianForUser } from "@/lib/musicians";
 import { getPendingClaimForUser } from "@/lib/musicianClaims";
+import { listOwnedBands } from "@/lib/bandOwnership";
 import SavedBandsList from "@/components/SavedBandsList";
 import FollowedBandsList from "@/components/FollowedBandsList";
 import UpcomingShowsList from "@/components/UpcomingShowsList";
@@ -27,12 +28,13 @@ export default async function ProfilePage() {
     redirect("/login?next=/profile");
   }
 
-  const [savedBands, followedBands, upcomingShows, attendedShows, musician] = await Promise.all([
+  const [savedBands, followedBands, upcomingShows, attendedShows, musician, ownedBands] = await Promise.all([
     listSavedBands(user.id),
     listFollowedBands(user.id),
     listUpcomingForUser(user.id),
     listAttended(user.id),
     getMusicianForUser(user.id),
+    listOwnedBands(user.id),
   ]);
   const pendingClaim = musician ? null : await getPendingClaimForUser(user.id);
 
@@ -117,6 +119,30 @@ export default async function ProfilePage() {
               Are you a musician?
             </Link>{" "}
             Claim your listing or create a profile.
+          </p>
+        )}
+      </div>
+
+      <div>
+        <h2 className="text-xl font-medium">Bands you own</h2>
+        {ownedBands.length > 0 ? (
+          <p className="mt-2 text-sm text-[#E8E0D0]/70">
+            {ownedBands.map((b, i) => (
+              <span key={b.slug}>
+                {i > 0 && ", "}
+                <Link href={`/bands/${b.slug}`} className="underline underline-offset-2 hover:text-[#E8E0D0]">
+                  {b.name}
+                </Link>
+              </span>
+            ))}
+            .
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-[#E8E0D0]/60">
+            <Link href="/redeem" className="underline underline-offset-2 hover:text-[#E8E0D0]">
+              Redeem an ownership code
+            </Link>{" "}
+            if a band DM&apos;d you one.
           </p>
         )}
       </div>

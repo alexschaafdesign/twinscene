@@ -11,6 +11,7 @@ import { isBandSaved } from "@/lib/savedBands";
 import { isBandFollowing } from "@/lib/bandFollows";
 import { listShowStatuses } from "@/lib/showSaves";
 import { getBandMembers } from "@/lib/musicians";
+import { isBandOwner } from "@/lib/bandOwnership";
 import BandProfile, { editHref } from "@/components/BandProfile";
 import { iconProps, locationLabel } from "@/components/band-shared";
 import { SaveBandButton, FollowBandButton } from "@/components/band-shared-client";
@@ -73,6 +74,7 @@ export default async function BandProfilePage({ params }: Props) {
   const initialFollowing = user && bandRow ? await isBandFollowing(user.id, bandRow.id) : false;
   const showStatuses = user ? await listShowStatuses(user.id, bandShows.map((s) => s.id)) : {};
   const members = bandRow ? await getBandMembers(bandRow.id) : [];
+  const isOwner = user && bandRow ? await isBandOwner(user, bandRow.id) : false;
 
   return (
     <div>
@@ -85,6 +87,11 @@ export default async function BandProfilePage({ params }: Props) {
         </Link>
 
         <div className="flex items-center gap-3">
+          {isOwner && (
+            <span className="rounded-full border border-[#E8E0D0]/30 px-2.5 py-0.5 text-xs font-medium text-[#E8E0D0]/80">
+              Owner
+            </span>
+          )}
           <SaveBandButton slug={slug} initialSaved={initialSaved} loggedIn={!!user} />
           <FollowBandButton slug={slug} initialFollowing={initialFollowing} loggedIn={!!user} />
 
