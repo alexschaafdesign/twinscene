@@ -3,7 +3,8 @@
 // (bands/<slug>.<ext>, served from R2_PUBLIC_URL), now called directly from
 // the Next.js app instead of through the Apps Script webhook.
 
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import crypto from "node:crypto";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
@@ -117,4 +118,61 @@ export async function uploadBandThumbnail(
   );
 
   return `${publicBase.replace(/\/$/, "")}/${key}`;
+}
+
+// --- Avatars ---------------------------------------------------------------
+// Unlike band photos (keyed by slug, one object per band, overwritten in
+// place), avatars use a random filename under a per-user prefix — the user
+// doesn't control the key, and a random name means a freshly uploaded avatar
+// never collides with (or needs to explicitly bust a cache for) the previous
+// one. deleteAvatar() cleans up the old object on replace.
+
+export const AVATAR_SIZE = 400;
+
+/** Resize arbitrary image bytes to a 400px square avatar (WebP). `cover` +
+ * center crop like band thumbnails; re-encoding (not just resizing) also
+ * strips any EXIF/metadata from the original upload. `rotate()` first honors
+ * EXIF orientation before it's stripped. */
+export async function generateAvatar(bytes: Uint8Array): Promise<Buffer> {
+  return sharp(bytes)
+    .rotate()
+    .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: "cover", position: "centre" })
+    .webp({ quality: 82 })
+    .toBuffer();
+}
+
+/** Upload a processed avatar under avatars/<userId>/<random>.webp and return
+ * its public URL. */
+export async function uploadAvatar(userId: number, bytes: Buffer): Promise<string> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
+  }
+  const key = `avatars/${userId}/${crypto.randomUUID()}.webp`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: bytes,
+      ContentType: "image/webp",
+    }),
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
+/** Best-effort delete of a previous avatar, given its public URL. Silently
+ * no-ops on anything that doesn't look like an R2_PUBLIC_URL object (e.g. a
+ * user's image_url predating this feature, or already-deleted) — replacing
+ * an avatar should never fail because cleanup of the old one did. */
+export async function deleteAvatar(publicUrl: string): Promise<void> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) return;
+  if (!publicUrl.startsWith(`${R2_PUBLIC_URL}/avatars/`)) return;
+  const key = publicUrl.slice(`${R2_PUBLIC_URL}/`.length);
+
+  try {
+    await client().send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+  } catch (err) {
+    console.error("lib/r2: failed to delete previous avatar", err);
+  }
 }

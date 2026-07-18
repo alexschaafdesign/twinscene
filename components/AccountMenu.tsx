@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 export interface AccountMenuUser {
   email: string;
   name: string | null;
+  username: string | null;
   image_url: string | null;
 }
 
@@ -94,7 +95,7 @@ export default function AccountMenu({ user }: { user: AccountMenuUser | null }) 
             className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-md border border-[#E8E0D0]/15 bg-[#090909] py-1 text-sm shadow-lg shadow-black/40"
           >
             <div className="truncate border-b border-[#E8E0D0]/10 px-4 py-2 text-xs text-[#E8E0D0]/50">
-              {user.name || user.email}
+              {user.username ? `@${user.username}` : user.name || user.email}
             </div>
             <Link
               href="/profile"
@@ -103,6 +104,14 @@ export default function AccountMenu({ user }: { user: AccountMenuUser | null }) 
               className="block px-4 py-2 text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]"
             >
               Your profile
+            </Link>
+            <Link
+              href="/profile/edit"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="block px-4 py-2 text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]"
+            >
+              Edit profile
             </Link>
             <Link
               href="/profile#saved-bands"

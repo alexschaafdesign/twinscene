@@ -30,7 +30,11 @@ export default async function RootLayout({
     <html lang="en" className={`${appFont.variable} h-full`}>
       <body className="min-h-full antialiased">
         <AccountMenu
-          user={user ? { email: user.email, name: user.name, image_url: user.image_url } : null}
+          user={
+            user
+              ? { email: user.email, name: user.name, username: user.username, image_url: user.image_url }
+              : null
+          }
         />
         {children}
         <Analytics />

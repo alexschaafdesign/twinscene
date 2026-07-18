@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { listSavedBands } from "@/lib/savedBands";
@@ -31,8 +32,32 @@ export default async function ProfilePage() {
     listAttended(user.id),
   ]);
 
+  const initial = (user.name?.trim()?.[0] || user.email[0] || "?").toUpperCase();
+
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col gap-10 px-5 py-24 text-[#E8E0D0] sm:px-8">
+      <div className="flex items-center gap-4">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E8E0D0]/25 bg-[#E8E0D0]/10 text-lg font-medium text-[#E8E0D0]">
+          {user.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={user.image_url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span aria-hidden="true">{initial}</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-lg font-medium">{user.name || user.email}</p>
+          {user.username && <p className="text-sm text-[#E8E0D0]/60">@{user.username}</p>}
+          {user.bio && <p className="mt-1 text-sm text-[#E8E0D0]/80">{user.bio}</p>}
+          <Link
+            href="/profile/edit"
+            className="mt-2 inline-block text-sm text-[#E8E0D0]/60 underline underline-offset-2 transition hover:text-[#E8E0D0]"
+          >
+            Edit profile
+          </Link>
+        </div>
+      </div>
+
       <div id="saved-bands">
         <h1 className="text-xl font-medium">My saved bands</h1>
         <p className="mt-2 text-sm text-[#E8E0D0]/60">

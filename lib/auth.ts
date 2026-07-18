@@ -13,6 +13,8 @@ export interface User {
   id: number;
   email: string;
   name: string | null;
+  username: string | null;
+  bio: string | null;
   image_url: string | null;
   is_admin: boolean;
   created_at: string;
