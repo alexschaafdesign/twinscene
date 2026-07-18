@@ -99,6 +99,16 @@ export async function isBandOwner(user: User | null, bandId: number): Promise<bo
   return !!row;
 }
 
+// Band-wide (not viewer-specific): does ANY user hold the 'owner' role on
+// this band? Powers the public "Unclaimed"/"Claimed" indicator on the band
+// page — unlike isBandOwner, this never treats admins as a stand-in owner.
+export async function bandHasOwner(bandId: number): Promise<boolean> {
+  const [row] = await sql`
+    select 1 from band_editors where band_id = ${bandId} and role = 'owner' limit 1
+  `;
+  return !!row;
+}
+
 export interface OwnedBand {
   id: number;
   slug: string;

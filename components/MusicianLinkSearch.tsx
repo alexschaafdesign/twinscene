@@ -1,21 +1,32 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { MusicianEntry } from "@/lib/musicians";
+import type { MusicianEntry, MusicianNameSuggestion } from "@/lib/musicians";
 
-// Once a claim attempt is made (from a search result or the "claim it
-// instead?" nudge), this replaces the whole search/create UI — the result
-// pane below shows only this one musician, success or error.
+// Once a claim attempt is made (from a search result, a name-match
+// suggestion, or the "claim it instead?" nudge), this replaces the whole
+// search/create UI — the result pane below shows only this one musician,
+// success or error.
 type Claimed = { name: string; slug: string; status: "pending" | "error"; message: string };
 
-// "Are you a musician?" entry point (/profile/musician). Search existing
-// musicians to claim ("This is me" → admin-reviewed) or self-serve create a
-// brand-new musician identity if not listed. Claiming grants band_editors
-// access once approved (lib/musicianClaims.ts); creating grants nothing —
-// see AGENTS task Slice 2 model recap.
-export default function MusicianLinkSearch({ musicians }: { musicians: MusicianEntry[] }) {
+// "Are you a musician?" entry point (/profile/musician). Leads with any
+// name-match suggestions ("is this you?" — never auto-linked, just a
+// shortcut into the same claim flow), then lets the user search existing
+// musicians to claim ("This is me" → reviewed by each of that musician's
+// bands' owners, one band_member_claims row per band, lib/bandMemberClaims.ts)
+// or self-serve create a brand-new musician identity if not listed. Claiming
+// grants band_editors access (per band) once approved; creating grants
+// nothing until a later band-scoped claim or an editor adds them directly.
+export default function MusicianLinkSearch({
+  musicians,
+  nameMatches = [],
+}: {
+  musicians: MusicianEntry[];
+  nameMatches?: MusicianNameSuggestion[];
+}) {
   const [query, setQuery] = useState("");
   const [claimed, setClaimed] = useState<Claimed | null>(null);
+  const [dismissedMatches, setDismissedMatches] = useState(false);
 
   const [name, setName] = useState("");
   const [createError, setCreateError] = useState("");
@@ -47,7 +58,7 @@ export default function MusicianLinkSearch({ musicians }: { musicians: MusicianE
         setClaimed({ ...musician, status: "error", message: data.error || "Something went wrong" });
         return;
       }
-      setClaimed({ ...musician, status: "pending", message: "Claim submitted — awaiting admin review." });
+      setClaimed({ ...musician, status: "pending", message: "Claim submitted — awaiting review from the band's owner." });
     } catch {
       setClaimed({ ...musician, status: "error", message: "Something went wrong" });
     }
@@ -116,6 +127,56 @@ export default function MusicianLinkSearch({ musicians }: { musicians: MusicianE
 
   return (
     <div className="mt-6 flex flex-col gap-8">
+      {nameMatches.length > 0 && !dismissedMatches && (
+        <div className="rounded-md border border-[#E8E0D0]/15 px-3.5 py-3">
+          <p className="text-sm text-[#E8E0D0]/80">
+            {nameMatches.length === 1 ? "A musician named" : "Musicians named"}{" "}
+            <strong>{nameMatches[0].name}</strong> {nameMatches.length === 1 ? "is" : "are"} listed
+            {nameMatches.some((m) => m.bands.length > 0) && (
+              <>
+                {" "}
+                in{" "}
+                {nameMatches
+                  .flatMap((m) => m.bands)
+                  .map((b) => b.name)
+                  .filter((name, i, arr) => arr.indexOf(name) === i)
+                  .join(", ")}
+              </>
+            )}
+            . Is one of these you?
+          </p>
+          <ul className="mt-3 flex flex-col gap-2">
+            {nameMatches.map((m) => (
+              <li
+                key={m.id}
+                className="flex items-center justify-between rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"
+              >
+                <span>
+                  {m.name}
+                  {m.bands.length > 0 && (
+                    <span className="text-[#E8E0D0]/50"> — {m.bands.map((b) => b.name).join(", ")}</span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => claim(m)}
+                  className="shrink-0 text-[#E8E0D0]/80 hover:underline"
+                >
+                  This is me
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => setDismissedMatches(true)}
+            className="mt-2 text-sm text-[#E8E0D0]/50 underline underline-offset-2 hover:text-[#E8E0D0]/80"
+          >
+            None of these are me
+          </button>
+        </div>
+      )}
+
       <div>
         <input
           type="search"

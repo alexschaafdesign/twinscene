@@ -85,6 +85,55 @@ export async function canEditMusician(user: User | null, musicianId: number): Pr
   return !!row;
 }
 
+// Named distinctly from the pre-existing MusicianNameMatch below (the
+// createMusicianForUser "an existing musician already has this name"
+// result) — this one is a *list* of onboarding suggestions, not a
+// dedupe-on-create signal.
+export interface MusicianNameSuggestion {
+  id: number;
+  name: string;
+  slug: string;
+  bands: { name: string; slug: string }[];
+}
+
+// Onboarding suggestion for /profile/musician: musicians whose name matches
+// `name` case-insensitively, restricted to ones `userId` could plausibly
+// claim — unlinked (user_id is null) or already linked to `userId` itself.
+// Deliberately excludes musicians linked to a DIFFERENT user, since those
+// can never be claimed regardless of the name match. This only powers a
+// suggestion ("is this you?") — it never links or blocks anything; a second,
+// unrelated person with the same name is free to create their own musician
+// row and is never matched against someone else's linked identity.
+export async function findMusicianNameMatches(name: string, userId: number): Promise<MusicianNameSuggestion[]> {
+  const trimmed = name.trim();
+  if (!trimmed) return [];
+
+  const rows = await sql<
+    { id: number; name: string; slug: string; band_name: string | null; band_slug: string | null }[]
+  >`
+    select musicians.id, musicians.name, musicians.slug, bands.name as band_name, bands.slug as band_slug
+    from musicians
+    left join band_members on band_members.musician_id = musicians.id
+    left join bands on bands.id = band_members.band_id
+    where lower(musicians.name) = lower(${trimmed})
+      and (musicians.user_id is null or musicians.user_id = ${userId})
+    order by musicians.name asc
+  `;
+
+  const map = new Map<number, MusicianNameSuggestion>();
+  for (const row of rows) {
+    let entry = map.get(row.id);
+    if (!entry) {
+      entry = { id: row.id, name: row.name, slug: row.slug, bands: [] };
+      map.set(row.id, entry);
+    }
+    if (row.band_name && row.band_slug) {
+      entry.bands.push({ name: row.band_name, slug: row.band_slug });
+    }
+  }
+  return [...map.values()];
+}
+
 export class MusicianNotFoundError extends Error {
   constructor() {
     super("Musician not found");
@@ -246,6 +295,22 @@ export async function createMusicianForUser(
     `;
     return created;
   });
+}
+
+// Always inserts a brand-new musician row — deliberately does NOT match an
+// existing same-named musician (unlike findOrCreateMusicianByName below).
+// Duplicate names are allowed by design (Slice B): a band-member claim's
+// "I'm not listed" path uses this, since matching-by-name here would risk
+// silently merging two different people who happen to share a name. Name
+// matching is surfaced only as a suggestion elsewhere (findMusicianNameMatches),
+// never an automatic merge.
+export async function createNewMusician(tx: Tx, name: string): Promise<Musician> {
+  const trimmed = name.trim();
+  const slug = await uniqueMusicianSlug(tx, slugify(trimmed) || "musician");
+  const [created] = await tx<Musician[]>`
+    insert into musicians (name, slug) values (${trimmed}, ${slug}) returning *
+  `;
+  return created;
 }
 
 // Case-insensitive find-or-create, mirrors findOrCreateBandByName in

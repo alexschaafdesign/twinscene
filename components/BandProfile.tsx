@@ -15,6 +15,7 @@ import type { Press } from "@/lib/fetchPress";
 import type { VideoRow } from "@/lib/videos";
 import type { ShowStatus } from "@/lib/showSaves";
 import type { BandMusician } from "@/lib/musicians";
+import type { PendingBandMemberClaim } from "@/lib/bandMemberClaims";
 import { pressNotes } from "@/lib/press";
 import BandcampPlayer from "@/components/BandcampPlayer";
 import {
@@ -26,6 +27,9 @@ import {
 } from "@/components/band-shared";
 import { BandImage, CopyButton } from "@/components/band-shared-client";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
+import BandMemberClaimSection from "@/components/BandMemberClaimSection";
+import BandMemberClaimsManager from "@/components/BandMemberClaimsManager";
+import ClaimOwnershipButton from "@/components/ClaimOwnershipButton";
 import { parseYoutubeId } from "@/lib/youtube";
 
 /** Prefilled "correct this band" submit URL — shown in the profile header. */
@@ -278,6 +282,9 @@ export default function BandProfile({
   today,
   showStatuses = {},
   loggedIn = false,
+  showClaimEntry = false,
+  hasOwner = true,
+  pendingMemberClaims = [],
 }: {
   band: Band;
   /** Real `musicians` rows via `band_members`, in display order
@@ -292,6 +299,19 @@ export default function BandProfile({
   /** Logged-in user's attendance status per show id. */
   showStatuses?: Record<string, ShowStatus>;
   loggedIn?: boolean;
+  /** Show a claim entry point — the page decides this (viewer doesn't
+   * already have edit access to the band). */
+  showClaimEntry?: boolean;
+  /** Band-wide: does anyone hold the 'owner' role on this band? Picks which
+   * claim entry point showClaimEntry renders — ClaimOwnershipButton when
+   * unclaimed, BandMemberClaimSection ("are you in this band?") once it has
+   * an owner to review member requests. Defaults true (the safer of the two
+   * when a caller omits it — never dangles a stray ownership claim button). */
+  hasOwner?: boolean;
+  /** Pending band_member_claims for this band — non-empty only when the
+   * viewer canApproveMemberClaim (owner or admin), so the page fetches this
+   * conditionally. */
+  pendingMemberClaims?: PendingBandMemberClaim[];
 }) {
   const hasBandcamp = band.bandcampEmbedUrl || band.bandcamp;
 
@@ -351,6 +371,30 @@ export default function BandProfile({
             </div>
           </div>
         )}
+
+        {/* Owner/admin-only: pending band-member requests for this band */}
+        {pendingMemberClaims.length > 0 && (
+          <div>
+            <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+              Pending member requests
+            </h2>
+            <BandMemberClaimsManager
+              initialClaims={pendingMemberClaims}
+              decideUrl={(claim) => `/api/bands/${band.slug}/member-claims/${claim.id}`}
+            />
+          </div>
+        )}
+
+        {/* Claim entry point for visitors who don't already have edit access
+            to this band — "I own this band" (unclaimed) or "are you in this
+            band?" (already owned, so a member request needs the owner's
+            review) depending on hasOwner. */}
+        {showClaimEntry &&
+          (hasOwner ? (
+            <BandMemberClaimSection bandSlug={band.slug} members={members} loggedIn={loggedIn} />
+          ) : (
+            <ClaimOwnershipButton />
+          ))}
 
         {/* Featured links — band-curated highlights */}
         <FeaturedLinks band={band} />

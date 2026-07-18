@@ -6,12 +6,13 @@ import { listSavedBands } from "@/lib/savedBands";
 import { listFollowedBands } from "@/lib/bandFollows";
 import { listUpcomingForUser, listAttended } from "@/lib/showSaves";
 import { getMusicianForUser } from "@/lib/musicians";
-import { getPendingClaimForUser } from "@/lib/musicianClaims";
+import { listPendingClaimsForUser, listPendingClaimsForOwner } from "@/lib/bandMemberClaims";
 import { listOwnedBands } from "@/lib/bandOwnership";
 import SavedBandsList from "@/components/SavedBandsList";
 import FollowedBandsList from "@/components/FollowedBandsList";
 import UpcomingShowsList from "@/components/UpcomingShowsList";
 import AttendedShowsList from "@/components/AttendedShowsList";
+import BandMemberClaimsManager from "@/components/BandMemberClaimsManager";
 
 export const metadata: Metadata = {
   title: "My profile — Twin Scene",
@@ -28,15 +29,17 @@ export default async function ProfilePage() {
     redirect("/login?next=/profile");
   }
 
-  const [savedBands, followedBands, upcomingShows, attendedShows, musician, ownedBands] = await Promise.all([
-    listSavedBands(user.id),
-    listFollowedBands(user.id),
-    listUpcomingForUser(user.id),
-    listAttended(user.id),
-    getMusicianForUser(user.id),
-    listOwnedBands(user.id),
-  ]);
-  const pendingClaim = musician ? null : await getPendingClaimForUser(user.id);
+  const [savedBands, followedBands, upcomingShows, attendedShows, musician, ownedBands, pendingClaims] =
+    await Promise.all([
+      listSavedBands(user.id),
+      listFollowedBands(user.id),
+      listUpcomingForUser(user.id),
+      listAttended(user.id),
+      getMusicianForUser(user.id),
+      listOwnedBands(user.id),
+      listPendingClaimsForUser(user.id),
+    ]);
+  const ownerPendingClaims = ownedBands.length > 0 ? await listPendingClaimsForOwner(user.id) : [];
 
   const initial = (user.name?.trim()?.[0] || user.email[0] || "?").toUpperCase();
 
@@ -105,11 +108,6 @@ export default async function ProfilePage() {
             </Link>
             .
           </p>
-        ) : pendingClaim ? (
-          <p className="mt-2 text-sm text-[#E8E0D0]/70">
-            Your claim for <strong>{pendingClaim.musician_name}</strong> is
-            awaiting review.
-          </p>
         ) : (
           <p className="mt-2 text-sm text-[#E8E0D0]/60">
             <Link
@@ -120,6 +118,19 @@ export default async function ProfilePage() {
             </Link>{" "}
             Claim your listing or create a profile.
           </p>
+        )}
+        {pendingClaims.length > 0 && (
+          <ul className="mt-2 flex flex-col gap-1">
+            {pendingClaims.map((c) => (
+              <li key={c.id} className="text-sm text-[#E8E0D0]/70">
+                Your claim for <strong>{c.musician_name}</strong> in{" "}
+                <Link href={`/bands/${c.band_slug}`} className="underline underline-offset-2 hover:text-[#E8E0D0]">
+                  {c.band_name}
+                </Link>{" "}
+                is awaiting review.
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
@@ -144,6 +155,17 @@ export default async function ProfilePage() {
             </Link>{" "}
             if a band DM&apos;d you one.
           </p>
+        )}
+        {ownerPendingClaims.length > 0 && (
+          <>
+            <h3 className="mt-4 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+              Pending member requests
+            </h3>
+            <BandMemberClaimsManager
+              initialClaims={ownerPendingClaims}
+              decideUrl={(claim) => `/api/bands/${claim.band_slug}/member-claims/${claim.id}`}
+            />
+          </>
         )}
       </div>
 

@@ -1,13 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
-import { decideMusicianClaim, MusicianAlreadyLinkedError } from "@/lib/musicianClaims";
+import {
+  decideMemberClaim,
+  ForbiddenClaimDecisionError,
+  MusicianAlreadyLinkedError,
+} from "@/lib/bandMemberClaims";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Admin-only: approve or reject a pending musician claim. Approval, in one
-// transaction, links musicians.user_id and grants band_editors for every
-// band the musician is a member of (lib/musicianClaims.ts decideMusicianClaim).
+// Admin-only route for the oversight queue (app/admin/band-member-claims) —
+// gates on isAdmin since this page is only ever shown to admins, but the
+// actual authorization is still canApproveMemberClaim inside
+// decideMemberClaim (which admins always satisfy), same rule an owner's
+// per-band route uses.
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const claimId = Number(id);
@@ -30,7 +36,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   }
 
   try {
-    const claim = await decideMusicianClaim(claimId, decision, user.id);
+    const claim = await decideMemberClaim(claimId, decision, user);
     if (!claim) {
       return NextResponse.json(
         { success: false, error: "Claim not found or already decided" },
@@ -39,6 +45,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     return NextResponse.json({ success: true, claim });
   } catch (err) {
+    if (err instanceof ForbiddenClaimDecisionError) {
+      return NextResponse.json({ success: false, error: err.message }, { status: 403 });
+    }
     if (err instanceof MusicianAlreadyLinkedError) {
       return NextResponse.json({ success: false, error: err.message }, { status: 409 });
     }

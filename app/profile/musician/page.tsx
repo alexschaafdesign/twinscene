@@ -2,8 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { fetchMusiciansDirectory, getMusicianForUser } from "@/lib/musicians";
+import {
+  fetchMusiciansDirectory,
+  getMusicianForUser,
+  findMusicianNameMatches,
+  type MusicianEntry,
+  type MusicianNameSuggestion,
+} from "@/lib/musicians";
 import MusicianLinkSearch from "@/components/MusicianLinkSearch";
+import MusicianNamePrompt from "@/components/MusicianNamePrompt";
 
 export const metadata: Metadata = {
   title: "Are you a musician? — Twin Scene",
@@ -13,8 +20,11 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 // Entry point for linking a user to a musician identity — claim an existing
-// musician (admin-reviewed) or self-serve create a new one. Redirects away
-// if the user is already linked, since one user ↔ at most one musician.
+// musician (reviewed by each of its bands' owners, band-scoped, Slice B) or
+// self-serve create a new one. If the user's name isn't set yet, prompts for
+// it first so findMusicianNameMatches can suggest "is this you?" matches.
+// Redirects away if the user is already linked, since one user ↔ at most one
+// musician.
 export default async function MusicianLinkPage() {
   const user = await getCurrentUser();
   if (!user) {
@@ -26,7 +36,9 @@ export default async function MusicianLinkPage() {
     redirect("/profile");
   }
 
-  const musicians = await fetchMusiciansDirectory();
+  const [musicians, nameMatches]: [MusicianEntry[], MusicianNameSuggestion[]] = user.name
+    ? await Promise.all([fetchMusiciansDirectory(), findMusicianNameMatches(user.name, user.id)])
+    : [[], []];
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
@@ -40,10 +52,14 @@ export default async function MusicianLinkPage() {
       <p className="mt-2 text-sm text-[#E8E0D0]/60">
         Find yourself in the musician directory and claim it, or create a new
         profile if you&apos;re not listed yet. Claiming an existing musician
-        needs a quick admin review; once approved you&apos;ll be able to edit
-        every band that musician is a member of.
+        needs a quick review from that band&apos;s owner; once approved
+        you&apos;ll be able to edit that band.
       </p>
-      <MusicianLinkSearch musicians={musicians} />
+      {user.name ? (
+        <MusicianLinkSearch musicians={musicians} nameMatches={nameMatches} />
+      ) : (
+        <MusicianNamePrompt />
+      )}
     </main>
   );
 }
