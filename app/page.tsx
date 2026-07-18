@@ -28,15 +28,10 @@ export default async function Home() {
     ...new Set(shows.flatMap((s) => s.bandSlugs)),
   ];
 
-  // Admin link. Off production we bake the secret in for one-click access
-  // (local/preview only); in production we never embed it — the link is a plain
-  // /admin that prompts for the secret — so the public site's HTML can't leak it.
-  const secret = process.env.SCRAPE_SECRET;
-  const isProduction = process.env.VERCEL_ENV === "production";
-  const adminHref =
-    secret && !isProduction
-      ? `/admin?secret=${encodeURIComponent(secret)}`
-      : "/admin";
+  // Admin link — a plain /admin. The dashboard gates on the signed-in
+  // account's is_admin (magic-link login), so there's no secret to embed and
+  // non-admins who follow it just get bounced to /login.
+  const adminHref = "/admin";
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">

@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import NotAdmin from "@/components/NotAdmin";
 import {
   fetchFlaggedShows,
   fetchShowsForReview,
@@ -17,25 +20,14 @@ export const metadata: Metadata = {
 
 const REVIEW_WINDOW_DAYS = 7;
 
-export default async function AdminReviewPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const sp = await searchParams;
-  const secret = process.env.SCRAPE_SECRET;
-  const provided = typeof sp.secret === "string" ? sp.secret : "";
+export default async function AdminReviewPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/admin/review");
+  if (!isAdmin(user)) return <NotAdmin />;
 
-  if (secret && provided !== secret) {
-    return (
-      <main className="mx-auto w-full max-w-3xl px-5 py-20 text-center sm:px-8">
-        <h1 className="text-xl font-medium">Not authorized</h1>
-        <p className="mt-3 text-sm text-[#E8E0D0]/60">
-          Append <code>?secret=…</code> to access the review tool.
-        </p>
-      </main>
-    );
-  }
+  // Still handed to ReviewPanel for its calls to the SCRAPE_SECRET-gated show
+  // APIs; this page is is_admin-gated, so only admins receive it.
+  const secret = process.env.SCRAPE_SECRET ?? "";
 
   const { end: windowEnd } = reviewWindow(REVIEW_WINDOW_DAYS);
   const [windowShows, flaggedShows] = await Promise.all([
@@ -53,7 +45,7 @@ export default async function AdminReviewPage({
   return (
     <ReviewPanel
       shows={Array.from(byId.values())}
-      secret={secret ?? ""}
+      secret={secret}
       windowDays={REVIEW_WINDOW_DAYS}
       windowEnd={windowEnd}
     />

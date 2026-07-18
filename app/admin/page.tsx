@@ -14,24 +14,22 @@ import {
   type DismissedBand,
 } from "@/lib/fetchDismissedBands";
 import AdminPanel from "@/components/AdminPanel";
-import AdminLogin from "@/components/AdminLogin";
-import { isAdminAuthed } from "./auth";
+import { redirect } from "next/navigation";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import NotAdmin from "@/components/NotAdmin";
 
-// Reads the cookie/secret and no-store data at request time — never cache.
+// Reads the session and no-store data at request time — never cache.
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const sp = await searchParams;
-  const secret = process.env.SCRAPE_SECRET;
-  const provided = typeof sp.secret === "string" ? sp.secret : "";
+export default async function AdminPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/admin");
+  if (!isAdmin(user)) return <NotAdmin />;
 
-  if (!secret || !(await isAdminAuthed(provided))) {
-    return <AdminLogin error={sp.error === "1"} />;
-  }
+  // The scraper/show APIs the panel drives still authenticate with the
+  // SCRAPE_SECRET machine token (cron and scrape:local use it too). This page
+  // is is_admin-gated, so only admins ever receive it.
+  const secret = process.env.SCRAPE_SECRET ?? "";
 
   const [log, bands, nonLocalBands, dismissedBands]: [
     ScraperLogRow[],

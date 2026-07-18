@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import NotAdmin from "@/components/NotAdmin";
 import { fetchAllShows } from "@/lib/fetchShows";
 import AllShowsPanel from "@/components/AllShowsPanel";
 
@@ -10,27 +13,15 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AdminShowsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const sp = await searchParams;
-  const secret = process.env.SCRAPE_SECRET;
-  const provided = typeof sp.secret === "string" ? sp.secret : "";
+export default async function AdminShowsPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/admin/shows");
+  if (!isAdmin(user)) return <NotAdmin />;
 
-  if (secret && provided !== secret) {
-    return (
-      <main className="mx-auto w-full max-w-3xl px-5 py-20 text-center sm:px-8">
-        <h1 className="text-xl font-medium">Not authorized</h1>
-        <p className="mt-3 text-sm text-[#E8E0D0]/60">
-          Append <code>?secret=…</code> to access the shows admin.
-        </p>
-      </main>
-    );
-  }
-
+  // Handed to AllShowsPanel for its SCRAPE_SECRET-gated show API calls; this
+  // page is is_admin-gated, so only admins receive it.
+  const secret = process.env.SCRAPE_SECRET ?? "";
   const shows = await fetchAllShows();
 
-  return <AllShowsPanel shows={shows} secret={secret ?? ""} />;
+  return <AllShowsPanel shows={shows} secret={secret} />;
 }

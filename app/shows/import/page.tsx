@@ -1,5 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import NotAdmin from "@/components/NotAdmin";
 import { fetchBands } from "@/lib/fetchBands";
 import { fetchShows } from "@/lib/fetchShows";
 import { getAllScrapers, type ScrapedShow } from "@/lib/scrapers";
@@ -45,29 +48,18 @@ function composeNotes(show: {
   return parts.join(" · ");
 }
 
-export default async function ImportShowsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const sp = await searchParams;
-  const secret = process.env.SCRAPE_SECRET;
-  const provided = typeof sp.secret === "string" ? sp.secret : "";
+export default async function ImportShowsPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/shows/import");
+  if (!isAdmin(user)) return <NotAdmin />;
 
-  if (secret && provided !== secret) {
-    return (
-      <main className="mx-auto w-full max-w-3xl px-5 py-20 text-center sm:px-8">
-        <h1 className="text-xl font-medium">Not authorized</h1>
-        <p className="mt-3 text-sm text-[#E8E0D0]/60">
-          Append <code>?secret=…</code> to access the import tool.
-        </p>
-      </main>
-    );
-  }
+  // Handed to the import panels for their SCRAPE_SECRET-gated scrape/show API
+  // calls; this page is is_admin-gated, so only admins receive it.
+  const secret = process.env.SCRAPE_SECRET ?? "";
 
   let shows: ImportShow[] = [];
   let bandOptions: { slug: string; name: string }[] = [];
-  let linkSuggestions: LinkSuggestion[] = [];
+  const linkSuggestions: LinkSuggestion[] = [];
   let error = "";
   const scrapeErrors: string[] = [];
   try {
@@ -219,7 +211,7 @@ export default async function ImportShowsPage({
         </p>
       </header>
 
-      <RelinkPanel suggestions={linkSuggestions} secret={secret ?? ""} />
+      <RelinkPanel suggestions={linkSuggestions} secret={secret} />
 
       {scrapeErrors.length > 0 && (
         <ul className="mb-6 space-y-1 rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-3.5 py-2.5 text-sm text-[#E8E0D0]/90">
@@ -234,7 +226,7 @@ export default async function ImportShowsPage({
           {error}
         </p>
       ) : (
-        <ShowImportReview shows={shows} bandOptions={bandOptions} secret={secret ?? ""} />
+        <ShowImportReview shows={shows} bandOptions={bandOptions} secret={secret} />
       )}
     </main>
   );

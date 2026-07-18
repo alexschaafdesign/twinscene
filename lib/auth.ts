@@ -19,6 +19,7 @@ export interface User {
   profile_public: boolean;
   is_admin: boolean;
   created_at: string;
+  last_seen_at: string | null;
 }
 
 // Either the top-level `sql` or a `tx` from `sql.begin` — postgres.js's Sql
@@ -38,6 +39,12 @@ const SESSION_TTL_SECONDS = 90 * 24 * 60 * 60;
 // Comparing against expires_at (not created_at) means an already-renewed
 // session won't re-renew again for another ~45 days.
 const SESSION_RENEW_THRESHOLD_SECONDS = SESSION_TTL_SECONDS / 2;
+
+// How stale users.last_seen_at may get before getCurrentUser refreshes it.
+// Throttling to once per hour keeps "last seen" near-real-time for the admin
+// users view while writing at most one UPDATE per active user per hour — not
+// one per authenticated request.
+const LAST_SEEN_THROTTLE_SECONDS = 60 * 60;
 
 function randomToken(): string {
   return crypto.randomBytes(32).toString("hex");
@@ -187,6 +194,19 @@ export async function getCurrentUser(): Promise<User | null> {
   `;
   if (!row) return null;
   const { expires_at, ...user } = row;
+
+  // Throttled last-seen stamp: only write when the recorded value is null or
+  // older than the throttle window, so at most one UPDATE per user per hour.
+  // Safe during Server Component render (unlike the cookie re-set below) — it's
+  // a DB write, not a cookie write. Best-effort; a failure never blocks auth.
+  const lastSeenMs = user.last_seen_at ? new Date(user.last_seen_at).getTime() : 0;
+  if ((Date.now() - lastSeenMs) / 1000 > LAST_SEEN_THROTTLE_SECONDS) {
+    try {
+      await sql`update users set last_seen_at = now() where id = ${user.id}`;
+    } catch {
+      // Non-fatal — last_seen_at is a display convenience, not part of auth.
+    }
+  }
 
   const secondsRemaining = (new Date(expires_at).getTime() - Date.now()) / 1000;
   if (secondsRemaining < SESSION_RENEW_THRESHOLD_SECONDS) {

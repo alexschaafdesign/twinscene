@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import AdminLogin from "@/components/AdminLogin";
-import { isAdminAuthed } from "../auth";
+import { redirect } from "next/navigation";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
+import NotAdmin from "@/components/NotAdmin";
 import {
   fetchShowHistory,
   SHOW_HISTORY_WINDOW_DAYS,
@@ -44,32 +44,17 @@ function shortDate(date: string): string {
   }).format(dt);
 }
 
-export default async function ActivityPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const sp = await searchParams;
-  const secret = process.env.SCRAPE_SECRET;
-  const provided = typeof sp.secret === "string" ? sp.secret : "";
-
-  if (!secret || !(await isAdminAuthed(provided))) {
-    return <AdminLogin error={sp.error === "1"} />;
-  }
+export default async function ActivityPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login?next=/admin/activity");
+  if (!isAdmin(user)) return <NotAdmin />;
 
   const entries = await fetchShowHistory();
-  const q = `secret=${encodeURIComponent(secret)}`;
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
-        <Link
-          href={`/admin?${q}`}
-          className="inline-flex items-center gap-1.5 text-sm text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
-        >
-          <span aria-hidden>←</span> Admin
-        </Link>
-        <h1 className="mt-6 text-2xl font-medium tracking-tight sm:text-3xl">
+        <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
           Recent Activity
         </h1>
         <p className="mt-2 text-sm text-[#E8E0D0]/70">
