@@ -108,7 +108,7 @@ export default async function BandProfilePage({ params }: Props) {
           {/* Claim entry for an unclaimed band. Only for visitors who can't
               already edit (!canEdit == showClaimEntry); the member-request flow
               for already-owned bands stays inside BandProfile. */}
-          {!canEdit && !hasOwner && <ClaimOwnershipButton />}
+          {!canEdit && !hasOwner && <ClaimOwnershipButton loggedIn={!!user} />}
           <SaveBandButton slug={slug} initialSaved={initialSaved} loggedIn={!!user} />
           <FollowBandButton slug={slug} initialFollowing={initialFollowing} loggedIn={!!user} />
 
