@@ -25,9 +25,16 @@ type QueryExecutor = postgres.Sql | postgres.TransactionSql;
 
 export const SESSION_COOKIE = "ts_session";
 
-// Session cookie maxAge in seconds — kept in sync with the `interval '30
-// days'` in createSession's insert below.
-const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+// Session cookie maxAge in seconds — kept in sync with the `interval '90
+// days'` in createSession's insert below. Long-lived so returning users
+// essentially never have to re-auth.
+const SESSION_TTL_SECONDS = 90 * 24 * 60 * 60;
+
+// Sliding-expiration threshold: once less than half the session's lifetime
+// remains, getCurrentUser() pushes expires_at back out to a fresh 90 days.
+// Comparing against expires_at (not created_at) means an already-renewed
+// session won't re-renew again for another ~45 days.
+const SESSION_RENEW_THRESHOLD_SECONDS = SESSION_TTL_SECONDS / 2;
 
 function randomToken(): string {
   return crypto.randomBytes(32).toString("hex");
@@ -115,7 +122,7 @@ export async function createSession(userId: number): Promise<void> {
   const sessionId = randomToken();
   await sql`
     insert into sessions (id, user_id, expires_at)
-    values (${sessionId}, ${userId}, now() + interval '30 days')
+    values (${sessionId}, ${userId}, now() + interval '90 days')
   `;
 
   (await cookies()).set(SESSION_COOKIE, sessionId, {
@@ -138,19 +145,48 @@ export async function destroySession(): Promise<void> {
 }
 
 // Reads the session cookie and resolves the logged-in user, or null if
-// there's no session, it's expired, or it's been revoked.
+// there's no session, it's expired, or it's been revoked. Also implements
+// sliding expiration: a session past the halfway point of its lifetime gets
+// pushed back out to a fresh 90 days, so an active user is never logged out
+// mid-use. The DB write always happens; the matching cookie re-set is
+// best-effort, since Next.js only allows writing cookies from a Server
+// Function or Route Handler, not while rendering a Server Component (e.g.
+// this is called from the root layout on every page). Called from a Route
+// Handler — which most authenticated actions in this app go through — the
+// re-set succeeds and the browser's copy is renewed too.
 export async function getCurrentUser(): Promise<User | null> {
   const sessionId = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!sessionId) return null;
 
-  const [user] = await sql<User[]>`
-    select users.*
+  const [row] = await sql<(User & { expires_at: string })[]>`
+    select users.*, sessions.expires_at
     from sessions
     join users on users.id = sessions.user_id
     where sessions.id = ${sessionId} and sessions.expires_at > now()
     limit 1
   `;
-  return user ?? null;
+  if (!row) return null;
+  const { expires_at, ...user } = row;
+
+  const secondsRemaining = (new Date(expires_at).getTime() - Date.now()) / 1000;
+  if (secondsRemaining < SESSION_RENEW_THRESHOLD_SECONDS) {
+    await sql`update sessions set expires_at = now() + interval '90 days' where id = ${sessionId}`;
+    try {
+      (await cookies()).set(SESSION_COOKIE, sessionId, {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: SESSION_TTL_SECONDS,
+      });
+    } catch {
+      // Called during Server Component rendering — cookie writes aren't
+      // allowed there. The DB row is still renewed; the cookie catches up
+      // next time this resolves inside a Route Handler or Server Function.
+    }
+  }
+
+  return user;
 }
 
 // --- Authorization -------------------------------------------------------

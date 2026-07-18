@@ -33,7 +33,7 @@ export default async function ProfilePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col gap-10 px-5 py-24 text-[#E8E0D0] sm:px-8">
-      <div>
+      <div id="saved-bands">
         <h1 className="text-xl font-medium">My saved bands</h1>
         <p className="mt-2 text-sm text-[#E8E0D0]/60">
           Bands you&apos;ve saved from the directory.
@@ -41,7 +41,7 @@ export default async function ProfilePage() {
         <SavedBandsList initialBands={savedBands} />
       </div>
 
-      <div>
+      <div id="follows">
         <h2 className="text-xl font-medium">Bands you follow</h2>
         <p className="mt-2 text-sm text-[#E8E0D0]/60">
           Bands you&apos;re keeping up with.

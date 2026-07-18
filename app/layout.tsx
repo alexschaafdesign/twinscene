@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { getCurrentUser } from "@/lib/auth";
-import AccountBar from "@/components/AccountBar";
+import AccountMenu from "@/components/AccountMenu";
 import "./globals.css";
 
 // The app's typeface, exposed as the generic `--font-app` CSS variable so
@@ -29,7 +29,9 @@ export default async function RootLayout({
   return (
     <html lang="en" className={`${appFont.variable} h-full`}>
       <body className="min-h-full antialiased">
-        <AccountBar email={user?.email ?? null} />
+        <AccountMenu
+          user={user ? { email: user.email, name: user.name, image_url: user.image_url } : null}
+        />
         {children}
         <Analytics />
       </body>
