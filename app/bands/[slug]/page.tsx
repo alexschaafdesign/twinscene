@@ -10,6 +10,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { isBandSaved } from "@/lib/savedBands";
 import { isBandFollowing } from "@/lib/bandFollows";
 import { listShowStatuses } from "@/lib/showSaves";
+import { getBandMembers } from "@/lib/musicians";
 import BandProfile, { editHref } from "@/components/BandProfile";
 import { iconProps, locationLabel } from "@/components/band-shared";
 import { SaveBandButton, FollowBandButton } from "@/components/band-shared-client";
@@ -71,6 +72,7 @@ export default async function BandProfilePage({ params }: Props) {
   const initialSaved = user && bandRow ? await isBandSaved(user.id, bandRow.id) : false;
   const initialFollowing = user && bandRow ? await isBandFollowing(user.id, bandRow.id) : false;
   const showStatuses = user ? await listShowStatuses(user.id, bandShows.map((s) => s.id)) : {};
+  const members = bandRow ? await getBandMembers(bandRow.id) : [];
 
   return (
     <div>
@@ -104,6 +106,7 @@ export default async function BandProfilePage({ params }: Props) {
 
       <BandProfile
         band={band}
+        members={members}
         shows={bandShows}
         press={press}
         videos={videos}

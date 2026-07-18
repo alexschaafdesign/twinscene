@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { fetchBands } from "@/lib/fetchBands";
-import { buildMusiciansDirectory } from "@/lib/musicians";
+import { fetchMusiciansDirectory } from "@/lib/musicians";
 import MusiciansTable from "@/components/MusiciansTable";
 
 export const metadata: Metadata = {
@@ -10,13 +9,13 @@ export const metadata: Metadata = {
     "Every musician in the Twin Cities Music Scene directory, ranked by how many bands they play in.",
 };
 
-// fetchBands() reads the DB directly, so force dynamic rendering the same way
-// the home page does — otherwise this would prerender once and go stale.
+// fetchMusiciansDirectory() reads the DB directly, so force dynamic rendering
+// the same way the home page does — otherwise this would prerender once and
+// go stale.
 export const dynamic = "force-dynamic";
 
 export default async function MusiciansPage() {
-  const bands = await fetchBands();
-  const musicians = buildMusiciansDirectory(bands);
+  const musicians = await fetchMusiciansDirectory();
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">

@@ -90,7 +90,7 @@ export default function MusiciansTable({ musicians }: { musicians: MusicianEntry
             <tbody>
               {sorted.map((musician) => (
                 <tr
-                  key={musician.name.toLowerCase()}
+                  key={musician.id}
                   className="border-b border-[#E8E0D0]/10 last:border-0"
                 >
                   <td className="px-4 py-2.5 font-medium text-[#E8E0D0]">

@@ -6,6 +6,7 @@ import { sql } from "./db.ts";
 import type postgres from "postgres";
 import { resolveBandcampEmbedUrl } from "./bandcamp.ts";
 import { extractOgImage } from "./ogImage.ts";
+import { reconcileBandMembers } from "./musicians.ts";
 
 // Mirrors the `bands` columns exactly (snake_case), so a `select *` row IS a
 // Band with no transform. The public allowlist below is keyed off this type, so
@@ -334,6 +335,7 @@ export async function upsertBand(
         where id = ${existing.id}
         returning *
       `;
+      await reconcileBandMembers(tx, existing.id, members);
       return { band: updated, action: "updated" as const };
     }
 
@@ -353,6 +355,7 @@ export async function upsertBand(
       )
       returning *
     `;
+    await reconcileBandMembers(tx, created.id, members);
     return { band: created, action: "created" as const };
   });
 }

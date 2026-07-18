@@ -13,6 +13,7 @@ import type { Show } from "@/lib/fetchShows";
 import type { Press } from "@/lib/fetchPress";
 import type { VideoRow } from "@/lib/videos";
 import type { ShowStatus } from "@/lib/showSaves";
+import type { BandMusician } from "@/lib/musicians";
 import { pressNotes } from "@/lib/press";
 import BandcampPlayer from "@/components/BandcampPlayer";
 import {
@@ -269,6 +270,7 @@ function ContactMethod({ band }: { band: Band }) {
 
 export default function BandProfile({
   band,
+  members,
   shows = [],
   press = [],
   videos = [],
@@ -277,6 +279,10 @@ export default function BandProfile({
   loggedIn = false,
 }: {
   band: Band;
+  /** Real `musicians` rows via `band_members`, in display order
+   * (lib/musicians.ts getBandMembers) — the current source of truth for
+   * display, separate from the raw `bands.members` string mirror on `band`. */
+  members: BandMusician[];
   shows?: Show[];
   press?: Press[];
   videos?: VideoRow[];
@@ -326,18 +332,18 @@ export default function BandProfile({
         </p>
 
         {/* Members */}
-        {band.members.length > 0 && (
+        {members.length > 0 && (
           <div>
             <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
               Members
             </h2>
             <div className="flex flex-wrap gap-1.5">
-              {band.members.map((m) => (
+              {members.map((m) => (
                 <span
-                  key={m}
+                  key={m.id}
                   className="rounded-full bg-[#E8E0D0]/10 px-2.5 py-0.5 text-xs text-[#E8E0D0]/80"
                 >
-                  {m}
+                  {m.name}
                 </span>
               ))}
             </div>

@@ -1,26 +1,137 @@
-import type { Band } from "@/lib/fetchBands";
+// Data layer for the `musicians` + `band_members` tables (migration 0021).
+// Replaces the old string-derived musician grouping: `bands.members` (jsonb
+// string[]) stays as a frozen backup, kept in sync by lib/bands.ts's
+// upsertBand via reconcileBandMembers below, but musicians and their band
+// links are now real rows with stable ids/slugs.
 
-export type MusicianEntry = {
-  name: string; // first-seen casing across bands
+import { sql } from "./db.ts";
+import type postgres from "postgres";
+import { slugify } from "./bands.ts";
+
+export interface Musician {
+  id: number;
+  name: string;
+  slug: string;
+  user_id: number | null;
+  bio: string | null;
+  image_url: string | null;
+  created_at: string;
+}
+
+export interface BandMusician {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+export interface MusicianEntry {
+  id: number;
+  name: string;
+  slug: string;
   bands: { name: string; slug: string }[];
-};
+}
 
-/** Groups every band's `members` into one row per person (case-insensitive,
- * first-seen casing kept), each carrying the bands they're in. Sorted by
- * number of bands descending, then name — people in the most bands surface
- * first. */
-export function buildMusiciansDirectory(bands: Band[]): MusicianEntry[] {
-  const map = new Map<string, MusicianEntry>();
-  for (const band of bands) {
-    for (const raw of band.members) {
-      const name = raw.trim();
-      if (!name) continue;
-      const key = name.toLowerCase();
-      const entry = map.get(key);
-      if (entry) entry.bands.push({ name: band.name, slug: band.slug });
-      else map.set(key, { name, bands: [{ name: band.name, slug: band.slug }] });
-    }
+type Tx = postgres.TransactionSql;
+
+async function uniqueMusicianSlug(tx: Tx, base: string): Promise<string> {
+  let candidate = base;
+  let suffix = 2;
+  while (true) {
+    const [existing] = await tx`select 1 from musicians where slug = ${candidate} limit 1`;
+    if (!existing) return candidate;
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
   }
+}
+
+// Case-insensitive find-or-create, mirrors findOrCreateBandByName in
+// lib/bands.ts. Must run inside the caller's transaction so the lookup,
+// slug generation, and insert can't race a concurrent edit creating the
+// same person.
+export async function findOrCreateMusicianByName(tx: Tx, name: string): Promise<Musician> {
+  const [existing] = await tx<Musician[]>`
+    select * from musicians where lower(name) = lower(${name}) limit 1
+  `;
+  if (existing) return existing;
+
+  const slug = await uniqueMusicianSlug(tx, slugify(name) || "musician");
+  const [created] = await tx<Musician[]>`
+    insert into musicians (name, slug) values (${name}, ${slug}) returning *
+  `;
+  return created;
+}
+
+// Reconciles a band's `band_members` rows to match `names` (in order):
+// resolves each name to a musician (find-or-create by lower(name)), adds new
+// links, drops links for names no longer in the list, and updates `position`
+// to match the new order. `role` is never touched here — the source data
+// (comma-joined name strings) never carries it, so an existing link's role
+// (once Slice 2+ lets someone set one) survives a re-save of the same name.
+export async function reconcileBandMembers(tx: Tx, bandId: number, names: string[]): Promise<void> {
+  const trimmed = names.map((n) => n.trim()).filter(Boolean);
+
+  const musicianIds: number[] = [];
+  for (const name of trimmed) {
+    const musician = await findOrCreateMusicianByName(tx, name);
+    musicianIds.push(musician.id);
+  }
+
+  if (musicianIds.length === 0) {
+    await tx`delete from band_members where band_id = ${bandId}`;
+    return;
+  }
+
+  await tx`
+    delete from band_members
+    where band_id = ${bandId} and musician_id not in ${tx(musicianIds)}
+  `;
+
+  for (const [index, musicianId] of musicianIds.entries()) {
+    await tx`
+      insert into band_members (band_id, musician_id, position)
+      values (${bandId}, ${musicianId}, ${index})
+      on conflict (band_id, musician_id) do update set position = excluded.position
+    `;
+  }
+}
+
+// A band's members, in display order — the new read path for BandProfile
+// (replaces reading the raw `bands.members` string array directly).
+export async function getBandMembers(bandId: number): Promise<BandMusician[]> {
+  return sql<BandMusician[]>`
+    select musicians.id, musicians.name, musicians.slug
+    from band_members
+    join musicians on musicians.id = band_members.musician_id
+    where band_members.band_id = ${bandId}
+    order by band_members.position asc
+  `;
+}
+
+// The /musicians directory: every musician with at least one band link, each
+// carrying the bands they're in. Sorted by number of bands descending, then
+// name — same ordering the old string-derived buildMusiciansDirectory used.
+export async function fetchMusiciansDirectory(): Promise<MusicianEntry[]> {
+  const rows = await sql<
+    { id: number; name: string; slug: string; band_name: string; band_slug: string }[]
+  >`
+    select musicians.id, musicians.name, musicians.slug,
+           bands.name as band_name, bands.slug as band_slug
+    from musicians
+    join band_members on band_members.musician_id = musicians.id
+    join bands on bands.id = band_members.band_id
+    order by musicians.name asc
+  `;
+
+  const map = new Map<number, MusicianEntry>();
+  for (const row of rows) {
+    let entry = map.get(row.id);
+    if (!entry) {
+      entry = { id: row.id, name: row.name, slug: row.slug, bands: [] };
+      map.set(row.id, entry);
+    }
+    entry.bands.push({ name: row.band_name, slug: row.band_slug });
+  }
+
   return [...map.values()].sort(
     (a, b) =>
       b.bands.length - a.bands.length ||
