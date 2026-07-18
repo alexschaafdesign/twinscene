@@ -39,10 +39,22 @@ function hashToken(token: string): string {
 
 // --- Magic-link login tokens -----------------------------------------------
 
+// Only a same-origin relative path is ever safe to bounce a login redirect
+// through — rejects absolute/protocol-relative URLs (open-redirect vector)
+// and anything not starting with a single "/". Returns null for anything else,
+// callers then fall back to "/".
+export function sanitizeNextPath(next: string | undefined | null): string | null {
+  if (!next) return null;
+  if (!next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
 // Creates a single-use login token for `email` and emails the sign-in link.
 // Only the SHA-256 hash of the raw token is stored; the raw value exists
-// only in the emailed URL and is never persisted.
-export async function requestLoginLink(email: string, origin: string): Promise<void> {
+// only in the emailed URL and is never persisted. `next`, when a valid
+// relative path, rides along in the link's query string (not stored server
+// side) so the callback route can redirect back there after verifying.
+export async function requestLoginLink(email: string, origin: string, next?: string | null): Promise<void> {
   const normalizedEmail = email.trim().toLowerCase();
   const rawToken = randomToken();
 
@@ -51,7 +63,8 @@ export async function requestLoginLink(email: string, origin: string): Promise<v
     values (${hashToken(rawToken)}, ${normalizedEmail}, now() + interval '15 minutes')
   `;
 
-  const link = `${origin}/api/auth/callback?token=${rawToken}`;
+  const safeNext = sanitizeNextPath(next);
+  const link = `${origin}/api/auth/callback?token=${rawToken}${safeNext ? `&next=${encodeURIComponent(safeNext)}` : ""}`;
   await sendEmail({
     to: normalizedEmail,
     subject: "Sign in to Twin Scene",

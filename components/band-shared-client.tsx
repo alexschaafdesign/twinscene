@@ -2,11 +2,12 @@
 
 // Stateful shared band components. Split out from band-shared.tsx because
 // "use client" turns every export into a client reference — and the pure
-// helpers there need to be callable directly from server components. These two
+// helpers there need to be callable directly from server components. These
 // use React state, so they belong on the client. Server components can still
 // *render* them.
 
 import { useState } from "react";
+import Link from "next/link";
 import type { Band } from "@/lib/fetchBands";
 import { iconProps, initials } from "@/components/band-shared";
 
@@ -84,6 +85,80 @@ export function CopyButton({ text }: { text: string }) {
         <path d="M16 8v-2a2 2 0 0 0 -2 -2h-8a2 2 0 0 0 -2 2v8a2 2 0 0 0 2 2h2" />
       </svg>
       {copied && <span className="text-xs text-[#8FD693]">Copied</span>}
+    </button>
+  );
+}
+
+const heartButtonClass =
+  "inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E8E0D0]/25 text-[#E8E0D0]/80 transition hover:border-[#E8E0D0] hover:text-[#E8E0D0] disabled:opacity-50";
+
+function HeartIcon({ filled }: { filled: boolean }) {
+  return (
+    // ti-heart (Tabler) — filled swaps to a solid fill, matching the ★ treatment
+    // shows.tsx uses for "starred" state elsewhere in this app.
+    <svg {...iconProps} width={17} height={17} fill={filled ? "currentColor" : "none"}>
+      <path d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572" />
+    </svg>
+  );
+}
+
+/**
+ * Save/unsave toggle for a band, shown on the band profile page. Optimistic:
+ * flips immediately on click and reverts if the request fails. A logged-out
+ * visitor sees the same heart but it's a plain link to /login (with a return
+ * path back to this band) instead of firing the toggle.
+ */
+export function SaveBandButton({
+  slug,
+  initialSaved,
+  loggedIn,
+}: {
+  slug: string;
+  initialSaved: boolean;
+  loggedIn: boolean;
+}) {
+  const [saved, setSaved] = useState(initialSaved);
+  const [pending, setPending] = useState(false);
+
+  if (!loggedIn) {
+    return (
+      <Link
+        href={`/login?next=${encodeURIComponent(`/bands/${slug}`)}`}
+        aria-label="Log in to save this band"
+        title="Log in to save this band"
+        className={heartButtonClass}
+      >
+        <HeartIcon filled={false} />
+      </Link>
+    );
+  }
+
+  async function toggle() {
+    const next = !saved;
+    setSaved(next);
+    setPending(true);
+    try {
+      const res = await fetch(`/api/bands/${slug}/save`, { method: next ? "POST" : "DELETE" });
+      if (!res.ok) throw new Error(`save toggle failed (${res.status})`);
+    } catch (err) {
+      console.error("SaveBandButton: toggle failed", err);
+      setSaved(!next);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={pending}
+      aria-pressed={saved}
+      aria-label={saved ? "Unsave this band" : "Save this band"}
+      title={saved ? "Unsave this band" : "Save this band"}
+      className={heartButtonClass}
+    >
+      <HeartIcon filled={saved} />
     </button>
   );
 }

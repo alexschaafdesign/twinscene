@@ -11,13 +11,14 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const email = typeof body?.email === "string" ? body.email.trim() : "";
+  const next = typeof body?.next === "string" ? body.next : undefined;
 
   if (!email || !email.includes("@")) {
     return NextResponse.json({ success: false, error: "Enter a valid email" }, { status: 400 });
   }
 
   try {
-    await requestLoginLink(email, request.nextUrl.origin);
+    await requestLoginLink(email, request.nextUrl.origin, next);
   } catch (err) {
     console.error("auth/login: failed to send login link", err);
     return NextResponse.json(

@@ -5,8 +5,12 @@ import { fetchBands } from "@/lib/fetchBands";
 import { fetchShows } from "@/lib/fetchShows";
 import { fetchPress } from "@/lib/fetchPress";
 import { getVisibleVideosBySlug } from "@/lib/videos";
+import { getBandBySlug } from "@/lib/bands";
+import { getCurrentUser } from "@/lib/auth";
+import { isBandSaved } from "@/lib/savedBands";
 import BandProfile, { editHref } from "@/components/BandProfile";
 import { iconProps, locationLabel } from "@/components/band-shared";
+import { SaveBandButton } from "@/components/band-shared-client";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -57,6 +61,13 @@ export default async function BandProfilePage({ params }: Props) {
   const bandShows = shows.filter((s) => s.bandSlugs.includes(slug));
   const videos = await getVisibleVideosBySlug(slug);
 
+  const user = await getCurrentUser();
+  // fetchBands()'s Band shape carries no numeric id (see lib/fetchBands.ts),
+  // so a second lookup against the raw row is the cheapest way to get one for
+  // isBandSaved.
+  const bandRow = await getBandBySlug(slug);
+  const initialSaved = user && bandRow ? await isBandSaved(user.id, bandRow.id) : false;
+
   return (
     <div>
       <div className="mb-8 flex items-center justify-between gap-4">
@@ -67,19 +78,23 @@ export default async function BandProfilePage({ params }: Props) {
           <span aria-hidden>←</span> Back to directory
         </Link>
 
-        <Link
-          href={editHref(band, videos)}
-          className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
-        >
-          {/* ti-edit (Tabler) */}
-          <svg {...iconProps} width={15} height={15}>
-            <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" />
-            <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" />
-            <path d="M16 5l3 3" />
-          </svg>
-          <span className="md:hidden">Edit</span>
-          <span className="hidden md:inline">Edit this band</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <SaveBandButton slug={slug} initialSaved={initialSaved} loggedIn={!!user} />
+
+          <Link
+            href={editHref(band, videos)}
+            className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
+          >
+            {/* ti-edit (Tabler) */}
+            <svg {...iconProps} width={15} height={15}>
+              <path d="M7 7h-1a2 2 0 0 0 -2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2 -2v-1" />
+              <path d="M20.385 6.585a2.1 2.1 0 0 0 -2.97 -2.97l-8.415 8.385v3h3l8.385 -8.415z" />
+              <path d="M16 5l3 3" />
+            </svg>
+            <span className="md:hidden">Edit</span>
+            <span className="hidden md:inline">Edit this band</span>
+          </Link>
+        </div>
       </div>
 
       <BandProfile band={band} shows={bandShows} press={press} videos={videos} />

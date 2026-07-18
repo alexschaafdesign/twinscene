@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { getCurrentUser } from "@/lib/auth";
+import AccountBar from "@/components/AccountBar";
 import "./globals.css";
 
 // The app's typeface, exposed as the generic `--font-app` CSS variable so
@@ -18,14 +20,16 @@ export const metadata: Metadata = {
     "A curated index of the Twin Cities music scene, maintained by The Birdhaus.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getCurrentUser();
   return (
     <html lang="en" className={`${appFont.variable} h-full`}>
       <body className="min-h-full antialiased">
+        <AccountBar email={user?.email ?? null} />
         {children}
         <Analytics />
       </body>

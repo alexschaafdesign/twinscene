@@ -12,6 +12,7 @@ export default async function LoginPage({
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const sp = await searchParams;
+  const next = typeof sp.next === "string" ? sp.next : undefined;
   return (
     <main className="mx-auto flex w-full max-w-sm flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
       <h1 className="text-xl font-medium">Log in to Twin Scene</h1>
@@ -23,7 +24,7 @@ export default async function LoginPage({
           That link is invalid or has expired. Request a new one below.
         </p>
       )}
-      <LoginForm />
+      <LoginForm next={next} />
     </main>
   );
 }

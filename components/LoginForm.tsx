@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 
-/** Email-entry form for /login — posts to /api/auth/login, then shows a "check your email" state. */
-export default function LoginForm() {
+/** Email-entry form for /login — posts to /api/auth/login, then shows a "check your email" state.
+ * `next`, when set, rides along in the emailed magic link so the callback
+ * route can send the user back where they started (e.g. the band page a
+ * logged-out save-button click bounced them from) instead of always home. */
+export default function LoginForm({ next }: { next?: string } = {}) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState("");
@@ -16,7 +19,7 @@ export default function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, next }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
