@@ -32,6 +32,7 @@ export default async function ProfileEditPage() {
           username: user.username,
           bio: user.bio,
           image_url: user.image_url,
+          profile_public: user.profile_public,
         }}
       />
     </main>

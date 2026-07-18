@@ -49,12 +49,26 @@ export default async function ProfilePage() {
           <p className="truncate text-lg font-medium">{user.name || user.email}</p>
           {user.username && <p className="text-sm text-[#E8E0D0]/60">@{user.username}</p>}
           {user.bio && <p className="mt-1 text-sm text-[#E8E0D0]/80">{user.bio}</p>}
-          <Link
-            href="/profile/edit"
-            className="mt-2 inline-block text-sm text-[#E8E0D0]/60 underline underline-offset-2 transition hover:text-[#E8E0D0]"
-          >
-            Edit profile
-          </Link>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            <Link
+              href="/profile/edit"
+              className="text-sm text-[#E8E0D0]/60 underline underline-offset-2 transition hover:text-[#E8E0D0]"
+            >
+              Edit profile
+            </Link>
+            {user.username ? (
+              <Link
+                href={`/u/${user.username}`}
+                className="text-sm text-[#E8E0D0]/60 underline underline-offset-2 transition hover:text-[#E8E0D0]"
+              >
+                View your public profile
+              </Link>
+            ) : (
+              <span className="text-sm text-[#E8E0D0]/40">
+                Set a username to get a public profile
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

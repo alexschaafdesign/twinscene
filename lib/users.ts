@@ -94,6 +94,7 @@ export interface ProfileUpdate {
   name?: string | null;
   username?: string | null;
   bio?: string | null;
+  profile_public?: boolean;
 }
 
 /** Updates the caller's own profile fields. Any of name/username/bio may be
@@ -117,10 +118,11 @@ export async function updateProfile(userId: number, update: ProfileUpdate): Prom
     }
   }
 
-  const fields: Partial<Record<"name" | "username" | "bio", string | null>> = {};
+  const fields: Partial<Record<"name" | "username" | "bio" | "profile_public", string | null | boolean>> = {};
   if (name !== undefined) fields.name = name;
   if (username !== undefined) fields.username = username;
   if (bio !== undefined) fields.bio = bio;
+  if (update.profile_public !== undefined) fields.profile_public = update.profile_public;
 
   if (Object.keys(fields).length === 0) {
     const [user] = await sql<User[]>`select * from users where id = ${userId}`;
@@ -140,6 +142,30 @@ export async function updateProfile(userId: number, update: ProfileUpdate): Prom
     }
     throw err;
   }
+}
+
+export interface PublicProfileUser {
+  id: number;
+  username: string;
+  name: string | null;
+  bio: string | null;
+  image_url: string | null;
+  profile_public: boolean;
+}
+
+/** Looks up a user by username for the public profile page
+ * (app/u/[username]) — an explicit column list, deliberately never including
+ * email, so this can safely back an unauthenticated route regardless of the
+ * viewer or the profile's privacy setting. Case-insensitive, matching the
+ * lower(username) unique index from migration 0019. */
+export async function getUserByUsername(username: string): Promise<PublicProfileUser | null> {
+  const [user] = await sql<PublicProfileUser[]>`
+    select id, username, name, bio, image_url, profile_public
+    from users
+    where lower(username) = lower(${username})
+    limit 1
+  `;
+  return user ?? null;
 }
 
 /** Points a user's image_url at a freshly uploaded avatar. The upload itself

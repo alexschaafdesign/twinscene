@@ -104,3 +104,24 @@ export async function listAttended(userId: number): Promise<AttendedShow[]> {
     order by shows.date desc
   `;
 }
+
+export interface AttendedStats {
+  total: number;
+  thisYear: number;
+}
+
+// All-time and this-calendar-year (America/Chicago) counts of 'went' shows,
+// for the public profile's stats row — thisYear is the number a future
+// leaderboard will rank on.
+export async function getAttendedStats(userId: number): Promise<AttendedStats> {
+  const year = Number(todayInChicago().slice(0, 4));
+  const [row] = await sql<{ total: string; this_year: string }[]>`
+    select
+      count(*) as total,
+      count(*) filter (where extract(year from shows.date) = ${year}) as this_year
+    from show_saves
+    join shows on shows.id = show_saves.show_id
+    where show_saves.user_id = ${userId} and show_saves.status = 'went'
+  `;
+  return { total: Number(row.total), thisYear: Number(row.this_year) };
+}

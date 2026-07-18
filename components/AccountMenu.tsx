@@ -113,6 +113,16 @@ export default function AccountMenu({ user }: { user: AccountMenuUser | null }) 
             >
               Edit profile
             </Link>
+            {user.username && (
+              <Link
+                href={`/u/${user.username}`}
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="block px-4 py-2 text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]"
+              >
+                View public profile
+              </Link>
+            )}
             <Link
               href="/profile#saved-bands"
               role="menuitem"

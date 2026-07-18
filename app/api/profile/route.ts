@@ -24,10 +24,16 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Invalid request" }, { status: 400 });
   }
 
-  const update: { name?: string | null; username?: string | null; bio?: string | null } = {};
+  const update: {
+    name?: string | null;
+    username?: string | null;
+    bio?: string | null;
+    profile_public?: boolean;
+  } = {};
   if ("name" in body) update.name = typeof body.name === "string" ? body.name : null;
   if ("username" in body) update.username = typeof body.username === "string" ? body.username : null;
   if ("bio" in body) update.bio = typeof body.bio === "string" ? body.bio : null;
+  if (typeof body.profilePublic === "boolean") update.profile_public = body.profilePublic;
 
   try {
     const updated = await updateProfile(user.id, update);

@@ -10,6 +10,7 @@ export interface ProfileEditUser {
   username: string | null;
   bio: string | null;
   image_url: string | null;
+  profile_public: boolean;
 }
 
 /** Profile edit form for app/profile/edit — name, username, bio, and an
@@ -25,6 +26,7 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
   const [name, setName] = useState(user.name ?? "");
   const [username, setUsername] = useState(user.username ?? "");
   const [bio, setBio] = useState(user.bio ?? "");
+  const [profilePublic, setProfilePublic] = useState(user.profile_public);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user.image_url);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
@@ -61,7 +63,7 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
       const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, username, bio }),
+        body: JSON.stringify({ name, username, bio, profilePublic }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
@@ -174,6 +176,37 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
           {bioRemaining} characters left
         </p>
         {fieldError.bio && <p className="text-sm text-[#F5A3A3]">{fieldError.bio}</p>}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm text-[#E8E0D0]/80">Profile visibility</span>
+        <div className="flex overflow-hidden rounded-md border border-[#E8E0D0]/25 text-sm">
+          <button
+            type="button"
+            onClick={() => setProfilePublic(true)}
+            aria-pressed={profilePublic}
+            className={`flex-1 px-3.5 py-2 transition ${
+              profilePublic ? "bg-[#E8E0D0]/10 text-[#E8E0D0]" : "text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+            }`}
+          >
+            Public profile
+          </button>
+          <button
+            type="button"
+            onClick={() => setProfilePublic(false)}
+            aria-pressed={!profilePublic}
+            className={`flex-1 border-l border-[#E8E0D0]/25 px-3.5 py-2 transition ${
+              !profilePublic ? "bg-[#E8E0D0]/10 text-[#E8E0D0]" : "text-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+            }`}
+          >
+            Private profile
+          </button>
+        </div>
+        <p className="text-xs text-[#E8E0D0]/50">
+          {profilePublic
+            ? "Anyone with the link can see your favorite bands, shows attended, and stats at /u/…"
+            : "Only you can see your profile at /u/… — everyone else sees just your name and avatar."}
+        </p>
       </div>
 
       {fieldError.general && <p className="text-sm text-[#F5A3A3]">{fieldError.general}</p>}
