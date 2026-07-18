@@ -29,7 +29,6 @@ import { BandImage, CopyButton } from "@/components/band-shared-client";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 import BandMemberClaimSection from "@/components/BandMemberClaimSection";
 import BandMemberClaimsManager from "@/components/BandMemberClaimsManager";
-import ClaimOwnershipButton from "@/components/ClaimOwnershipButton";
 import { parseYoutubeId } from "@/lib/youtube";
 
 /** Prefilled "correct this band" submit URL — shown in the profile header. */
@@ -385,16 +384,13 @@ export default function BandProfile({
           </div>
         )}
 
-        {/* Claim entry point for visitors who don't already have edit access
-            to this band — "I own this band" (unclaimed) or "are you in this
-            band?" (already owned, so a member request needs the owner's
-            review) depending on hasOwner. */}
-        {showClaimEntry &&
-          (hasOwner ? (
-            <BandMemberClaimSection bandSlug={band.slug} members={members} loggedIn={loggedIn} />
-          ) : (
-            <ClaimOwnershipButton />
-          ))}
+        {/* Member-request entry for an already-owned band, shown to visitors
+            who can't already edit it — sending a request the owner reviews.
+            The unclaimed-band "Is this your band?" entry now lives in the page
+            top bar beside the Unclaimed tag (app/bands/[slug]/page.tsx). */}
+        {showClaimEntry && hasOwner && (
+          <BandMemberClaimSection bandSlug={band.slug} members={members} loggedIn={loggedIn} />
+        )}
 
         {/* Featured links — band-curated highlights */}
         <FeaturedLinks band={band} />

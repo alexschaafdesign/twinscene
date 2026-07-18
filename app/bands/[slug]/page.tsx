@@ -6,7 +6,7 @@ import { fetchShows, todayInChicago } from "@/lib/fetchShows";
 import { fetchPress } from "@/lib/fetchPress";
 import { getVisibleVideosBySlug } from "@/lib/videos";
 import { getBandBySlug } from "@/lib/bands";
-import { getCurrentUser, canEditBand } from "@/lib/auth";
+import { getCurrentUser, canEditBand, isAdmin } from "@/lib/auth";
 import { isBandSaved } from "@/lib/savedBands";
 import { isBandFollowing } from "@/lib/bandFollows";
 import { listShowStatuses } from "@/lib/showSaves";
@@ -14,6 +14,7 @@ import { getBandMembers } from "@/lib/musicians";
 import { isBandOwner, bandHasOwner } from "@/lib/bandOwnership";
 import { canApproveMemberClaim, listPendingClaimsForBand } from "@/lib/bandMemberClaims";
 import BandProfile, { editHref } from "@/components/BandProfile";
+import ClaimOwnershipButton from "@/components/ClaimOwnershipButton";
 import { iconProps, locationLabel } from "@/components/band-shared";
 import { SaveBandButton, FollowBandButton } from "@/components/band-shared-client";
 
@@ -91,16 +92,23 @@ export default async function BandProfilePage({ params }: Props) {
           <span aria-hidden>←</span> Back to directory
         </Link>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {/* Ownership tag: "Owner" (you) or "Claimed" (someone else). The
+              "Unclaimed" state shows no tag — the "Claim this band" button
+              below carries that signal instead. */}
           {isOwner ? (
             <span className="rounded-full border border-[#E8E0D0]/30 px-2.5 py-0.5 text-xs font-medium text-[#E8E0D0]/80">
               Owner
             </span>
-          ) : (
+          ) : hasOwner ? (
             <span className="rounded-full border border-[#E8E0D0]/15 px-2.5 py-0.5 text-xs font-medium text-[#E8E0D0]/45">
-              {hasOwner ? "Claimed" : "Unclaimed"}
+              Claimed
             </span>
-          )}
+          ) : null}
+          {/* Claim entry for an unclaimed band. Only for visitors who can't
+              already edit (!canEdit == showClaimEntry); the member-request flow
+              for already-owned bands stays inside BandProfile. */}
+          {!canEdit && !hasOwner && <ClaimOwnershipButton />}
           <SaveBandButton slug={slug} initialSaved={initialSaved} loggedIn={!!user} />
           <FollowBandButton slug={slug} initialFollowing={initialFollowing} loggedIn={!!user} />
 
@@ -117,6 +125,23 @@ export default async function BandProfilePage({ params }: Props) {
               </svg>
               <span className="md:hidden">Edit</span>
               <span className="hidden md:inline">Edit this band</span>
+            </Link>
+          )}
+
+          {/* Admin-only shortcut to this band's editors/ownership-code page —
+              saves typing the /admin/bands/<slug>/editors URL by hand when a
+              band DMs asking to claim their page. */}
+          {isAdmin(user) && (
+            <Link
+              href={`/admin/bands/${slug}/editors`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-[#E8B84B]/40 px-2.5 py-1 text-xs font-medium text-[#E8B84B]/90 transition hover:border-[#E8B84B]/70 hover:text-[#E8B84B]"
+            >
+              {/* ti-key (Tabler) */}
+              <svg {...iconProps} width={14} height={14}>
+                <path d="M16.555 3.843l3.602 3.602a2.877 2.877 0 0 1 0 4.069l-2.643 2.643a2.877 2.877 0 0 1 -4.069 0l-.301 -.301l-6.558 6.558a2 2 0 0 1 -1.239 .578l-.175 .008h-1.978a1 1 0 0 1 -.993 -.883l-.007 -.117v-1.978a2 2 0 0 1 .467 -1.284l.119 -.13l.414 -.414h2v-2h2v-2l2.144 -2.144l-.301 -.301a2.877 2.877 0 0 1 0 -4.069l2.643 -2.643a2.877 2.877 0 0 1 4.069 0z" />
+                <path d="M15 9h.01" />
+              </svg>
+              Manage
             </Link>
           )}
         </div>

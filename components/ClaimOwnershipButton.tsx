@@ -4,26 +4,24 @@ import { useState } from "react";
 import Link from "next/link";
 
 /**
- * "Is this your band?" entry point for an unclaimed band's page. Purely
- * informational — no claim is recorded here. Ownership is verified out of
- * band (Instagram DM), same trust model as the rest of Slice A
- * (lib/bandOwnership.ts): an admin confirms it's really the band, then sends
- * a one-time code the owner redeems at /redeem.
+ * "Claim this band" entry point for an unclaimed band's page — a prominent
+ * button in the page's top bar that opens a dialog. Purely informational — no
+ * claim is recorded here. Ownership is verified out of band (Instagram DM),
+ * same trust model as the rest of Slice A (lib/bandOwnership.ts): an admin
+ * confirms it's really the band, then sends a one-time code the owner redeems
+ * at /redeem, which grants edit access.
  */
 export default function ClaimOwnershipButton() {
   const [open, setOpen] = useState(false);
 
   return (
-    <div>
-      <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-        Is this your band?
-      </h2>
+    <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-sm text-[#E8E0D0]/70 underline underline-offset-2 hover:text-[#E8E0D0]"
+        className="rounded-md bg-[#E8B84B] px-3 py-1.5 text-xs font-semibold text-[#2A2420] shadow-sm transition hover:bg-[#f0c65f]"
       >
-        I own this band
+        Claim this band
       </button>
 
       {open && (
@@ -39,6 +37,9 @@ export default function ClaimOwnershipButton() {
             className="max-w-sm rounded-lg border border-[#E8E0D0]/15 bg-[#141414] p-6 text-[#E8E0D0] shadow-2xl"
           >
             <h3 className="text-base font-medium">Claim this band</h3>
+            <p className="mt-2 text-sm leading-relaxed text-[#E8E0D0]/75">
+              Claim ownership of this band to be able to edit its page.
+            </p>
             <p className="mt-2 text-sm leading-relaxed text-[#E8E0D0]/75">
               Send a DM to{" "}
               <span className="font-medium text-[#E8E0D0]">@twin.scene</span> on
@@ -62,6 +63,6 @@ export default function ClaimOwnershipButton() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
