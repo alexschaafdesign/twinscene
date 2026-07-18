@@ -3,7 +3,10 @@
 import { useMemo, useState } from "react";
 import type { MusicianEntry } from "@/lib/musicians";
 
-type ClaimState = { slug: string; status: "pending" | "error"; message?: string };
+// Once a claim attempt is made (from a search result or the "claim it
+// instead?" nudge), this replaces the whole search/create UI — the result
+// pane below shows only this one musician, success or error.
+type Claimed = { name: string; slug: string; status: "pending" | "error"; message: string };
 
 // "Are you a musician?" entry point (/profile/musician). Search existing
 // musicians to claim ("This is me" → admin-reviewed) or self-serve create a
@@ -12,7 +15,7 @@ type ClaimState = { slug: string; status: "pending" | "error"; message?: string 
 // see AGENTS task Slice 2 model recap.
 export default function MusicianLinkSearch({ musicians }: { musicians: MusicianEntry[] }) {
   const [query, setQuery] = useState("");
-  const [claimState, setClaimState] = useState<ClaimState | null>(null);
+  const [claimed, setClaimed] = useState<Claimed | null>(null);
 
   const [name, setName] = useState("");
   const [createError, setCreateError] = useState("");
@@ -31,18 +34,22 @@ export default function MusicianLinkSearch({ musicians }: { musicians: MusicianE
       .slice(0, 20);
   }, [musicians, query]);
 
-  async function claim(slug: string) {
-    setClaimState({ slug, status: "pending" });
+  // Clears the search field and swaps the whole search/create UI for a
+  // single result pane, so a claimed musician doesn't stay buried in a list
+  // of other results.
+  async function claim(musician: { name: string; slug: string }) {
+    setQuery("");
+    setClaimed({ ...musician, status: "pending", message: "" });
     try {
-      const res = await fetch(`/api/musicians/${slug}/claim`, { method: "POST" });
+      const res = await fetch(`/api/musicians/${musician.slug}/claim`, { method: "POST" });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setClaimState({ slug, status: "error", message: data.error || "Something went wrong" });
+        setClaimed({ ...musician, status: "error", message: data.error || "Something went wrong" });
         return;
       }
-      setClaimState({ slug, status: "pending", message: "Claim submitted — awaiting admin review." });
+      setClaimed({ ...musician, status: "pending", message: "Claim submitted — awaiting admin review." });
     } catch {
-      setClaimState({ slug, status: "error", message: "Something went wrong" });
+      setClaimed({ ...musician, status: "error", message: "Something went wrong" });
     }
   }
 
@@ -85,6 +92,28 @@ export default function MusicianLinkSearch({ musicians }: { musicians: MusicianE
     );
   }
 
+  if (claimed) {
+    return (
+      <div className="mt-6">
+        <div className="flex items-center justify-between rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm">
+          <span>{claimed.name}</span>
+          <span className={claimed.status === "error" ? "text-xs text-[#F5A3A3]" : "text-xs text-[#E8E0D0]/60"}>
+            {claimed.message}
+          </span>
+        </div>
+        {claimed.status === "error" && (
+          <button
+            type="button"
+            onClick={() => setClaimed(null)}
+            className="mt-2 text-sm text-[#E8E0D0]/60 underline underline-offset-2 hover:text-[#E8E0D0]"
+          >
+            Try again
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="mt-6 flex flex-col gap-8">
       <div>
@@ -100,37 +129,26 @@ export default function MusicianLinkSearch({ musicians }: { musicians: MusicianE
             {filtered.length === 0 && (
               <li className="text-sm text-[#E8E0D0]/50">No musicians match that search.</li>
             )}
-            {filtered.map((m) => {
-              const state = claimState?.slug === m.slug ? claimState : null;
-              return (
-                <li
-                  key={m.id}
-                  className="flex items-center justify-between rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"
-                >
-                  <span>
-                    {m.name}
-                    {m.bands.length > 0 && (
-                      <span className="text-[#E8E0D0]/50"> — {m.bands.map((b) => b.name).join(", ")}</span>
-                    )}
-                  </span>
-                  {state?.message ? (
-                    <span
-                      className={state.status === "error" ? "text-xs text-[#F5A3A3]" : "text-xs text-[#E8E0D0]/60"}
-                    >
-                      {state.message}
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => claim(m.slug)}
-                      className="shrink-0 text-[#E8E0D0]/80 hover:underline"
-                    >
-                      This is me
-                    </button>
+            {filtered.map((m) => (
+              <li
+                key={m.id}
+                className="flex items-center justify-between rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"
+              >
+                <span>
+                  {m.name}
+                  {m.bands.length > 0 && (
+                    <span className="text-[#E8E0D0]/50"> — {m.bands.map((b) => b.name).join(", ")}</span>
                   )}
-                </li>
-              );
-            })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => claim(m)}
+                  className="shrink-0 text-[#E8E0D0]/80 hover:underline"
+                >
+                  This is me
+                </button>
+              </li>
+            ))}
           </ul>
         )}
       </div>
@@ -162,7 +180,7 @@ export default function MusicianLinkSearch({ musicians }: { musicians: MusicianE
           <p className="mt-2 text-sm text-[#E8E0D0]/70">
             An existing musician named <strong>{nameMatch.name}</strong> already
             matches this name —{" "}
-            <button type="button" onClick={() => claim(nameMatch.slug)} className="underline hover:text-[#E8E0D0]">
+            <button type="button" onClick={() => claim(nameMatch)} className="underline hover:text-[#E8E0D0]">
               claim it instead?
             </button>
           </p>
