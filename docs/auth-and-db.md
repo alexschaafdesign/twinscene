@@ -1,5 +1,5 @@
 Auth, Accounts & Database Safety — Twin Scene
-Operational context for coding agents in this repo. (Fuller design rationale lives in the team's Claude Project; this file is what you need day-to-day.)
+Operational context for coding agents in this repo. (Fuller design rationale lives in the team's Claude Project; this file is what you need day-to-day.) For the fuller auth/profile design + status narrative, see docs/architecture.md.
 Auth & accounts model
 * ONE users table is the single identity. Authorization is a SEPARATE layer:
     * users.is_admin → may edit ANY band.
