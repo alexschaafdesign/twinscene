@@ -33,7 +33,7 @@ export interface MusicianEntry {
 
 type Tx = postgres.TransactionSql;
 
-async function uniqueMusicianSlug(tx: Tx, base: string): Promise<string> {
+async function uniqueMusicianSlug(tx: Tx | typeof sql, base: string): Promise<string> {
   let candidate = base;
   let suffix = 2;
   while (true) {
@@ -42,6 +42,79 @@ async function uniqueMusicianSlug(tx: Tx, base: string): Promise<string> {
     candidate = `${base}-${suffix}`;
     suffix += 1;
   }
+}
+
+export async function getMusicianBySlug(slug: string): Promise<Musician | null> {
+  const [row] = await sql<Musician[]>`select * from musicians where slug = ${slug} limit 1`;
+  return row ?? null;
+}
+
+// The musician linked to `userId` (Slice 2's musicians.user_id), plus the
+// bands that link grants edit access to — for display on /profile. Null if
+// the user has no linked musician yet.
+export async function getMusicianForUser(
+  userId: number,
+): Promise<(Musician & { bands: { name: string; slug: string }[] }) | null> {
+  const [musician] = await sql<Musician[]>`
+    select * from musicians where user_id = ${userId} limit 1
+  `;
+  if (!musician) return null;
+
+  const bands = await sql<{ name: string; slug: string }[]>`
+    select bands.name, bands.slug
+    from band_members
+    join bands on bands.id = band_members.band_id
+    where band_members.musician_id = ${musician.id}
+    order by bands.name asc
+  `;
+  return { ...musician, bands };
+}
+
+export class UserAlreadyHasMusicianError extends Error {
+  constructor() {
+    super("Your account is already linked to a musician");
+  }
+}
+
+// A musician row with the same name already exists — returned instead of
+// creating a duplicate, so the UI can nudge toward claiming it instead.
+export interface MusicianNameMatch {
+  matched: true;
+  musician: Musician;
+}
+
+// Self-serve creation of a brand-new musician identity, linked to `userId`
+// immediately (no admin review — unlike claiming an *existing* musician,
+// this grants no band_editors access, so there's nothing sensitive to gate).
+// Guards the one-user-per-musician rule. If an existing musician's name
+// matches exactly (case-insensitively), no duplicate is created — the caller
+// gets that musician back instead so the UI can offer "claim it instead?".
+export async function createMusicianForUser(
+  userId: number,
+  name: string,
+): Promise<Musician | MusicianNameMatch> {
+  const trimmed = name.trim();
+  return sql.begin(async (tx) => {
+    const [existingForUser] = await tx<{ id: number }[]>`
+      select id from musicians where user_id = ${userId} limit 1
+    `;
+    if (existingForUser) {
+      throw new UserAlreadyHasMusicianError();
+    }
+
+    const [match] = await tx<Musician[]>`
+      select * from musicians where lower(name) = lower(${trimmed}) limit 1
+    `;
+    if (match) {
+      return { matched: true, musician: match };
+    }
+
+    const slug = await uniqueMusicianSlug(tx, slugify(trimmed) || "musician");
+    const [created] = await tx<Musician[]>`
+      insert into musicians (name, slug, user_id) values (${trimmed}, ${slug}, ${userId}) returning *
+    `;
+    return created;
+  });
 }
 
 // Case-insensitive find-or-create, mirrors findOrCreateBandByName in

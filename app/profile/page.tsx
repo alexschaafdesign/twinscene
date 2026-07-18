@@ -5,6 +5,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { listSavedBands } from "@/lib/savedBands";
 import { listFollowedBands } from "@/lib/bandFollows";
 import { listUpcomingForUser, listAttended } from "@/lib/showSaves";
+import { getMusicianForUser } from "@/lib/musicians";
+import { getPendingClaimForUser } from "@/lib/musicianClaims";
 import SavedBandsList from "@/components/SavedBandsList";
 import FollowedBandsList from "@/components/FollowedBandsList";
 import UpcomingShowsList from "@/components/UpcomingShowsList";
@@ -25,12 +27,14 @@ export default async function ProfilePage() {
     redirect("/login?next=/profile");
   }
 
-  const [savedBands, followedBands, upcomingShows, attendedShows] = await Promise.all([
+  const [savedBands, followedBands, upcomingShows, attendedShows, musician] = await Promise.all([
     listSavedBands(user.id),
     listFollowedBands(user.id),
     listUpcomingForUser(user.id),
     listAttended(user.id),
+    getMusicianForUser(user.id),
   ]);
+  const pendingClaim = musician ? null : await getPendingClaimForUser(user.id);
 
   const initial = (user.name?.trim()?.[0] || user.email[0] || "?").toUpperCase();
 
@@ -70,6 +74,47 @@ export default async function ProfilePage() {
             )}
           </div>
         </div>
+      </div>
+
+      <div>
+        <h2 className="text-xl font-medium">Musician profile</h2>
+        {musician ? (
+          <p className="mt-2 text-sm text-[#E8E0D0]/70">
+            You&apos;re linked to <strong>{musician.name}</strong>.
+            {musician.bands.length > 0 ? (
+              <>
+                {" "}
+                You can edit:{" "}
+                {musician.bands.map((b, i) => (
+                  <span key={b.slug}>
+                    {i > 0 && ", "}
+                    <Link href={`/bands/${b.slug}`} className="underline underline-offset-2 hover:text-[#E8E0D0]">
+                      {b.name}
+                    </Link>
+                  </span>
+                ))}
+                .
+              </>
+            ) : (
+              " Not a member of any band yet."
+            )}
+          </p>
+        ) : pendingClaim ? (
+          <p className="mt-2 text-sm text-[#E8E0D0]/70">
+            Your claim for <strong>{pendingClaim.musician_name}</strong> is
+            awaiting review.
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-[#E8E0D0]/60">
+            <Link
+              href="/profile/musician"
+              className="underline underline-offset-2 hover:text-[#E8E0D0]"
+            >
+              Are you a musician?
+            </Link>{" "}
+            Claim your listing or create a profile.
+          </p>
+        )}
       </div>
 
       <div id="saved-bands">
