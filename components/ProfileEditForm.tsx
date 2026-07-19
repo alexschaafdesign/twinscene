@@ -38,7 +38,7 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user.image_url);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [fieldError, setFieldError] = useState<{ username?: string; bio?: string; avatar?: string; general?: string }>(
     {},
   );
@@ -106,9 +106,7 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
         return;
       }
 
-      setStatus("saved");
-      setAvatarFile(null);
-      router.refresh();
+      router.push("/profile?saved=1");
     } catch {
       setFieldError({ general: "Couldn't reach the server. Check your connection and try again." });
       setStatus("error");
@@ -240,7 +238,6 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
       </div>
 
       {fieldError.general && <p className="text-sm text-[#F5A3A3]">{fieldError.general}</p>}
-      {status === "saved" && <p className="text-sm text-[#9FD3A0]">Saved.</p>}
 
       <button
         type="submit"

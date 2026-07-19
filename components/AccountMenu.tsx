@@ -147,7 +147,7 @@ export default function AccountMenu({
             aria-haspopup="menu"
             aria-expanded={open}
             aria-label="Account menu"
-            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-[#E8E0D0]/35 bg-[#E8E0D0]/10 text-sm font-semibold text-[#E8E0D0] shadow-sm shadow-black/20 transition hover:border-[#E8E0D0]/60 focus:border-[#E8E0D0]/70 focus:outline-none"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-[#E8E0D0]/35 bg-[#E8E0D0]/10 text-sm font-semibold text-[#E8E0D0] shadow-sm shadow-black/20 transition hover:border-[#E8E0D0]/60 focus:border-[#E8E0D0]/70 focus:outline-none"
           >
             {user.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -174,14 +174,6 @@ export default function AccountMenu({
               >
                 Your profile
               </Link>
-              <Link
-                href="/profile/edit"
-                role="menuitem"
-                onClick={() => setOpen(false)}
-                className="block px-4 py-2 text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]"
-              >
-                Edit profile
-              </Link>
               {user.username && (
                 <Link
                   href={`/u/${user.username}`}
@@ -192,22 +184,6 @@ export default function AccountMenu({
                   View public profile
                 </Link>
               )}
-              <Link
-                href="/profile#saved-bands"
-                role="menuitem"
-                onClick={() => setOpen(false)}
-                className="block px-4 py-2 text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]"
-              >
-                Saved bands
-              </Link>
-              <Link
-                href="/profile#follows"
-                role="menuitem"
-                onClick={() => setOpen(false)}
-                className="block px-4 py-2 text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]"
-              >
-                Bands you follow
-              </Link>
               <button
                 type="button"
                 role="menuitem"

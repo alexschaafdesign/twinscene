@@ -12,6 +12,7 @@ import UpcomingShowsList from "@/components/UpcomingShowsList";
 import AttendedShowsList from "@/components/AttendedShowsList";
 import BandMemberClaimsManager from "@/components/BandMemberClaimsManager";
 import StatusEditor from "@/components/StatusEditor";
+import SavedBanner from "@/components/SavedBanner";
 
 export const metadata: Metadata = {
   title: "My profile — Twin Scene",
@@ -22,11 +23,18 @@ export const dynamic = "force-dynamic";
 
 // Logged-in-only profile page — followed bands (the heart; saved+follow were
 // merged in migration 0028) plus show attendance.
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login?next=/profile");
   }
+
+  const sp = await searchParams;
+  const justSaved = sp.saved === "1";
 
   const [followedBands, upcomingShows, attendedShows, musician, ownedBands, pendingClaims] =
     await Promise.all([
@@ -43,6 +51,7 @@ export default async function ProfilePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col gap-10 px-5 py-24 text-[#E8E0D0] sm:px-8">
+      <SavedBanner show={justSaved} />
       <div className="flex items-center gap-4">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E8E0D0]/25 bg-[#E8E0D0]/10 text-lg font-medium text-[#E8E0D0]">
           {user.image_url ? (

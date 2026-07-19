@@ -85,7 +85,7 @@ export default function NotificationsBell({ initialUnread }: { initialUnread: nu
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={unread > 0 ? `Notifications (${unread} unread)` : "Notifications"}
-        className="relative flex h-10 w-10 items-center justify-center rounded-full border-2 border-[#E8E0D0]/35 bg-[#E8E0D0]/10 text-[#E8E0D0] shadow-sm shadow-black/20 transition hover:border-[#E8E0D0]/60 focus:border-[#E8E0D0]/70 focus:outline-none"
+        className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-2 border-[#E8E0D0]/35 bg-[#E8E0D0]/10 text-[#E8E0D0] shadow-sm shadow-black/20 transition hover:border-[#E8E0D0]/60 focus:border-[#E8E0D0]/70 focus:outline-none"
       >
         {/* Bell glyph */}
         <svg
