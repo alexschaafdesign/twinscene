@@ -173,7 +173,7 @@ export default async function Home() {
       )}
       </div>
 
-      {/* Section nav. Bands, Shows, Venues, and Playlists. */}
+      {/* Section nav. Bands, Shows, Venues, Playlists, Musicians, and Feed. */}
       <nav className="mb-6 border-b border-[#E8E0D0]/20">
         <ul className="-mb-px flex flex-wrap items-end gap-x-6 gap-y-2">
           <li>
@@ -214,6 +214,14 @@ export default async function Home() {
               className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
             >
               Musicians
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/feed"
+              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+            >
+              Feed
             </Link>
           </li>
         </ul>

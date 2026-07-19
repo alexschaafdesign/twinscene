@@ -42,6 +42,7 @@ const RESERVED_USERNAMES = new Set([
   "venues",
   "venue",
   "submit",
+  "feed",
   "claim",
   "claims",
   "edit",
