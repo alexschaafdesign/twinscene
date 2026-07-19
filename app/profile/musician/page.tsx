@@ -10,7 +10,6 @@ import {
 } from "@/lib/musicians";
 import MusicianLinkSearch from "@/components/MusicianLinkSearch";
 import MusicianNamePrompt from "@/components/MusicianNamePrompt";
-import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "Are you a musician? — Twin Scene",
@@ -51,8 +50,7 @@ export default async function MusicianLinkPage({
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
-      <BackLink href="/profile" label="Profile" />
-      <h1 className="mt-6 text-xl font-medium">Are you a musician?</h1>
+      <h1 className="text-xl font-medium">Are you a musician?</h1>
       <p className="mt-2 text-sm text-[#E8E0D0]/60">
         Find yourself in the musician directory and claim it, or create a new
         profile if you&apos;re not listed yet. Claiming an existing musician

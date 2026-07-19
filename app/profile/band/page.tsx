@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, sanitizeNextPath } from "@/lib/auth";
 import { fetchBands } from "@/lib/fetchBands";
 import BandLinkSearch from "@/components/BandLinkSearch";
-import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "Do you have a band? — Twin Scene",
@@ -34,8 +33,7 @@ export default async function BandLinkPage({
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
-      <BackLink href="/profile" label="Profile" />
-      <h1 className="mt-6 text-xl font-medium">Do you have a band?</h1>
+      <h1 className="text-xl font-medium">Do you have a band?</h1>
       <p className="mt-2 text-sm text-[#E8E0D0]/60">
         Find your band in the directory, or add it if it&apos;s not listed
         yet. Either way, claiming edit access needs a quick Instagram DM to

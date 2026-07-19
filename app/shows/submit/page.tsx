@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import BackLink from "@/components/BackLink";
 import ShowSubmitForm, {
   type BandOption,
   type ShowInitial,
@@ -51,8 +50,6 @@ export default async function ShowSubmitPage({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-14">
-      <BackLink href="/shows" label="Shows" className="mb-8" />
-
       <ShowSubmitForm
         bands={bandOptions}
         mode={initial ? "edit" : "add"}

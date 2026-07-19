@@ -7,7 +7,6 @@ import { listAttended, getAttendedStats } from "@/lib/showSaves";
 import Link from "next/link";
 import { formatShowDate } from "@/components/band-shared";
 import { formatStatusAge } from "@/components/statusTime";
-import BackLink from "@/components/BackLink";
 
 type Props = {
   params: Promise<{ username: string }>;
@@ -59,7 +58,6 @@ export default async function PublicProfilePage({ params }: Props) {
   if (!profileUser.profile_public && !isOwner) {
     return (
       <main className="mx-auto flex w-full max-w-lg flex-col items-center gap-3 px-5 py-24 text-center text-[#E8E0D0] sm:px-8">
-        <BackLink href="/" label="Directory" className="self-start" />
         <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-[#E8E0D0]/25 bg-[#E8E0D0]/10 text-lg font-medium text-[#E8E0D0]">
           {profileUser.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -83,8 +81,6 @@ export default async function PublicProfilePage({ params }: Props) {
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col gap-10 px-5 py-24 text-[#E8E0D0] sm:px-8">
-      <BackLink href="/" label="Directory" />
-
       {!profileUser.profile_public && isOwner && (
         <p className="rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-xs text-[#E8E0D0]/60">
           Private — only you can see this.

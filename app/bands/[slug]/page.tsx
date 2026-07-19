@@ -16,7 +16,6 @@ import BandProfile, { editHref } from "@/components/BandProfile";
 import ClaimOwnershipButton from "@/components/ClaimOwnershipButton";
 import { iconProps, locationLabel } from "@/components/band-shared";
 import { FollowBandButton } from "@/components/band-shared-client";
-import BackLink from "@/components/BackLink";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -83,9 +82,7 @@ export default async function BandProfilePage({ params }: Props) {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between gap-4">
-        <BackLink href="/" label="Directory" />
-
+      <div className="mb-8 flex items-center justify-end gap-4">
         <div className="flex flex-wrap items-center justify-end gap-3">
           {/* Ownership tag: "Owner" (you) or "Claimed" (someone else). The
               "Unclaimed" state shows no tag — the "Claim this band" button

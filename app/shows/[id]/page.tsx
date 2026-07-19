@@ -10,7 +10,6 @@ import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getShowStatus } from "@/lib/showSaves";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
-import BackLink from "@/components/BackLink";
 
 // Shared by generateMetadata and the page body so a visit costs one
 // fetchShowById() DB hit, not two.
@@ -103,8 +102,6 @@ export default async function ShowDetailPage({
 
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
-      <BackLink href="/shows" label="Shows" className="mb-8" />
-
       <div className="flex flex-col gap-6 sm:flex-row">
         {imageSrc && (
           // eslint-disable-next-line @next/next/no-img-element -- external flyer art / local venue logo

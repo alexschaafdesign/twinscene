@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getFeed, type FeedItem, type FollowFeedItem } from "@/lib/feed";
 import { formatStatusAge } from "@/components/statusTime";
-import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "Feed — Twin Scene",
@@ -24,10 +23,10 @@ function FeedRow({ item, children }: { item: FeedItem; children: React.ReactNode
   const initial = (name.replace("@", "")[0] || "?").toUpperCase();
 
   return (
-    <li className="flex items-start gap-3 border-b border-[#E8E0D0]/10 py-4 last:border-b-0">
+    <li className="flex items-start gap-3.5 border-b border-[#E8E0D0]/10 py-4 last:border-b-0">
       <Link
         href={`/u/${item.user.username}`}
-        className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E8E0D0]/25 bg-[#E8E0D0]/10 text-sm font-medium text-[#E8E0D0]"
+        className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E8E0D0]/25 bg-[#E8E0D0]/10 text-base font-medium text-[#E8E0D0]"
       >
         {item.user.image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -112,8 +111,7 @@ export default async function FeedPage() {
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
-        <BackLink href="/" label="Directory" />
-        <h1 className="mt-6 text-2xl font-medium tracking-tight sm:text-3xl">Feed</h1>
+        <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">Feed</h1>
         <p className="mt-2 text-sm text-[#E8E0D0]/70">
           Statuses and new follows from around the scene. Set your own status
           from{" "}

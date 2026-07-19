@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import SubmitForm from "@/components/SubmitForm";
-import BackLink from "@/components/BackLink";
 import { fetchBands } from "@/lib/fetchBands";
 import { NEIGHBORHOOD_OPTIONS } from "@/lib/neighborhoods";
 
@@ -50,8 +49,6 @@ export default async function SubmitPage({
 
   return (
     <main className="mx-auto w-full max-w-4xl px-5 py-10 sm:px-8 sm:py-14">
-      <BackLink href="/" label="Directory" className="mb-8" />
-
       <SubmitForm
         mode={isCorrect ? "correct" : "add"}
         initialSlug={band}

@@ -12,7 +12,6 @@ import UpcomingShowsList from "@/components/UpcomingShowsList";
 import AttendedShowsList from "@/components/AttendedShowsList";
 import BandMemberClaimsManager from "@/components/BandMemberClaimsManager";
 import StatusEditor from "@/components/StatusEditor";
-import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "My profile — Twin Scene",
@@ -44,7 +43,6 @@ export default async function ProfilePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col gap-10 px-5 py-24 text-[#E8E0D0] sm:px-8">
-      <BackLink href="/" label="Directory" />
       <div className="flex items-center gap-4">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E8E0D0]/25 bg-[#E8E0D0]/10 text-lg font-medium text-[#E8E0D0]">
           {user.image_url ? (

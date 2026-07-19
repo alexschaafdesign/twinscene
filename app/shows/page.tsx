@@ -6,7 +6,6 @@ import { fetchPress } from "@/lib/fetchPress";
 import { getCurrentUser } from "@/lib/auth";
 import { listShowStatuses } from "@/lib/showSaves";
 import ShowsList from "@/components/ShowsList";
-import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "Upcoming Shows — Twin Scene",
@@ -32,16 +31,7 @@ export default async function ShowsPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
-        <nav className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
-            <BackLink href="/" label="Directory" />
-            <Link
-              href="/admin"
-              className="text-sm text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
-            >
-              Admin
-            </Link>
-          </div>
+        <nav className="flex items-center justify-end gap-3">
           <Link
             href="/shows/submit"
             className="shrink-0 rounded-md border border-[#E8E0D0] px-4 py-2 text-sm font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0] hover:text-[#2A2420]"

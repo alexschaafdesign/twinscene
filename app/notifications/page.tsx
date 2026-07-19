@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { listNotifications, markAllRead } from "@/lib/notifications";
 import { describeNotification, relativeTime } from "@/components/notificationText";
-import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "Notifications — Twin Scene",
@@ -27,7 +26,6 @@ export default async function NotificationsPage() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-14">
-      <BackLink href="/profile" label="Profile" className="mb-8" />
       <h1 className="text-2xl font-medium text-[#E8E0D0]">Notifications</h1>
 
       {items.length === 0 ? (

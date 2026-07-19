@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "Playlists — Twin Scene",
@@ -31,8 +30,7 @@ export default function PlaylistsPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
-        <BackLink href="/" label="Directory" />
-        <h1 className="mt-6 text-2xl font-medium tracking-tight sm:text-3xl">
+        <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
           Playlists
         </h1>
         <p className="mt-2 text-sm text-[#E8E0D0]/70">
