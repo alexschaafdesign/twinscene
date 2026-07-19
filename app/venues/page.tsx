@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   description: "Venues that host the Twin Cities music scene.",
 };
 
+// fetchVenues() reads the DB directly (no fetch()), which gives Next no
+// signal to render dynamically — without this the page gets cached after its
+// first post-deploy render and goes stale on any later venue edit.
+export const dynamic = "force-dynamic";
+
 export default async function VenuesPage() {
   const venues = await fetchVenues();
 

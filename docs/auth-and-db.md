@@ -15,7 +15,7 @@ Email
 * Sends via Resend (HTTP fetch, no SDK). lib/email.ts logs the link to the console in dev when RESEND_API_KEY is unset, and throws in prod if unset.
 * EMAIL_FROM = "Twin Scene <login@thebirdhaus.org>" — Resend free tier allows one verified domain, so Twin Scene borrows Birdhaus's verified domain (display name still reads "Twin Scene"). RESEND_API_KEY + EMAIL_FROM live in Vercel Production ONLY, not in local .env.local — so local logins print the magic link to the dev console.
 DATABASE — READ BEFORE ANY MIGRATION OR WRITE
-Neon Postgres. This repo shares its DB with Crawlspace (canonical bands, shared shows, all auth/user tables). Birdhaus has its OWN separate DB. Column types: shows.id is uuid (gen_random_uuid()); bands.id / users.id are bigint.
+Neon Postgres. This repo shares its DB with Crawlspace (canonical bands, canonical venues, shared shows, all auth/user tables). Birdhaus has its OWN separate DB. Column types: shows.id is uuid (gen_random_uuid()); bands.id / venues.id / users.id are bigint.
 Dev/prod isolation — DO NOT UNDO:
 * .env.local points at the Neon DEV branch. .envrc uses dotenv_if_exists .env.local so direnv watches the file and the shell can't go stale. Both files are gitignored.
 * The shell's DATABASE_URL (exported by direnv) = DEV. scripts/migrate.mjs uses Node's process.loadEnvFile('.env.local'), which does NOT override an already-set env var — so it targets whatever the shell holds = DEV by default. This is intentional.

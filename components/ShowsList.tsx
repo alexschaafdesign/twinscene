@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Show } from "@/lib/fetchShows";
-import { matchVenue, type Venue } from "@/lib/fetchVenues";
+import { matchVenue, type Venue } from "@/lib/venueUtils";
 import type { Press } from "@/lib/fetchPress";
 import type { ShowStatus } from "@/lib/showSaves";
 import ShowsTimeline from "@/components/ShowsTimeline";

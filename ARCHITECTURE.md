@@ -85,6 +85,32 @@ before relying on them.
   Montana, Bornguesser, Ducksmithson, Headtriiip, Hey Arlo, Megasound) — a
   known, low-priority backfill, not yet scheduled.
 
+## Venues: Twin Scene is canonical
+
+Twin Scene's Postgres `venues` table (`0030_create_venues.sql`) is the single
+source of truth for the venue directory (booking notes, capacity, contact,
+accessibility, …). This wasn't always true — venues used to live in a public
+Google Sheet tab, read live as CSV by both Twin Scene and Crawlspace — but as
+of the venues migration (mirroring the bands Phase 1/Phase 2 pattern above),
+Twin Scene owns it.
+
+Twin Scene exposes it at `/api/public/venues` (`GET` list, `GET [slug]`),
+gated by the same `x-api-key` / `api_clients` mechanism as `/api/public/bands`
+(`lib/apiAuth.ts`). Unlike bands, every venue column is public — there's no
+restricted field to allowlist away — and there's no `POST`, since nothing
+external creates venues (Crawlspace's venue UI is read-only).
+
+**Crawlspace** is a read-only client of this API — it has no `venues` table
+of its own and reads it for venue-type filters and matching a show's free-text
+venue name to a directory entry (`lib/twinSceneVenues.ts`, mirroring
+`lib/twinScene.ts`'s bands client). It reuses the same `TWIN_SCENE_API_KEY` it
+already holds for bands — the auth gate is per-client, not per-resource, so no
+new API client was needed.
+
+Press directory data is **not** part of this migration — it still lives in
+its own Google Sheet tab, read live as CSV by both repos (`lib/fetchPress.ts`
+in each), same as venues used to.
+
 ## Shows: two unrelated systems that share a name
 
 **Twin Scene + Crawlspace** share one Postgres `shows` table (the same Neon DB,
@@ -93,8 +119,9 @@ populate it; both apps read from it directly and both accept public submissions
 that write to it directly (not through an API) using the same
 `insertManualShow` / `editShow` semantics and `show_history` audit logging, so a
 submission on either site is indistinguishable from the other. Crawlspace's
-venue/press data is separate — read straight from the same public Google Sheet
-CSV Twin Scene uses, no DB or API involved.
+press data is separate — read straight from the same public Google Sheet CSV
+Twin Scene uses, no DB or API involved. (Venue data used to work the same way;
+see "Venues: Twin Scene is canonical" above.)
 
 **the-birdhaus** has its own, entirely independent "shows" concept: house shows
 Alex authors directly as markdown files with frontmatter (`content/shows/*.md`),
@@ -129,7 +156,7 @@ shows bits in the home page/band profiles/`SubmitForm`) was gated behind
 | Var | Lives in | Purpose |
 |---|---|---|
 | `DATABASE_URL` | twinscene, crawlspace | Shared Neon Postgres — `shows`, and (twinscene only) `bands`, `api_clients`, `rate_limits`, plus all the auth/user/profile tables. Birdhaus has its own separate DB. |
-| `TWIN_SCENE_API_KEY` / `TWIN_SCENE_API_URL` | crawlspace | Auth for Twin Scene's `/api/public/bands` (read + write, `can_write = true`). |
+| `TWIN_SCENE_API_KEY` / `TWIN_SCENE_API_URL` | crawlspace | Auth for Twin Scene's `/api/public/bands` (read + write, `can_write = true`) and `/api/public/venues` (read-only there; the same key just needs to be valid, not write-capable). |
 | `TWIN_SCENE_API_KEY` / `TWIN_SCENE_API_URL` | the-birdhaus | Same endpoint, used read-only in practice (`lib/twinscene.ts`). |
 | `SCRAPE_SECRET` | twinscene | Machine token for the show/scrape **API routes**, the daily cron, and `scrape:local`. It is no longer a *page* gate anywhere — the admin dashboard gates on `users.is_admin` (see `docs/auth-and-db.md`); those pages just read the secret server-side and hand it to their client panels so the panels' API calls authenticate. |
 | `BIRDHAUS_API_KEY` | *(removed 2026-07-17)* | Used to authenticate Twin Scene's scraper against Birdhaus's now-deprecated `/api/public/bands`; no longer needed once the scraper's lineup matcher was repointed to Twin Scene's own table. |

@@ -14,6 +14,12 @@ type Props = {
   params: Promise<{ slug: string }>;
 };
 
+// fetchVenues() reads the DB directly (no fetch()), which gives Next no
+// signal to render dynamically — without this a slug page (no
+// generateStaticParams) gets cached after its first post-deploy render and
+// goes stale on any later edit to that venue.
+export const dynamic = "force-dynamic";
+
 async function getVenue(slug: string) {
   const venues = await fetchVenues();
   return { venues, venue: venues.find((v) => v.slug === slug) ?? null };

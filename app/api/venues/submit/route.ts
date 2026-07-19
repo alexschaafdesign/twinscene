@@ -1,0 +1,56 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { upsertVenue, type VenueSubmissionInput } from "@/lib/venues";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+// Public "Add a venue" / "Edit this venue" submission — replaces the legacy
+// Apps Script webhook (apps-script/Code.js's handleVenueSubmission_), which
+// wrote into a Google Sheet that nothing reads anymore now that
+// fetchVenues() reads this DB directly. No auth gate, matching the venue
+// directory's existing behavior (unlike bands, venues have no editor/
+// ownership model — anyone could correct a venue before this migration too).
+
+function str(raw: FormDataEntryValue | null): string {
+  return typeof raw === "string" ? raw : "";
+}
+
+function parseCapacity(raw: FormDataEntryValue | null): number | null {
+  const s = str(raw).trim();
+  if (!s) return null;
+  const n = parseInt(s, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+export async function POST(request: NextRequest) {
+  const form = await request.formData();
+
+  const venueName = str(form.get("venueName")).trim();
+  if (!venueName) {
+    return NextResponse.json({ success: false, error: "Missing venue name" }, { status: 400 });
+  }
+
+  const mode = str(form.get("mode")) === "correct" ? "correct" : "add";
+  const existingSlug = str(form.get("existingSlug")) || undefined;
+
+  const input: VenueSubmissionInput = {
+    name: venueName,
+    city: str(form.get("location")).trim(),
+    neighborhood: str(form.get("neighborhood")).trim(),
+    capacity: parseCapacity(form.get("capacity")),
+    contact: str(form.get("contact")).trim(),
+    notes: str(form.get("notes")).trim(),
+    parking: str(form.get("parking")).trim(),
+    accessibility: str(form.get("accessibility")).trim(),
+    owner: str(form.get("owner")).trim(),
+    type: str(form.get("type")).trim(),
+  };
+
+  try {
+    const { venue, action } = await upsertVenue(input, mode, existingSlug);
+    return NextResponse.json({ success: true, slug: venue.slug, action });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Submission failed";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}

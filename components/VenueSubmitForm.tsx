@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { postToAppsScript } from "@/lib/postToAppsScript";
-import { slugify } from "@/lib/fetchVenues";
+import { slugify } from "@/lib/venueUtils";
 
 // Shared input styling, kept in sync with SubmitForm.tsx / ShowSubmitForm.tsx.
 const inputClass =
@@ -126,15 +125,6 @@ export default function VenueSubmitForm({
     setErrors(found);
     if (Object.keys(found).length > 0) return;
 
-    const url = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
-    if (!url) {
-      setStatus("error");
-      setErrorMsg(
-        "Submission endpoint isn't configured yet. Please email alex@thebirdhaus.org.",
-      );
-      return;
-    }
-
     setStatus("submitting");
     setErrorMsg("");
 
@@ -142,26 +132,22 @@ export default function VenueSubmitForm({
       const venueSlug =
         isCorrect && initialSlug ? initialSlug : slugify(name.trim());
 
-      const payload = new URLSearchParams({
-        formType: "venue",
-        mode,
-        venueSlug,
-        existingSlug: isCorrect ? initialSlug : "",
-        venueName: name.trim(),
-        location: location.trim(),
-        neighborhood: neighborhood.trim(),
-        capacity: capacity.trim(),
-        contact: contact.trim(),
-        type: type.trim(),
-        owner: owner.trim(),
-        parking: parking.trim(),
-        accessibility: accessibility.trim(),
-        notes: notes.trim(),
-        submitterName: submitterName.trim(),
-        submitterEmail: submitterEmail.trim(),
-      });
+      const payload = new FormData();
+      payload.set("mode", mode);
+      payload.set("existingSlug", isCorrect ? initialSlug : "");
+      payload.set("venueName", name.trim());
+      payload.set("location", location.trim());
+      payload.set("neighborhood", neighborhood.trim());
+      payload.set("capacity", capacity.trim());
+      payload.set("contact", contact.trim());
+      payload.set("type", type.trim());
+      payload.set("owner", owner.trim());
+      payload.set("parking", parking.trim());
+      payload.set("accessibility", accessibility.trim());
+      payload.set("notes", notes.trim());
 
-      const data = await postToAppsScript(url, payload);
+      const res = await fetch("/api/venues/submit", { method: "POST", body: payload });
+      const data = await res.json();
       if (!data.success) {
         throw new Error(data.error || "Submission failed");
       }
