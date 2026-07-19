@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { fetchAdminUsers, type AdminUserRow } from "@/lib/fetchUsers";
+import UserAdminToggle from "@/components/UserAdminToggle";
 
 export const metadata: Metadata = {
   title: "Users — Twin Scene Admin",
@@ -64,9 +65,9 @@ export default async function AdminUsersPage() {
         <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">Users</h1>
         <p className="mt-2 text-sm text-[#E8E0D0]/70">
           {users.length} {users.length === 1 ? "account" : "accounts"} · {adminCount}{" "}
-          admin{adminCount === 1 ? "" : "s"}. Newest first. Read-only —{" "}
-          <code className="text-[#E8E0D0]/60">is_admin</code> is still granted by
-          hand in the DB.
+          admin{adminCount === 1 ? "" : "s"}. Newest first. An admin can edit any
+          band; you can&apos;t remove your own admin access, or the last
+          admin&apos;s.
         </p>
       </header>
 
@@ -82,7 +83,8 @@ export default async function AdminUsersPage() {
                 <th className="py-2 pr-4 font-medium">Last active</th>
                 <th className="py-2 pr-4 text-right font-medium">Edits</th>
                 <th className="py-2 pr-4 text-right font-medium">Claims</th>
-                <th className="py-2 text-right font-medium">Follows</th>
+                <th className="py-2 pr-4 text-right font-medium">Follows</th>
+                <th className="py-2 text-right font-medium">Admin</th>
               </tr>
             </thead>
             <tbody>
@@ -126,8 +128,16 @@ export default async function AdminUsersPage() {
                   <td className="py-3 pr-4 text-right tabular-nums text-[#E8E0D0]/70">
                     {u.claim_count || "—"}
                   </td>
-                  <td className="py-3 text-right tabular-nums text-[#E8E0D0]/70">
+                  <td className="py-3 pr-4 text-right tabular-nums text-[#E8E0D0]/70">
                     {u.follow_count || "—"}
+                  </td>
+                  <td className="py-3 text-right">
+                    <UserAdminToggle
+                      userId={u.id}
+                      initialIsAdmin={u.is_admin}
+                      label={u.name ?? u.email}
+                      isSelf={Number(u.id) === Number(user.id)}
+                    />
                   </td>
                 </tr>
               ))}

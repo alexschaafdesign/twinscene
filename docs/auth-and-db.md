@@ -2,7 +2,7 @@ Auth, Accounts & Database Safety — Twin Scene
 Operational context for coding agents in this repo. (Fuller design rationale lives in the team's Claude Project; this file is what you need day-to-day.) For the fuller auth/profile design + status narrative, see docs/architecture.md.
 Auth & accounts model
 * ONE users table is the single identity. Authorization is a SEPARATE layer:
-    * users.is_admin → may edit ANY band.
+    * users.is_admin → may edit ANY band. Granted/revoked by another admin from /admin/users (setUserAdmin in lib/auth.ts, PATCH /api/admin/users/[id]) — no longer a by-hand DB flip. Two guards: you can't demote yourself (the route would leave you with no way back in), and the last remaining admin can't be demoted (a SELECT … FOR UPDATE over the admin rows, so concurrent demotions can't race the site down to zero admins).
     * band_editors(user_id, band_id, role) → which non-admin users may edit which bands (many-to-many). role is 'editor' or 'owner'; an 'owner' (earned by redeeming an admin-issued ownership code) may ALSO approve that band's member claims, which is how approval delegates out of the admin queue.
 * Permission check, ALWAYS server-side: canEditBand(user, bandId) = user.is_admin OR row in band_editors(user_id, band_id). Never gate on hidden UI — a missing button is not a permission check.
 * Login is passwordless magic link: login_tokens (store a HASH of the token, single-use, ~15 min expiry) → sets an opaque sessions token in an HTTP-only, Secure, SameSite=Lax cookie. getCurrentUser() reads it. Logging in creates the user row — that IS signup; there is no separate signup flow.

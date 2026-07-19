@@ -252,3 +252,43 @@ export async function canEditBand(user: User | null, bandId: number): Promise<bo
 export function isAdmin(user: User | null): user is User {
   return !!user?.is_admin;
 }
+
+export class LastAdminError extends Error {
+  constructor() {
+    super("Can't remove the last admin");
+  }
+}
+
+// Grants or revokes users.is_admin — the "may edit ANY band" flag. Callers
+// must have already checked isAdmin() on the *actor*; this function only
+// knows about the target.
+//
+// The demotion path runs inside a transaction that locks every admin row
+// first, so two concurrent demotions can't each see the other as the
+// remaining admin and leave the site with none. Revoking is otherwise
+// recoverable by hand in the DB, but a zero-admin site isn't recoverable
+// from the UI at all.
+export async function setUserAdmin(userId: number, makeAdmin: boolean): Promise<User> {
+  if (makeAdmin) {
+    const [user] = await sql<User[]>`
+      update users set is_admin = true where id = ${userId} returning *
+    `;
+    if (!user) throw new Error(`lib/auth: no user with id ${userId}`);
+    return user;
+  }
+
+  return sql.begin(async (tx) => {
+    const admins = await tx<{ id: number }[]>`
+      select id from users where is_admin = true for update
+    `;
+    if (admins.length <= 1 && admins.some((a) => Number(a.id) === userId)) {
+      throw new LastAdminError();
+    }
+
+    const [user] = await tx<User[]>`
+      update users set is_admin = false where id = ${userId} returning *
+    `;
+    if (!user) throw new Error(`lib/auth: no user with id ${userId}`);
+    return user;
+  });
+}
