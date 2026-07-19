@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import ProfileEditForm from "@/components/ProfileEditForm";
+import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "Edit profile — Twin Scene",
@@ -19,12 +19,7 @@ export default async function ProfileEditPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-sm flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
-      <Link
-        href="/profile"
-        className="text-sm text-[#E8E0D0]/60 underline underline-offset-2 transition hover:text-[#E8E0D0]"
-      >
-        Back to profile
-      </Link>
+      <BackLink href="/profile" label="Profile" />
       <h1 className="mt-4 text-xl font-medium">Edit profile</h1>
       <ProfileEditForm
         user={{

@@ -9,6 +9,7 @@ import { listShowStatuses } from "@/lib/showSaves";
 import VenueProfile from "@/components/VenueProfile";
 import { venueEditHref, venueLocationLabel } from "@/components/venue-shared";
 import { iconProps } from "@/components/band-shared";
+import BackLink from "@/components/BackLink";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -51,12 +52,7 @@ export default async function VenueProfilePage({ params }: Props) {
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
       <div className="mb-8 flex items-center justify-between gap-4">
-        <Link
-          href="/venues"
-          className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
-        >
-          <span aria-hidden>←</span> Back to venues
-        </Link>
+        <BackLink href="/venues" label="Venues" />
 
         <Link
           href={venueEditHref(venue)}

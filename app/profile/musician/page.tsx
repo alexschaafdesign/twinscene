@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import {
@@ -11,6 +10,7 @@ import {
 } from "@/lib/musicians";
 import MusicianLinkSearch from "@/components/MusicianLinkSearch";
 import MusicianNamePrompt from "@/components/MusicianNamePrompt";
+import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "Are you a musician? — Twin Scene",
@@ -42,12 +42,7 @@ export default async function MusicianLinkPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
-      <Link
-        href="/profile"
-        className="inline-flex items-center gap-1.5 text-sm text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
-      >
-        <span aria-hidden>←</span> Profile
-      </Link>
+      <BackLink href="/profile" label="Profile" />
       <h1 className="mt-6 text-xl font-medium">Are you a musician?</h1>
       <p className="mt-2 text-sm text-[#E8E0D0]/60">
         Find yourself in the musician directory and claim it, or create a new

@@ -1,7 +1,7 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { fetchMusiciansDirectory } from "@/lib/musicians";
 import MusiciansTable from "@/components/MusiciansTable";
+import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "Musicians — Twin Scene",
@@ -20,12 +20,7 @@ export default async function MusiciansPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
-        >
-          <span aria-hidden>←</span> Directory
-        </Link>
+        <BackLink href="/" label="Directory" />
         <h1 className="mt-6 text-2xl font-medium tracking-tight sm:text-3xl">
           Musicians
         </h1>

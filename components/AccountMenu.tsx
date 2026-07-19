@@ -55,7 +55,7 @@ export default function AccountMenu({ user }: { user: AccountMenuUser | null }) 
 
   if (!user) {
     return (
-      <div className="flex items-center justify-end px-5 py-3 sm:px-8">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-end px-5 py-3 sm:px-8">
         <Link
           href={`/login?next=${encodeURIComponent(pathname)}`}
           className="rounded-md border border-[#E8E0D0]/25 px-3.5 py-1.5 text-xs text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
@@ -69,7 +69,7 @@ export default function AccountMenu({ user }: { user: AccountMenuUser | null }) 
   const initial = (user.name?.trim()?.[0] || user.email[0] || "?").toUpperCase();
 
   return (
-    <div className="flex items-center justify-end px-5 py-3 sm:px-8">
+    <div className="mx-auto flex w-full max-w-6xl items-center justify-end px-5 py-3 sm:px-8">
       <div className="relative" ref={containerRef}>
         <button
           ref={buttonRef}
@@ -78,7 +78,7 @@ export default function AccountMenu({ user }: { user: AccountMenuUser | null }) 
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label="Account menu"
-          className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-[#E8E0D0]/25 bg-[#E8E0D0]/10 text-xs font-medium text-[#E8E0D0] transition hover:border-[#E8E0D0]/50 focus:border-[#E8E0D0]/60 focus:outline-none"
+          className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border-2 border-[#E8E0D0]/35 bg-[#E8E0D0]/10 text-sm font-semibold text-[#E8E0D0] shadow-sm shadow-black/20 transition hover:border-[#E8E0D0]/60 focus:border-[#E8E0D0]/70 focus:outline-none"
         >
           {user.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element

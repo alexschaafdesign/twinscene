@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import LoginForm from "@/components/LoginForm";
+import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "Sign in — Twin Scene",
@@ -16,6 +17,7 @@ export default async function LoginPage({
   const isDev = process.env.NODE_ENV !== "production";
   return (
     <main className="mx-auto flex w-full max-w-sm flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
+      <BackLink href="/" label="Directory" className="mb-6" />
       <h1 className="text-xl font-medium">Sign in or create your account</h1>
       <p className="mt-2 text-sm text-[#E8E0D0]/60">
         Enter your email and we&apos;ll send you a login link — no password needed.

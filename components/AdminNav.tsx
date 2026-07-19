@@ -34,6 +34,12 @@ export default function AdminNav() {
     <nav className="border-b border-[#E8E0D0]/15 bg-[rgba(232,224,208,0.03)]">
       <div className="mx-auto flex w-full max-w-6xl items-center gap-1 overflow-x-auto px-5 py-2 sm:px-8">
         <Link
+          href="/"
+          className="mr-1 shrink-0 text-sm text-[#E8E0D0]/50 transition hover:text-[#E8E0D0]"
+        >
+          <span aria-hidden>←</span>
+        </Link>
+        <Link
           href="/admin"
           className="mr-2 shrink-0 text-sm font-semibold tracking-tight text-[#E8E0D0]"
         >

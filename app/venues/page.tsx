@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { fetchVenues } from "@/lib/fetchVenues";
 import VenueGrid from "@/components/VenueGrid";
+import BackLink from "@/components/BackLink";
 
 export const metadata: Metadata = {
   title: "Venues — Twin Scene",
@@ -15,12 +16,7 @@ export default async function VenuesPage() {
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
         <nav className="flex items-center justify-between gap-3">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
-          >
-            <span aria-hidden>←</span> Directory
-          </Link>
+          <BackLink href="/" label="Directory" />
           <Link
             href="/venues/submit"
             className="shrink-0 rounded-md border border-[#E8E0D0] px-4 py-2 text-sm font-medium text-[#E8E0D0] transition hover:bg-[#E8E0D0] hover:text-[#2A2420]"

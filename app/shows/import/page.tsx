@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { Metadata } from "next";
+import BackLink from "@/components/BackLink";
 import { redirect } from "next/navigation";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import NotAdmin from "@/components/NotAdmin";
@@ -194,12 +194,7 @@ export default async function ImportShowsPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
-        <Link
-          href="/shows"
-          className="inline-flex items-center gap-1.5 text-sm text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
-        >
-          <span aria-hidden>←</span> Upcoming Shows
-        </Link>
+        <BackLink href="/shows" label="Shows" />
         <h1 className="mt-6 text-2xl font-medium tracking-tight sm:text-3xl">
           Import Shows
         </h1>

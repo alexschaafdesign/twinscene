@@ -17,6 +17,7 @@ import BandProfile, { editHref } from "@/components/BandProfile";
 import ClaimOwnershipButton from "@/components/ClaimOwnershipButton";
 import { iconProps, locationLabel } from "@/components/band-shared";
 import { SaveBandButton, FollowBandButton } from "@/components/band-shared-client";
+import BackLink from "@/components/BackLink";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -85,12 +86,7 @@ export default async function BandProfilePage({ params }: Props) {
   return (
     <div>
       <div className="mb-8 flex items-center justify-between gap-4">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
-        >
-          <span aria-hidden>←</span> Back to directory
-        </Link>
+        <BackLink href="/" label="Directory" />
 
         <div className="flex flex-wrap items-center justify-end gap-3">
           {/* Ownership tag: "Owner" (you) or "Claimed" (someone else). The

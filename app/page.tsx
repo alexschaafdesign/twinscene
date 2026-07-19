@@ -140,7 +140,7 @@ export default async function Home() {
           profile for signed-in ones. The magic-link flow is the same whether
           you have an account or not, so the copy leads with that. */}
       {user ? (
-        <div className="rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-4 py-3.5">
+        <div className="rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.03] px-4 py-3.5 text-right">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]">
             You&apos;re signed in
           </h2>

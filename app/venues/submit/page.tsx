@@ -1,6 +1,6 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import VenueSubmitForm from "@/components/VenueSubmitForm";
+import BackLink from "@/components/BackLink";
 import { fetchVenues } from "@/lib/fetchVenues";
 import { NEIGHBORHOOD_OPTIONS } from "@/lib/neighborhoods";
 
@@ -38,12 +38,7 @@ export default async function VenueSubmitPage({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-14">
-      <Link
-        href="/venues"
-        className="mb-8 inline-flex items-center gap-1.5 text-sm text-[#E8E0D0]/60 transition hover:text-[#E8E0D0]"
-      >
-        <span aria-hidden>←</span> Back to venues
-      </Link>
+      <BackLink href="/venues" label="Venues" className="mb-8" />
 
       <VenueSubmitForm
         mode={isCorrect ? "correct" : "add"}
