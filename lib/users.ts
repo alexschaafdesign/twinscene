@@ -106,7 +106,18 @@ export interface ProfileUpdate {
   username?: string | null;
   bio?: string | null;
   profile_public?: boolean;
+  show_bio?: boolean;
+  show_status?: boolean;
+  show_followed_bands?: boolean;
+  show_attended_shows?: boolean;
 }
+
+const VISIBILITY_FIELDS = [
+  "show_bio",
+  "show_status",
+  "show_followed_bands",
+  "show_attended_shows",
+] as const;
 
 /** Updates the caller's own profile fields. Any of name/username/bio may be
  * omitted (left unchanged) or set to null/empty to clear. Throws
@@ -129,11 +140,16 @@ export async function updateProfile(userId: number, update: ProfileUpdate): Prom
     }
   }
 
-  const fields: Partial<Record<"name" | "username" | "bio" | "profile_public", string | null | boolean>> = {};
+  const fields: Partial<
+    Record<"name" | "username" | "bio" | "profile_public" | (typeof VISIBILITY_FIELDS)[number], string | null | boolean>
+  > = {};
   if (name !== undefined) fields.name = name;
   if (username !== undefined) fields.username = username;
   if (bio !== undefined) fields.bio = bio;
   if (update.profile_public !== undefined) fields.profile_public = update.profile_public;
+  for (const key of VISIBILITY_FIELDS) {
+    if (update[key] !== undefined) fields[key] = update[key];
+  }
 
   if (Object.keys(fields).length === 0) {
     const [user] = await sql<User[]>`select * from users where id = ${userId}`;
@@ -184,6 +200,10 @@ export interface PublicProfileUser {
   status_at: string | null;
   image_url: string | null;
   profile_public: boolean;
+  show_bio: boolean;
+  show_status: boolean;
+  show_followed_bands: boolean;
+  show_attended_shows: boolean;
 }
 
 /** Looks up a user by username for the public profile page
@@ -193,7 +213,9 @@ export interface PublicProfileUser {
  * lower(username) unique index from migration 0019. */
 export async function getUserByUsername(username: string): Promise<PublicProfileUser | null> {
   const [user] = await sql<PublicProfileUser[]>`
-    select id, username, name, bio, status, status_at, image_url, profile_public
+    select
+      id, username, name, bio, status, status_at, image_url, profile_public,
+      show_bio, show_status, show_followed_bands, show_attended_shows
     from users
     where lower(username) = lower(${username})
     limit 1

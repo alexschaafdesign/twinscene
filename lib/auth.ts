@@ -19,6 +19,10 @@ export interface User {
   status_at: string | null;
   image_url: string | null;
   profile_public: boolean;
+  show_bio: boolean;
+  show_status: boolean;
+  show_followed_bands: boolean;
+  show_attended_shows: boolean;
   is_admin: boolean;
   created_at: string;
   last_seen_at: string | null;

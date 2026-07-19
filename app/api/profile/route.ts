@@ -29,11 +29,19 @@ export async function PATCH(request: NextRequest) {
     username?: string | null;
     bio?: string | null;
     profile_public?: boolean;
+    show_bio?: boolean;
+    show_status?: boolean;
+    show_followed_bands?: boolean;
+    show_attended_shows?: boolean;
   } = {};
   if ("name" in body) update.name = typeof body.name === "string" ? body.name : null;
   if ("username" in body) update.username = typeof body.username === "string" ? body.username : null;
   if ("bio" in body) update.bio = typeof body.bio === "string" ? body.bio : null;
   if (typeof body.profilePublic === "boolean") update.profile_public = body.profilePublic;
+  if (typeof body.showBio === "boolean") update.show_bio = body.showBio;
+  if (typeof body.showStatus === "boolean") update.show_status = body.showStatus;
+  if (typeof body.showFollowedBands === "boolean") update.show_followed_bands = body.showFollowedBands;
+  if (typeof body.showAttendedShows === "boolean") update.show_attended_shows = body.showAttendedShows;
 
   try {
     const updated = await updateProfile(user.id, update);

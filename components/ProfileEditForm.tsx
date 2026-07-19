@@ -19,6 +19,46 @@ export interface ProfileEditUser {
   bio: string | null;
   image_url: string | null;
   profile_public: boolean;
+  show_bio: boolean;
+  show_status: boolean;
+  show_followed_bands: boolean;
+  show_attended_shows: boolean;
+}
+
+/** One row in the "what's visible" list below the public/private switch —
+ * a labeled Visible/Hidden pill, styled to match the segmented control
+ * above it. */
+function VisibilityToggle({
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-md border border-[#E8E0D0]/15 px-3.5 py-2.5">
+      <div>
+        <p className="text-sm text-[#E8E0D0]">{label}</p>
+        <p className="text-xs text-[#E8E0D0]/50">{description}</p>
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!value)}
+        aria-pressed={value}
+        className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition ${
+          value
+            ? "border-[#9FD3A0]/40 bg-[#9FD3A0]/10 text-[#9FD3A0]"
+            : "border-[#E8E0D0]/25 text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+        }`}
+      >
+        {value ? "Visible" : "Hidden"}
+      </button>
+    </div>
+  );
 }
 
 /** Profile edit form for app/profile/edit — name, username, bio, and an
@@ -35,6 +75,10 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
   const [username, setUsername] = useState(user.username ?? "");
   const [bio, setBio] = useState(user.bio ?? "");
   const [profilePublic, setProfilePublic] = useState(user.profile_public);
+  const [showBio, setShowBio] = useState(user.show_bio);
+  const [showStatus, setShowStatus] = useState(user.show_status);
+  const [showFollowedBands, setShowFollowedBands] = useState(user.show_followed_bands);
+  const [showAttendedShows, setShowAttendedShows] = useState(user.show_attended_shows);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user.image_url);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
@@ -93,7 +137,16 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
       const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, username, bio, profilePublic }),
+        body: JSON.stringify({
+          name,
+          username,
+          bio,
+          profilePublic,
+          showBio,
+          showStatus,
+          showFollowedBands,
+          showAttendedShows,
+        }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.success) {
@@ -232,10 +285,42 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
         </div>
         <p className="text-xs text-[#E8E0D0]/50">
           {profilePublic
-            ? "Anyone with the link can see your favorite bands, shows attended, and stats at /u/…"
+            ? "Anyone with the link can see your profile at /u/… — pick what's on it below."
             : "Only you can see your profile at /u/… — everyone else sees just your name and avatar."}
         </p>
       </div>
+
+      {profilePublic && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm text-[#E8E0D0]/80">What&apos;s on your public profile</span>
+          <div className="flex flex-col gap-2">
+            <VisibilityToggle
+              label="Bio"
+              description="The bio text above"
+              value={showBio}
+              onChange={setShowBio}
+            />
+            <VisibilityToggle
+              label="Status"
+              description={`Your "is..." status line`}
+              value={showStatus}
+              onChange={setShowStatus}
+            />
+            <VisibilityToggle
+              label="Bands you follow"
+              description="The list of bands you follow"
+              value={showFollowedBands}
+              onChange={setShowFollowedBands}
+            />
+            <VisibilityToggle
+              label="Shows attended"
+              description="Your show history and attendance stats"
+              value={showAttendedShows}
+              onChange={setShowAttendedShows}
+            />
+          </div>
+        </div>
+      )}
 
       {fieldError.general && <p className="text-sm text-[#F5A3A3]">{fieldError.general}</p>}
 

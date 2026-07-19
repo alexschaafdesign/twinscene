@@ -6,10 +6,12 @@
 // PRIVACY: the feed is a public, unauthenticated page, so it must never
 // surface anything you couldn't already see by visiting the item's own public
 // page. For statuses that means users who are both profile_public AND have a
-// username — i.e. exactly the people with a reachable /u/[username] page. The
-// same check gates follows, which are listed on that page too (migration
-// 0028). Any future item kind needs its own equivalent check in its own
-// loader — the rule lives per-loader, not in getFeed().
+// username — i.e. exactly the people with a reachable /u/[username] page —
+// AND have show_status on, since 0033 lets that section be hidden
+// independently of the page as a whole. The same check (profile_public +
+// username + show_followed_bands) gates follows, which are listed on that
+// page too (migration 0028). Any future item kind needs its own equivalent
+// check in its own loader — the rule lives per-loader, not in getFeed().
 
 import { sql } from "./db.ts";
 
@@ -61,6 +63,7 @@ async function listStatusItems(limit: number): Promise<StatusFeedItem[]> {
       and status_at is not null
       and username is not null
       and profile_public = true
+      and show_status = true
     order by status_at desc
     limit ${limit}
   `;
@@ -112,6 +115,7 @@ async function listFollowItems(limit: number): Promise<FollowFeedItem[]> {
     join bands on bands.id = band_follows.band_id
     where users.username is not null
       and users.profile_public = true
+      and users.show_followed_bands = true
     group by users.id, users.username, users.name, users.image_url, bucket
     order by at desc
     limit ${limit}

@@ -34,7 +34,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title,
-    description: profileUser.bio || `${displayName(profileUser)} on Twin Scene.`,
+    description:
+      (profileUser.show_bio && profileUser.bio) || `${displayName(profileUser)} on Twin Scene.`,
   };
 }
 
@@ -52,6 +53,14 @@ export default async function PublicProfilePage({ params }: Props) {
 
   const currentUser = await getCurrentUser();
   const isOwner = currentUser?.id === profileUser.id;
+
+  // The owner always sees their own sections when previewing this page — the
+  // toggles only affect what OTHER visitors get — with a note flagging which
+  // ones are currently hidden from everyone else.
+  const canSeeBio = isOwner || profileUser.show_bio;
+  const canSeeStatus = isOwner || profileUser.show_status;
+  const canSeeFollows = isOwner || profileUser.show_followed_bands;
+  const canSeeAttended = isOwner || profileUser.show_attended_shows;
 
   const initial = (profileUser.name?.trim()?.[0] || profileUser.username[0] || "?").toUpperCase();
 
@@ -99,7 +108,7 @@ export default async function PublicProfilePage({ params }: Props) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg font-medium">{displayName(profileUser)}</p>
           <p className="text-sm text-[#E8E0D0]/60">@{profileUser.username}</p>
-          {profileUser.status && (
+          {canSeeStatus && profileUser.status && (
             <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm text-[#E8E0D0]/80">
               <span>
                 <span className="text-[#E8E0D0]/50">{displayName(profileUser)} is</span>{" "}
@@ -108,63 +117,85 @@ export default async function PublicProfilePage({ params }: Props) {
               {profileUser.status_at && (
                 <span className="text-xs text-[#E8E0D0]/40">{formatStatusAge(profileUser.status_at)}</span>
               )}
+              {isOwner && !profileUser.show_status && (
+                <span className="text-xs text-[#E8B84B]/80">(hidden from your public profile)</span>
+              )}
             </p>
           )}
-          {profileUser.bio && <p className="mt-1 text-sm text-[#E8E0D0]/80">{profileUser.bio}</p>}
+          {canSeeBio && profileUser.bio && (
+            <p className="mt-1 text-sm text-[#E8E0D0]/80">
+              {profileUser.bio}
+              {isOwner && !profileUser.show_bio && (
+                <span className="ml-2 text-xs text-[#E8B84B]/80">(hidden from your public profile)</span>
+              )}
+            </p>
+          )}
         </div>
       </div>
 
-      <div className="flex gap-8">
+      {canSeeFollows && (
         <div>
-          <p className="text-2xl font-medium">{stats.total}</p>
-          <p className="text-sm text-[#E8E0D0]/60">Shows attended</p>
+          <h2 className="text-xl font-medium">Bands they follow</h2>
+          {isOwner && !profileUser.show_followed_bands && (
+            <p className="mt-1 text-xs text-[#E8B84B]/80">Hidden from your public profile — only you can see this here.</p>
+          )}
+          {followedBands.length === 0 ? (
+            <p className="mt-4 text-sm text-[#E8E0D0]/50">Not following any bands yet.</p>
+          ) : (
+            <ul className="mt-4 flex flex-col gap-2">
+              {followedBands.map((b) => (
+                <li
+                  key={b.band_id}
+                  className="rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"
+                >
+                  <Link href={`/bands/${b.slug}`} className="hover:underline">
+                    {b.name}
+                    {b.city && <span className="text-[#E8E0D0]/50"> — {b.city}</span>}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        <div>
-          <p className="text-2xl font-medium">{stats.thisYear}</p>
-          <p className="text-sm text-[#E8E0D0]/60">This year</p>
-        </div>
-      </div>
+      )}
 
-      <div>
-        <h2 className="text-xl font-medium">Bands they follow</h2>
-        {followedBands.length === 0 ? (
-          <p className="mt-4 text-sm text-[#E8E0D0]/50">Not following any bands yet.</p>
-        ) : (
-          <ul className="mt-4 flex flex-col gap-2">
-            {followedBands.map((b) => (
-              <li
-                key={b.band_id}
-                className="rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"
-              >
-                <Link href={`/bands/${b.slug}`} className="hover:underline">
-                  {b.name}
-                  {b.city && <span className="text-[#E8E0D0]/50"> — {b.city}</span>}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      {canSeeAttended && (
+        <>
+          <div className="flex gap-8">
+            <div>
+              <p className="text-2xl font-medium">{stats.total}</p>
+              <p className="text-sm text-[#E8E0D0]/60">Shows attended</p>
+            </div>
+            <div>
+              <p className="text-2xl font-medium">{stats.thisYear}</p>
+              <p className="text-sm text-[#E8E0D0]/60">This year</p>
+            </div>
+          </div>
 
-      <div>
-        <h2 className="text-xl font-medium">Shows attended</h2>
-        {attendedShows.length === 0 ? (
-          <p className="mt-4 text-sm text-[#E8E0D0]/50">No shows attended yet.</p>
-        ) : (
-          <ul className="mt-4 flex flex-col gap-2">
-            {attendedShows.map((s) => (
-              <li
-                key={s.show_id}
-                className="rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"
-              >
-                <span className="font-medium text-[#E8E0D0]">{formatShowDate(s.date)}</span>
-                <span className="text-[#E8E0D0]/50"> — {s.title}</span>
-                {s.venue_name && <span className="text-[#E8E0D0]/50"> ({s.venue_name})</span>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+          <div>
+            <h2 className="text-xl font-medium">Shows attended</h2>
+            {isOwner && !profileUser.show_attended_shows && (
+              <p className="mt-1 text-xs text-[#E8B84B]/80">Hidden from your public profile — only you can see this here.</p>
+            )}
+            {attendedShows.length === 0 ? (
+              <p className="mt-4 text-sm text-[#E8E0D0]/50">No shows attended yet.</p>
+            ) : (
+              <ul className="mt-4 flex flex-col gap-2">
+                {attendedShows.map((s) => (
+                  <li
+                    key={s.show_id}
+                    className="rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"
+                  >
+                    <span className="font-medium text-[#E8E0D0]">{formatShowDate(s.date)}</span>
+                    <span className="text-[#E8E0D0]/50"> — {s.title}</span>
+                    {s.venue_name && <span className="text-[#E8E0D0]/50"> ({s.venue_name})</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
     </main>
   );
 }

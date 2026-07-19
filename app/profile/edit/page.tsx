@@ -26,6 +26,10 @@ export default async function ProfileEditPage() {
           bio: user.bio,
           image_url: user.image_url,
           profile_public: user.profile_public,
+          show_bio: user.show_bio,
+          show_status: user.show_status,
+          show_followed_bands: user.show_followed_bands,
+          show_attended_shows: user.show_attended_shows,
         }}
       />
     </main>
