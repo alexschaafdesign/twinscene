@@ -15,6 +15,8 @@ export interface User {
   name: string | null;
   username: string | null;
   bio: string | null;
+  status: string | null;
+  status_at: string | null;
   image_url: string | null;
   profile_public: boolean;
   is_admin: boolean;

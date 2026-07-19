@@ -13,6 +13,10 @@ const USERNAME_PATTERN = /^[a-z0-9][a-z0-9_-]{2,29}$/i;
 
 const MAX_BIO_LENGTH = 280;
 
+// One line, in the spirit of the old Facebook "[name] is ..." box — long
+// enough for a thought, short enough that it can't become a second bio.
+export const MAX_STATUS_LENGTH = 140;
+
 // Names that would collide with an existing or future top-level route once
 // public profiles land at /u/[username] (see app/ for the current route
 // list: admin, api, bands, login, musicians, playlists, profile, shows,
@@ -71,6 +75,12 @@ export class InvalidUsernameError extends Error {
 export class InvalidBioError extends Error {
   constructor() {
     super(`Bio must be ${MAX_BIO_LENGTH} characters or fewer`);
+  }
+}
+
+export class InvalidStatusError extends Error {
+  constructor() {
+    super(`Status must be ${MAX_STATUS_LENGTH} characters or fewer`);
   }
 }
 
@@ -144,11 +154,33 @@ export async function updateProfile(userId: number, update: ProfileUpdate): Prom
   }
 }
 
+/** Sets (or clears, with an empty/whitespace string) the caller's own status.
+ * Whitespace — including pasted newlines — collapses to single spaces, since
+ * this renders as one line after "[name] is". Clearing nulls status_at too,
+ * so there's never a timestamp without a status to date. */
+export async function setStatus(userId: number, raw: string | null): Promise<User> {
+  const status = raw?.replace(/\s+/g, " ").trim() || null;
+  if (status && status.length > MAX_STATUS_LENGTH) {
+    throw new InvalidStatusError();
+  }
+
+  const [user] = await sql<User[]>`
+    update users
+    set status = ${status}, status_at = ${status ? sql`now()` : null}
+    where id = ${userId}
+    returning *
+  `;
+  if (!user) throw new Error(`lib/users: no user with id ${userId}`);
+  return user;
+}
+
 export interface PublicProfileUser {
   id: number;
   username: string;
   name: string | null;
   bio: string | null;
+  status: string | null;
+  status_at: string | null;
   image_url: string | null;
   profile_public: boolean;
 }
@@ -160,7 +192,7 @@ export interface PublicProfileUser {
  * lower(username) unique index from migration 0019. */
 export async function getUserByUsername(username: string): Promise<PublicProfileUser | null> {
   const [user] = await sql<PublicProfileUser[]>`
-    select id, username, name, bio, image_url, profile_public
+    select id, username, name, bio, status, status_at, image_url, profile_public
     from users
     where lower(username) = lower(${username})
     limit 1

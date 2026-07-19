@@ -6,6 +6,7 @@ import { listSavedBands } from "@/lib/savedBands";
 import { listAttended, getAttendedStats } from "@/lib/showSaves";
 import Link from "next/link";
 import { formatShowDate } from "@/components/band-shared";
+import { formatStatusAge } from "@/components/statusTime";
 import BackLink from "@/components/BackLink";
 
 type Props = {
@@ -102,6 +103,17 @@ export default async function PublicProfilePage({ params }: Props) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg font-medium">{displayName(profileUser)}</p>
           <p className="text-sm text-[#E8E0D0]/60">@{profileUser.username}</p>
+          {profileUser.status && (
+            <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm text-[#E8E0D0]/80">
+              <span>
+                <span className="text-[#E8E0D0]/50">{displayName(profileUser)} is</span>{" "}
+                {profileUser.status}
+              </span>
+              {profileUser.status_at && (
+                <span className="text-xs text-[#E8E0D0]/40">{formatStatusAge(profileUser.status_at)}</span>
+              )}
+            </p>
+          )}
           {profileUser.bio && <p className="mt-1 text-sm text-[#E8E0D0]/80">{profileUser.bio}</p>}
         </div>
       </div>
