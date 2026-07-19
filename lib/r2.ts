@@ -177,6 +177,58 @@ export async function deleteAvatar(publicUrl: string): Promise<void> {
   }
 }
 
+// --- Media pros (photographers/videographers) ------------------------------
+// Profile photo for a media-pro directory listing. Keyed by slug like band
+// photos (one object per listing, overwritten in place on re-upload), reusing
+// the same generateThumbnail() pipeline bands use for their 400px grid variant.
+
+/** Upload a media pro's profile photo, keyed by slug, and return its public
+ * URL. */
+export async function uploadMediaProPhoto(
+  slug: string,
+  bytes: Uint8Array,
+  mimeType: string,
+): Promise<string> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
+  }
+  const key = `media-pros/${slug}.${extensionFromMime(mimeType)}`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: bytes,
+      ContentType: mimeType,
+    }),
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
+/** Upload a media pro's thumbnail to R2 under media-pros/thumb/<slug>.jpg and
+ * return its public URL. Overwrites any existing thumbnail for that slug. */
+export async function uploadMediaProThumbnail(
+  slug: string,
+  thumbBytes: Uint8Array | Buffer,
+): Promise<string> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
+  }
+  const key = `media-pros/thumb/${slug}.jpg`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: thumbBytes,
+      ContentType: "image/jpeg",
+    }),
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
 // Musician avatars (Musicians Slice 3) reuse generateAvatar above — same
 // sharp resize/re-encode pipeline — but live under their own musicians/<id>/
 // prefix (rather than avatars/<userId>/) since a musician's avatar and its

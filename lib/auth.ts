@@ -246,6 +246,18 @@ export async function canEditBand(user: User | null, bandId: number): Promise<bo
   return !!row;
 }
 
+// Same rule as canEditBand, over media_pro_editors — mirrors bands'
+// self-editing model for the photographer/videographer directory.
+export async function canEditMediaPro(user: User | null, mediaProId: number): Promise<boolean> {
+  if (!user) return false;
+  if (user.is_admin) return true;
+
+  const [row] = await sql`
+    select 1 from media_pro_editors where user_id = ${user.id} and media_pro_id = ${mediaProId} limit 1
+  `;
+  return !!row;
+}
+
 // Gate for admin-only routes/pages (assigning editors, deciding claims). A
 // type guard so `if (!isAdmin(user)) return …` narrows `user` to non-null
 // afterward, no `!` assertions needed at the call site.

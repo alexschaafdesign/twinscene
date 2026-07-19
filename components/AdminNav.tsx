@@ -17,6 +17,7 @@ const LINKS: { href: string; label: string }[] = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/claims", label: "Band claims" },
   { href: "/admin/band-member-claims", label: "Member claims" },
+  { href: "/admin/media-pro-claims", label: "Photo/video claims" },
 ];
 
 /** Whether `href` is the active section. "/admin" matches only exactly (every
