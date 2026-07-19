@@ -19,9 +19,14 @@ export interface AccountMenuUser {
 export default function AccountMenu({
   user,
   notificationsUnread = 0,
+  isAdmin = false,
 }: {
   user: AccountMenuUser | null;
   notificationsUnread?: number;
+  // Whether to surface the /admin shortcut in the header. Presentation only —
+  // /admin and every route under it re-check is_admin server-side, so a stale
+  // or forged `true` here just yields a bounce, not access.
+  isAdmin?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -77,6 +82,14 @@ export default function AccountMenu({
 
   return (
     <div className="mx-auto flex w-full max-w-6xl items-center justify-end gap-2 px-5 py-3 sm:px-8">
+      {isAdmin && (
+        <Link
+          href="/admin"
+          className="flex h-10 items-center rounded-full border-2 border-[#E8E0D0]/35 bg-[#E8E0D0]/10 px-4 text-xs font-medium text-[#E8E0D0]/80 shadow-sm shadow-black/20 transition hover:border-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+        >
+          Admin
+        </Link>
+      )}
       <NotificationsBell initialUnread={notificationsUnread} />
       <div className="relative" ref={containerRef}>
         <button

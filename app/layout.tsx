@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getUnreadCount } from "@/lib/notifications";
 import AccountMenu from "@/components/AccountMenu";
 import "./globals.css";
@@ -38,6 +38,7 @@ export default async function RootLayout({
               : null
           }
           notificationsUnread={notificationsUnread}
+          isAdmin={isAdmin(user)}
         />
         {children}
         <Analytics />

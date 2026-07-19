@@ -30,11 +30,6 @@ export default async function Home() {
     ...new Set(shows.flatMap((s) => s.bandSlugs)),
   ];
 
-  // Admin link — a plain /admin. The dashboard gates on the signed-in
-  // account's is_admin (magic-link login), so there's no secret to embed and
-  // non-admins who follow it just get bounced to /login.
-  const adminHref = "/admin";
-
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
       <header className="mb-5 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
@@ -88,25 +83,17 @@ export default async function Home() {
         role="status"
         className="rounded-md border border-[#E8B84B]/40 bg-[#E8B84B]/10 px-4 py-3.5 text-[13px] leading-relaxed text-[#E8E0D0]/90"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="shrink-0 rounded bg-[#E8B84B]/20 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-[#E8B84B]"
-            >
-              Beta
-            </span>
-            <p className="m-0 font-medium text-[#E8E0D0]">
-              This site is in early beta — here&apos;s where it&apos;s
-              headed, with more to come! Send me any ideas!
-            </p>
-          </div>
-          <Link
-            href={adminHref}
-            className="mt-0.5 shrink-0 rounded border border-[#E8E0D0]/20 px-2 py-0.5 text-xs font-medium text-[#E8E0D0]/55 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+        <div className="flex items-center gap-2">
+          <span
+            aria-hidden
+            className="shrink-0 rounded bg-[#E8B84B]/20 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-[#E8B84B]"
           >
-            Admin
-          </Link>
+            Beta
+          </span>
+          <p className="m-0 font-medium text-[#E8E0D0]">
+            This site is in early beta — here&apos;s where it&apos;s
+            headed, with more to come! Send me any ideas!
+          </p>
         </div>
         <ul className="mt-2.5 list-disc space-y-1 pl-8 marker:text-[#E8B84B]/60">
           <li>Every band in town can have a profile, free to edit as you like</li>
@@ -175,7 +162,8 @@ export default async function Home() {
       )}
       </div>
 
-      {/* Section nav. Bands, Shows, Venues, Playlists, Musicians, and Feed. */}
+      {/* Section nav. Bands, Shows, Venues, Playlists, and Musicians on the
+          left; Feed pushed to the far right. */}
       <nav className="mb-6 border-b border-[#E8E0D0]/20">
         <ul className="-mb-px flex flex-wrap items-end gap-x-6 gap-y-2">
           <li>
@@ -218,7 +206,11 @@ export default async function Home() {
               Musicians
             </Link>
           </li>
-          <li>
+          {/* ml-auto splits the bar into two groups: the section tabs above
+              stay left, Feed sits hard right. It stays a single list (it's one
+              nav), and if the tabs wrap on a narrow screen Feed just lands
+              right-aligned on its own row. */}
+          <li className="ml-auto">
             <Link
               href="/feed"
               className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
