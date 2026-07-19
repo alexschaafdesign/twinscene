@@ -124,11 +124,30 @@ Twin Scene uses, no DB or API involved. (Venue data used to work the same way;
 see "Venues: Twin Scene is canonical" above.)
 
 **the-birdhaus** has its own, entirely independent "shows" concept: house shows
-Alex authors directly as markdown files with frontmatter (`content/shows/*.md`),
-with their own RSVP system (`lib/rsvps.ts`, `lib/rsvp-email.ts`, admin RSVP
-summary). This has no connection to Twin Scene/Crawlspace's scraped-show
-pipeline — it's a naming coincidence, not shared infrastructure. Don't assume a
-"show" reference in Birdhaus code touches the Twin Scene/Crawlspace shows table.
+managed through Birdhaus's own admin dashboard, stored in a `shows` table
+(joined to `show_bands`/`bands` for the lineup) in Birdhaus's own, physically
+separate Neon database, with their own RSVP system (`lib/rsvps.ts`,
+`lib/rsvp-email.ts`, admin RSVP summary). (Shows used to be hand-authored
+markdown files with frontmatter, `content/shows/*.md`, read via GitHub by
+Twin Scene's scraper — that path is gone; the last markdown file was added
+2026-07-10, superseded by the admin dashboard.) This has no connection to Twin
+Scene/Crawlspace's scraped-show *table* — it's a naming coincidence, not
+shared infrastructure, and Birdhaus's shows never land in the shared Postgres
+`shows` table. Don't assume a "show" reference in Birdhaus code touches the
+Twin Scene/Crawlspace shows table.
+
+Twin Scene's Birdhaus venue scraper (`lib/scrapers/birdhaus.ts`) is the one
+exception that *reads* across this boundary: since Birdhaus is Alex's own
+venue, it's the one scraper that isn't a flyer/HTML scrape — it connects
+directly to Birdhaus's separate Neon DB (`lib/birdhausDb.ts`,
+`BIRDHAUS_DATABASE_URL`, a distinct connection from `lib/db.ts`) and queries
+`shows`/`show_bands`/`bands` for announced, upcoming shows, same as every
+other scraper feeds into the normal scrape → match → import pipeline into the
+shared `shows` table. This is a direct DB read rather than a public API (the
+pattern bands/venues use) because both repos are Alex's own — no external
+client needed. Provisioning `BIRDHAUS_DATABASE_URL` in Twin Scene's Vercel
+Production env is required for the daily cron to pick up Birdhaus shows; it's
+separate from and in addition to Twin Scene's own `DATABASE_URL`.
 
 ## Accounts: Twin-Scene-owned, physically shared with Crawlspace
 
