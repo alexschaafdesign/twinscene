@@ -157,10 +157,14 @@ export default async function ProfilePage() {
           </p>
         ) : (
           <p className="mt-2 text-sm text-[#E8E0D0]/60">
+            <Link href="/profile/band" className="underline underline-offset-2 hover:text-[#E8E0D0]">
+              Do you have a band?
+            </Link>{" "}
+            Find it in the directory or add it. Already got a code?{" "}
             <Link href="/redeem" className="underline underline-offset-2 hover:text-[#E8E0D0]">
               Redeem an ownership code
-            </Link>{" "}
-            if a band DM&apos;d you one.
+            </Link>
+            .
           </p>
         )}
         {ownerPendingClaims.length > 0 && (

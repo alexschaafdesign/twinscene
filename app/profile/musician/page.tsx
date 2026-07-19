@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, sanitizeNextPath } from "@/lib/auth";
 import {
   fetchMusiciansDirectory,
   getMusicianForUser,
@@ -24,16 +24,25 @@ export const dynamic = "force-dynamic";
 // self-serve create a new one. If the user's name isn't set yet, prompts for
 // it first so findMusicianNameMatches can suggest "is this you?" matches.
 // Redirects away if the user is already linked, since one user ↔ at most one
-// musician.
-export default async function MusicianLinkPage() {
+// musician — to `next` when present (the guided onboarding flow threads its
+// queue through here, app/welcome/flow/page.tsx) so an already-linked user
+// skips straight through instead of dead-ending on /profile.
+export default async function MusicianLinkPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const sp = await searchParams;
+  const next = sanitizeNextPath(typeof sp.next === "string" ? sp.next : null) || undefined;
+
   const user = await getCurrentUser();
   if (!user) {
-    redirect("/login?next=/profile/musician");
+    redirect(`/login?next=${encodeURIComponent(`/profile/musician${next ? `?next=${next}` : ""}`)}`);
   }
 
   const existing = await getMusicianForUser(user.id);
   if (existing) {
-    redirect("/profile");
+    redirect(next || "/profile");
   }
 
   const [musicians, nameMatches]: [MusicianEntry[], MusicianNameSuggestion[]] = user.name
@@ -51,7 +60,7 @@ export default async function MusicianLinkPage() {
         you&apos;ll be able to edit that band.
       </p>
       {user.name ? (
-        <MusicianLinkSearch musicians={musicians} nameMatches={nameMatches} />
+        <MusicianLinkSearch musicians={musicians} nameMatches={nameMatches} next={next} />
       ) : (
         <MusicianNamePrompt />
       )}

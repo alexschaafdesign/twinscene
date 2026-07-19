@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import type { MusicianEntry, MusicianNameSuggestion } from "@/lib/musicians";
 
 // Once a claim attempt is made (from a search result, a name-match
@@ -20,9 +21,11 @@ type Claimed = { name: string; slug: string; status: "pending" | "error"; messag
 export default function MusicianLinkSearch({
   musicians,
   nameMatches = [],
+  next,
 }: {
   musicians: MusicianEntry[];
   nameMatches?: MusicianNameSuggestion[];
+  next?: string;
 }) {
   const [query, setQuery] = useState("");
   const [claimed, setClaimed] = useState<Claimed | null>(null);
@@ -97,9 +100,19 @@ export default function MusicianLinkSearch({
 
   if (createdName) {
     return (
-      <p className="mt-6 text-sm text-[#E8E0D0]/80">
-        Created your musician profile as <strong>{createdName}</strong>.
-      </p>
+      <div className="mt-6">
+        <p className="text-sm text-[#E8E0D0]/80">
+          Created your musician profile as <strong>{createdName}</strong>.
+        </p>
+        {next && (
+          <Link
+            href={next}
+            className="mt-3 inline-block text-sm font-medium text-[#E8E0D0] underline underline-offset-2 hover:text-[#E8B84B]"
+          >
+            Continue
+          </Link>
+        )}
+      </div>
     );
   }
 
@@ -120,6 +133,14 @@ export default function MusicianLinkSearch({
           >
             Try again
           </button>
+        )}
+        {claimed.status === "pending" && next && (
+          <Link
+            href={next}
+            className="mt-3 inline-block text-sm font-medium text-[#E8E0D0] underline underline-offset-2 hover:text-[#E8B84B]"
+          >
+            Continue
+          </Link>
         )}
       </div>
     );
@@ -248,6 +269,15 @@ export default function MusicianLinkSearch({
         )}
         {createError && <p className="mt-2 text-sm text-[#F5A3A3]">{createError}</p>}
       </div>
+
+      {next && (
+        <Link
+          href={next}
+          className="self-start text-sm text-[#E8E0D0]/60 underline underline-offset-2 hover:text-[#E8E0D0]"
+        >
+          Skip for now
+        </Link>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser, sanitizeNextPath } from "@/lib/auth";
+import OnboardingRoleForm from "@/components/OnboardingRoleForm";
 
 export const metadata: Metadata = {
   title: "Welcome to Twin Scene",
@@ -10,12 +10,14 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-// One-time onboarding shown right after a first-ever sign-in (the login
-// callback routes brand-new accounts here — see app/api/auth/callback). It's
-// just a friendly orientation, no state of its own: nothing marks it "seen",
-// so it only appears because account creation happens exactly once. Gated to
-// logged-in users; `next` (sanitized) is where "Get started" continues to,
-// so a welcome interstitial doesn't strand someone who was mid-flow.
+// Guided onboarding, step 1 — shown right after a first-ever sign-in (the
+// login callback routes brand-new accounts here — see
+// app/api/auth/callback/route.ts) but also safe to revisit any time; nothing
+// marks it "seen" or blocks re-entry. "Who are you?" is multi-select (a
+// person can be both a musician and a venue employee), and picking nothing
+// just skips ahead — this never gates access to the rest of the site.
+// Continuing hands off to app/welcome/flow/page.tsx, which steps through one
+// screen per selected role, then app/welcome/done/page.tsx.
 export default async function WelcomePage({
   searchParams,
 }: {
@@ -34,56 +36,14 @@ export default async function WelcomePage({
       <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#E8B84B]">
         Welcome to Twin Scene
       </span>
-      <h1 className="mt-2 text-2xl font-medium">You&apos;re all set 🎉</h1>
+      <h1 className="mt-2 text-2xl font-medium">Who are you?</h1>
       <p className="mt-2 text-sm leading-relaxed text-[#E8E0D0]/70">
-        Your account is ready — you signed in with just your email, so there&apos;s
-        no password to remember. Next time, the same link gets you back in. Here
-        are a few things you can do now:
+        Check anything that applies — we&apos;ll help you find or set up the
+        right profile for each. Not sure yet, or just here to browse? Hit
+        continue and skip straight in.
       </p>
 
-      <ul className="mt-5 flex flex-col gap-3">
-        <li className="rounded-md border border-[#E8E0D0]/15 px-4 py-3">
-          <p className="text-sm font-medium text-[#E8E0D0]">Save &amp; follow bands</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-[#E8E0D0]/65">
-            Save bands you love and follow them to keep their upcoming shows on
-            your radar — it all lives on{" "}
-            <Link href="/profile" className="underline hover:text-[#E8E0D0]">
-              your profile
-            </Link>
-            .
-          </p>
-        </li>
-        <li className="rounded-md border border-[#E8E0D0]/15 px-4 py-3">
-          <p className="text-sm font-medium text-[#E8E0D0]">Claim your band</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-[#E8E0D0]/65">
-            In a band that&apos;s on here? Open its page and hit{" "}
-            <span className="text-[#E8E0D0]">&ldquo;I own this band&rdquo;</span>{" "}
-            — we&apos;ll verify it&apos;s really you over Instagram, then hand you
-            the keys to edit the page.
-          </p>
-        </li>
-        <li className="rounded-md border border-[#E8E0D0]/15 px-4 py-3">
-          <p className="text-sm font-medium text-[#E8E0D0]">Make it yours</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-[#E8E0D0]/65">
-            Add a name, photo, and username in{" "}
-            <Link href="/profile/edit" className="underline hover:text-[#E8E0D0]">
-              profile settings
-            </Link>{" "}
-            to get a public profile others can find.
-          </p>
-        </li>
-      </ul>
-
-      <Link
-        href={next}
-        className="mt-6 inline-flex items-center gap-1 self-start rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-semibold text-[#2A2420] shadow-sm transition hover:bg-white"
-      >
-        Get started
-      </Link>
-
-      <p className="mt-4 text-[13px] text-[#E8E0D0]/50">
-        Questions or ideas? Email alex@thebirdhaus.org anytime.
-      </p>
+      <OnboardingRoleForm next={next} />
     </main>
   );
 }
