@@ -168,22 +168,19 @@ export default function MusicianLinkSearch({
           </p>
           <ul className="mt-3 flex flex-col gap-2">
             {nameMatches.map((m) => (
-              <li
-                key={m.id}
-                className="flex items-center justify-between rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"
-              >
-                <span>
-                  {m.name}
-                  {m.bands.length > 0 && (
-                    <span className="text-[#E8E0D0]/50"> — {m.bands.map((b) => b.name).join(", ")}</span>
-                  )}
-                </span>
+              <li key={m.id}>
                 <button
                   type="button"
                   onClick={() => claim(m)}
-                  className="shrink-0 text-[#E8E0D0]/80 hover:underline"
+                  className="flex w-full items-center justify-between rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-left text-sm transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/5"
                 >
-                  This is me
+                  <span>
+                    {m.name}
+                    {m.bands.length > 0 && (
+                      <span className="text-[#E8E0D0]/50"> — {m.bands.map((b) => b.name).join(", ")}</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-[#E8E0D0]/80">This is me</span>
                 </button>
               </li>
             ))}
@@ -212,22 +209,19 @@ export default function MusicianLinkSearch({
               <li className="text-sm text-[#E8E0D0]/50">No musicians match that search.</li>
             )}
             {filtered.map((m) => (
-              <li
-                key={m.id}
-                className="flex items-center justify-between rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"
-              >
-                <span>
-                  {m.name}
-                  {m.bands.length > 0 && (
-                    <span className="text-[#E8E0D0]/50"> — {m.bands.map((b) => b.name).join(", ")}</span>
-                  )}
-                </span>
+              <li key={m.id}>
                 <button
                   type="button"
                   onClick={() => claim(m)}
-                  className="shrink-0 text-[#E8E0D0]/80 hover:underline"
+                  className="flex w-full items-center justify-between rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-left text-sm transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/5"
                 >
-                  This is me
+                  <span>
+                    {m.name}
+                    {m.bands.length > 0 && (
+                      <span className="text-[#E8E0D0]/50"> — {m.bands.map((b) => b.name).join(", ")}</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-[#E8E0D0]/80">This is me</span>
                 </button>
               </li>
             ))}

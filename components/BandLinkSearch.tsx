@@ -129,17 +129,14 @@ export default function BandLinkSearch({
               <li className="text-sm text-[#E8E0D0]/50">No bands match that search.</li>
             )}
             {filtered.map((b) => (
-              <li
-                key={b.slug}
-                className="flex items-center justify-between rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"
-              >
-                <span>{b.name}</span>
+              <li key={b.slug}>
                 <button
                   type="button"
                   onClick={() => select(b)}
-                  className="shrink-0 text-[#E8E0D0]/80 hover:underline"
+                  className="flex w-full items-center justify-between rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-left text-sm transition hover:border-[#E8E0D0]/35 hover:bg-[#E8E0D0]/5"
                 >
-                  This is my band
+                  <span>{b.name}</span>
+                  <span className="shrink-0 text-[#E8E0D0]/80">This is my band</span>
                 </button>
               </li>
             ))}

@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-// First step of /profile/musician onboarding when users.name is unset: we
-// need a name before we can suggest "is this you?" matches against the
-// musician directory. Saves via the existing profile PATCH route (same one
-// app/profile/edit uses) and refreshes the server component so the page picks
-// up the new name and re-runs findMusicianNameMatches.
+// Optional nudge on /profile/musician when users.name is unset — the search
+// box above works without a name, but findMusicianNameMatches (the "is this
+// you?" suggestions) needs one to match against. Saves via the existing
+// profile PATCH route (same one app/profile/edit uses) and refreshes the
+// server component so the page picks up the new name and re-runs
+// findMusicianNameMatches.
 export default function MusicianNamePrompt() {
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -43,8 +44,8 @@ export default function MusicianNamePrompt() {
   return (
     <div className="mt-6 rounded-md border border-[#E8E0D0]/15 px-3.5 py-3">
       <p className="text-sm text-[#E8E0D0]/80">
-        What&apos;s your name? We&apos;ll check if you&apos;re already listed
-        as a musician.
+        Don&apos;t see yourself above? Tell us your name and we&apos;ll check
+        for an exact match.
       </p>
       <form onSubmit={submit} className="mt-3 flex gap-2">
         <input
@@ -52,7 +53,6 @@ export default function MusicianNamePrompt() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Your name"
-          autoFocus
           className="flex-1 rounded-md border border-[#E8E0D0]/25 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
         />
         <button
