@@ -3,6 +3,7 @@ import { fetchBands } from "@/lib/fetchBands";
 import { fetchShows } from "@/lib/fetchShows";
 import { getSlugsWithVideos } from "@/lib/videos";
 import { getCurrentUser } from "@/lib/auth";
+import { listFollowedSlugs } from "@/lib/bandFollows";
 import BandGrid from "@/components/BandGrid";
 import LoginForm from "@/components/LoginForm";
 
@@ -23,6 +24,7 @@ export default async function Home() {
     getSlugsWithVideos(),
     getCurrentUser(),
   ]);
+  const followedSlugs = user ? await listFollowedSlugs(user.id) : [];
   const isDev = process.env.NODE_ENV !== "production";
   const bandsWithUpcomingShows = [
     ...new Set(shows.flatMap((s) => s.bandSlugs)),
@@ -146,9 +148,9 @@ export default async function Home() {
           </h2>
           <p className="mt-1.5 text-[13px] leading-relaxed text-[#E8E0D0]/70">
             Signed in as{" "}
-            <span className="text-[#E8E0D0]">{user.email}</span>. Save bands,
-            follow them for show updates, and manage your account from your
-            profile.
+            <span className="text-[#E8E0D0]">{user.email}</span>. Heart a band
+            to follow it — you&apos;ll get a notification when it announces a
+            show — and manage your account from your profile.
           </p>
           <Link
             href="/profile"
@@ -233,6 +235,8 @@ export default async function Home() {
         bands={bands}
         bandsWithUpcomingShows={bandsWithUpcomingShows}
         bandsWithVideos={bandsWithVideos}
+        loggedIn={!!user}
+        followedSlugs={followedSlugs}
         intro={
           <>
             <p className="text-[13px] leading-relaxed text-[#E8E0D0]/75">

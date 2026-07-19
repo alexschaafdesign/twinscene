@@ -19,7 +19,7 @@ export interface AdminUserRow {
   last_session_at: string | null;
   editor_count: number; // bands this user may edit (band_editors rows)
   claim_count: number; // band claims this user has filed (any status)
-  saved_count: number; // bands this user has saved
+  follow_count: number; // bands this user follows (the heart)
 }
 
 // All users, newest account first. The correlated subqueries keep this a
@@ -38,7 +38,7 @@ export async function fetchAdminUsers(): Promise<AdminUserRow[]> {
       (select max(s.created_at) from sessions s where s.user_id = u.id) as last_session_at,
       (select count(*)::int from band_editors be where be.user_id = u.id) as editor_count,
       (select count(*)::int from band_claims bc where bc.user_id = u.id) as claim_count,
-      (select count(*)::int from saved_bands sb where sb.user_id = u.id) as saved_count
+      (select count(*)::int from band_follows bf where bf.user_id = u.id) as follow_count
     from users u
     order by u.created_at desc
   `;

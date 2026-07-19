@@ -82,7 +82,7 @@ export default async function AdminUsersPage() {
                 <th className="py-2 pr-4 font-medium">Last active</th>
                 <th className="py-2 pr-4 text-right font-medium">Edits</th>
                 <th className="py-2 pr-4 text-right font-medium">Claims</th>
-                <th className="py-2 text-right font-medium">Saved</th>
+                <th className="py-2 text-right font-medium">Follows</th>
               </tr>
             </thead>
             <tbody>
@@ -127,7 +127,7 @@ export default async function AdminUsersPage() {
                     {u.claim_count || "—"}
                   </td>
                   <td className="py-3 text-right tabular-nums text-[#E8E0D0]/70">
-                    {u.saved_count || "—"}
+                    {u.follow_count || "—"}
                   </td>
                 </tr>
               ))}

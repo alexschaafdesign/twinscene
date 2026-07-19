@@ -89,9 +89,6 @@ export function CopyButton({ text }: { text: string }) {
   );
 }
 
-const heartButtonClass =
-  "inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E8E0D0]/25 text-[#E8E0D0]/80 transition hover:border-[#E8E0D0] hover:text-[#E8E0D0] disabled:opacity-50";
-
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
     // ti-heart (Tabler) — filled swaps to a solid fill, matching the ★ treatment
@@ -102,121 +99,86 @@ function HeartIcon({ filled }: { filled: boolean }) {
   );
 }
 
-/**
- * Save/unsave toggle for a band, shown on the band profile page. Optimistic:
- * flips immediately on click and reverts if the request fails. A logged-out
- * visitor sees the same heart but it's a plain link to /login (with a return
- * path back to this band) instead of firing the toggle.
- */
-export function SaveBandButton({
-  slug,
-  initialSaved,
-  loggedIn,
-}: {
-  slug: string;
-  initialSaved: boolean;
-  loggedIn: boolean;
-}) {
-  const [saved, setSaved] = useState(initialSaved);
-  const [pending, setPending] = useState(false);
 
-  if (!loggedIn) {
-    return (
-      <Link
-        href={`/login?next=${encodeURIComponent(`/bands/${slug}`)}`}
-        aria-label="Log in to save this band"
-        title="Log in to save this band"
-        className={heartButtonClass}
-      >
-        <HeartIcon filled={false} />
-      </Link>
-    );
-  }
+// The icon variant sits over band photos in the directory grid, so it carries
+// its own translucent backdrop — a bare outline disappears against a busy
+// image.
+const heartIconOnlyClass =
+  "inline-flex h-8 w-8 items-center justify-center rounded-full border bg-[#2A2420]/70 backdrop-blur-sm transition disabled:opacity-50";
 
-  async function toggle() {
-    const next = !saved;
-    setSaved(next);
-    setPending(true);
-    try {
-      const res = await fetch(`/api/bands/${slug}/save`, { method: next ? "POST" : "DELETE" });
-      if (!res.ok) throw new Error(`save toggle failed (${res.status})`);
-    } catch (err) {
-      console.error("SaveBandButton: toggle failed", err);
-      setSaved(!next);
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      disabled={pending}
-      aria-pressed={saved}
-      aria-label={saved ? "Unsave this band" : "Save this band"}
-      title={saved ? "Unsave this band" : "Save this band"}
-      className={heartButtonClass}
-    >
-      <HeartIcon filled={saved} />
-    </button>
-  );
-}
-
-const followButtonBaseClass =
+const heartPillBaseClass =
   "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50";
-const followButtonInactiveClass = `${followButtonBaseClass} border-[#E8E0D0]/25 text-[#E8E0D0]/80 hover:border-[#E8E0D0] hover:text-[#E8E0D0]`;
-const followButtonActiveClass = `${followButtonBaseClass} border-[#8FD693]/50 bg-[#8FD693]/10 text-[#8FD693]`;
 
-function BellIcon() {
-  return (
-    // ti-bell (Tabler) — deliberately different from the save heart, since
-    // Follow ("keep up with this band") is a different action from Save
-    // (bookmark/favorite).
-    <svg {...iconProps} width={15} height={15}>
-      <path d="M10 5a2 2 0 1 1 4 0a7 7 0 0 1 4 6v3a4 4 0 0 0 2 3h-16a4 4 0 0 0 2 -3v-3a7 7 0 0 1 4 -6" />
-      <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
-    </svg>
-  );
+/** Idle vs. following, for both variants. Following reads as filled + accent;
+ * idle is the same neutral outline every other control on the page uses. */
+function heartClass(variant: "pill" | "icon", following: boolean): string {
+  const base = variant === "pill" ? heartPillBaseClass : heartIconOnlyClass;
+  return following
+    ? `${base} border-[#F5A3A3]/50 bg-[#F5A3A3]/10 text-[#F5A3A3]`
+    : `${base} border-[#E8E0D0]/25 text-[#E8E0D0]/80 hover:border-[#E8E0D0] hover:text-[#E8E0D0]`;
 }
 
 /**
- * Follow/unfollow toggle for a band, shown on the band profile page next to
- * (but visually distinct from) SaveBandButton — a labeled pill rather than an
- * icon-only heart, since following is a different, forward-looking action
- * ("keep up with this band") from saving (a bookmark). Optimistic, same
- * pattern as SaveBandButton: flips immediately, reverts on failure. Logged-out
- * visitors get a plain link to /login instead of firing the toggle.
+ * Follow/unfollow toggle for a band — the heart. One control covering what
+ * used to be two (save + follow); see migration 0028. Following a band lists
+ * it on your profile and subscribes you to its notifications.
+ *
+ * `variant` is presentation only: "pill" (heart + label) on the band profile
+ * page, "icon" (heart alone) for the directory grid, where a label per card
+ * would be noise.
+ *
+ * Optimistic — flips immediately on click, reverts if the request fails.
+ * Logged-out visitors get a plain link to /login with a return path instead of
+ * firing the toggle. `onToggle` lets a parent (e.g. the grid) mirror the new
+ * state without a refetch.
  */
 export function FollowBandButton({
   slug,
   initialFollowing,
   loggedIn,
+  variant = "pill",
+  nextPath,
+  onToggle,
 }: {
   slug: string;
   initialFollowing: boolean;
   loggedIn: boolean;
+  variant?: "pill" | "icon";
+  /** Where /login should return to. Defaults to the band's own page. */
+  nextPath?: string;
+  onToggle?: (following: boolean) => void;
 }) {
   const [following, setFollowing] = useState(initialFollowing);
   const [pending, setPending] = useState(false);
 
+  const label = following ? "Unfollow this band" : "Follow this band";
+
   if (!loggedIn) {
     return (
       <Link
-        href={`/login?next=${encodeURIComponent(`/bands/${slug}`)}`}
+        href={`/login?next=${encodeURIComponent(nextPath ?? `/bands/${slug}`)}`}
         aria-label="Log in to follow this band"
         title="Log in to follow this band"
-        className={followButtonInactiveClass}
+        className={heartClass(variant, false)}
+        // The grid wraps each card in its own <Link>; without this a heart
+        // click would also navigate to the band page underneath it.
+        onClick={(e) => e.stopPropagation()}
       >
-        <BellIcon />
-        Follow
+        <HeartIcon filled={false} />
+        {variant === "pill" && "Follow"}
       </Link>
     );
   }
 
-  async function toggle() {
+  async function toggle(e: React.MouseEvent) {
+    // Same reason as above — in the grid this button sits inside a card that
+    // navigates on click.
+    e.preventDefault();
+    e.stopPropagation();
+
     const next = !following;
     setFollowing(next);
+    onToggle?.(next);
     setPending(true);
     try {
       const res = await fetch(`/api/bands/${slug}/follow`, { method: next ? "POST" : "DELETE" });
@@ -224,6 +186,7 @@ export function FollowBandButton({
     } catch (err) {
       console.error("FollowBandButton: toggle failed", err);
       setFollowing(!next);
+      onToggle?.(!next);
     } finally {
       setPending(false);
     }
@@ -235,12 +198,12 @@ export function FollowBandButton({
       onClick={toggle}
       disabled={pending}
       aria-pressed={following}
-      aria-label={following ? "Unfollow this band" : "Follow this band"}
-      title={following ? "Unfollow this band" : "Follow this band"}
-      className={following ? followButtonActiveClass : followButtonInactiveClass}
+      aria-label={label}
+      title={label}
+      className={heartClass(variant, following)}
     >
-      <BellIcon />
-      {following ? "Following" : "Follow"}
+      <HeartIcon filled={following} />
+      {variant === "pill" && (following ? "Following" : "Follow")}
     </button>
   );
 }

@@ -2,13 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { listSavedBands } from "@/lib/savedBands";
 import { listFollowedBands } from "@/lib/bandFollows";
 import { listUpcomingForUser, listAttended } from "@/lib/showSaves";
 import { getMusicianForUser } from "@/lib/musicians";
 import { listPendingClaimsForUser, listPendingClaimsForOwner } from "@/lib/bandMemberClaims";
 import { listOwnedBands } from "@/lib/bandOwnership";
-import SavedBandsList from "@/components/SavedBandsList";
 import FollowedBandsList from "@/components/FollowedBandsList";
 import UpcomingShowsList from "@/components/UpcomingShowsList";
 import AttendedShowsList from "@/components/AttendedShowsList";
@@ -23,17 +21,16 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-// Logged-in-only profile page — saved bands (slice 1) plus follows and show
-// attendance (slice 2 of Phase 3).
+// Logged-in-only profile page — followed bands (the heart; saved+follow were
+// merged in migration 0028) plus show attendance.
 export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login?next=/profile");
   }
 
-  const [savedBands, followedBands, upcomingShows, attendedShows, musician, ownedBands, pendingClaims] =
+  const [followedBands, upcomingShows, attendedShows, musician, ownedBands, pendingClaims] =
     await Promise.all([
-      listSavedBands(user.id),
       listFollowedBands(user.id),
       listUpcomingForUser(user.id),
       listAttended(user.id),
@@ -179,18 +176,15 @@ export default async function ProfilePage() {
         )}
       </div>
 
-      <div id="saved-bands">
-        <h1 className="text-xl font-medium">My saved bands</h1>
-        <p className="mt-2 text-sm text-[#E8E0D0]/60">
-          Bands you&apos;ve saved from the directory.
-        </p>
-        <SavedBandsList initialBands={savedBands} />
-      </div>
-
+      {/* One list, not two: saved and followed merged in migration 0028.
+          Both old anchors (#saved-bands, #follows) point here so existing
+          links don't break. */}
       <div id="follows">
-        <h2 className="text-xl font-medium">Bands you follow</h2>
+        <span id="saved-bands" />
+        <h1 className="text-xl font-medium">Bands you follow</h1>
         <p className="mt-2 text-sm text-[#E8E0D0]/60">
-          Bands you&apos;re keeping up with.
+          Bands you&apos;ve hearted. You&apos;ll get a notification when they
+          announce a show or update their profile.
         </p>
         <FollowedBandsList initialBands={followedBands} />
       </div>

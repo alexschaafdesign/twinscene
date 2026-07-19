@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Band } from "@/lib/fetchBands";
 import { iconProps, PlaceLine } from "@/components/band-shared";
-import { BandImage } from "@/components/band-shared-client";
+import { BandImage, FollowBandButton } from "@/components/band-shared-client";
 
 const LOCATION_TAGS = ["All", "Minneapolis", "St. Paul", "Other"];
 
@@ -32,37 +32,70 @@ function matchesLocation(location: string, filter: string): boolean {
   }
 }
 
-function BandCard({ band }: { band: Band }) {
+/* The heart sits OUTSIDE the card's <Link> — nesting a button inside an
+   anchor is invalid HTML and makes the hit target ambiguous. Both are
+   children of a relative wrapper, with the heart absolutely positioned over
+   the image corner. */
+function BandCard({ band, follow }: { band: Band; follow: FollowProps }) {
   return (
-    <Link
-      href={`/bands/${band.slug}`}
-      className="animate-fade-in group flex flex-col text-left transition-opacity"
-    >
-      <BandImage
-        band={band}
-        thumb
-        className="rounded-sm ring-1 ring-[#E8E0D0]/10 transition group-hover:ring-[#E8E0D0]/40"
-      />
-      <h3 className="mt-2.5 truncate text-sm font-medium leading-snug">
-        {band.name}
-      </h3>
-      <PlaceLine band={band} className="mt-1 text-xs" />
-      {band.genres.length > 0 && (
-        <p className="mt-1 truncate text-xs italic text-[#E8E0D0]/45">
-          {band.genres.join(", ")}
-        </p>
-      )}
-    </Link>
+    <div className="animate-fade-in group relative flex flex-col text-left">
+      <Link href={`/bands/${band.slug}`} className="flex flex-col transition-opacity">
+        <BandImage
+          band={band}
+          thumb
+          className="rounded-sm ring-1 ring-[#E8E0D0]/10 transition group-hover:ring-[#E8E0D0]/40"
+        />
+        <h3 className="mt-2.5 truncate text-sm font-medium leading-snug">
+          {band.name}
+        </h3>
+        <PlaceLine band={band} className="mt-1 text-xs" />
+        {band.genres.length > 0 && (
+          <p className="mt-1 truncate text-xs italic text-[#E8E0D0]/45">
+            {band.genres.join(", ")}
+          </p>
+        )}
+      </Link>
+      {/* Always visible once followed, otherwise revealed on hover/focus so
+          the grid stays calm. focus-within keeps it keyboard-reachable. */}
+      <div
+        className={`absolute right-1.5 top-1.5 transition-opacity ${
+          follow.following.has(band.slug)
+            ? "opacity-100"
+            : "opacity-0 group-hover:opacity-100 focus-within:opacity-100"
+        }`}
+      >
+        <HeartFor band={band} follow={follow} />
+      </div>
+    </div>
+  );
+}
+
+/** Follow state + toggle, threaded down from BandGrid so every card shares one
+ * set rather than each fetching its own. */
+type FollowProps = {
+  loggedIn: boolean;
+  following: Set<string>;
+  onToggle: (slug: string, following: boolean) => void;
+};
+
+function HeartFor({ band, follow }: { band: Band; follow: FollowProps }) {
+  return (
+    <FollowBandButton
+      slug={band.slug}
+      initialFollowing={follow.following.has(band.slug)}
+      loggedIn={follow.loggedIn}
+      variant="icon"
+      nextPath="/"
+      onToggle={(next) => follow.onToggle(band.slug, next)}
+    />
   );
 }
 
 /** Compact list row: small thumbnail + name/meta on one line. */
-function BandRow({ band }: { band: Band }) {
+function BandRow({ band, follow }: { band: Band; follow: FollowProps }) {
   return (
-    <Link
-      href={`/bands/${band.slug}`}
-      className="animate-fade-in group flex w-full items-center gap-3 rounded-md border border-[#E8E0D0]/10 px-3 py-2 text-left transition hover:border-[#E8E0D0]/30 hover:bg-[#E8E0D0]/5"
-    >
+    <div className="animate-fade-in group flex w-full items-center gap-3 rounded-md border border-[#E8E0D0]/10 px-3 py-2 text-left transition hover:border-[#E8E0D0]/30 hover:bg-[#E8E0D0]/5">
+      <Link href={`/bands/${band.slug}`} className="flex min-w-0 flex-1 items-center gap-3">
       <div className="h-11 w-11 shrink-0">
         <BandImage band={band} thumb className="rounded-sm ring-1 ring-[#E8E0D0]/10" />
       </div>
@@ -72,12 +105,16 @@ function BandRow({ band }: { band: Band }) {
         </h3>
         <PlaceLine band={band} className="mt-0.5 text-xs" />
       </div>
-      {band.genres.length > 0 && (
-        <p className="ml-auto hidden max-w-[40%] shrink-0 truncate text-xs italic text-[#E8E0D0]/45 sm:block">
-          {band.genres.join(", ")}
-        </p>
-      )}
-    </Link>
+        {band.genres.length > 0 && (
+          <p className="ml-auto hidden max-w-[40%] shrink-0 truncate text-xs italic text-[#E8E0D0]/45 sm:block">
+            {band.genres.join(", ")}
+          </p>
+        )}
+      </Link>
+      <div className="shrink-0">
+        <HeartFor band={band} follow={follow} />
+      </div>
+    </div>
   );
 }
 
@@ -122,6 +159,8 @@ export default function BandGrid({
   intro,
   bandsWithUpcomingShows,
   bandsWithVideos,
+  loggedIn = false,
+  followedSlugs,
 }: {
   bands: Band[];
   intro?: ReactNode;
@@ -131,8 +170,32 @@ export default function BandGrid({
   // Slugs of bands with at least one visible video. Undefined hides the
   // filter entirely rather than rendering it against an empty set.
   bandsWithVideos?: string[];
+  // Whether to wire the hearts to the toggle or to a /login link.
+  loggedIn?: boolean;
+  // Slugs this user already follows, so every card renders the right heart
+  // from one query instead of one per card. Empty for logged-out visitors.
+  followedSlugs?: string[];
 }) {
   const router = useRouter();
+  // Held here rather than per-card so a toggle survives re-filtering/sorting,
+  // which remounts the cards.
+  const [following, setFollowing] = useState<Set<string>>(
+    () => new Set(followedSlugs ?? []),
+  );
+  const follow = useMemo(
+    () => ({
+      loggedIn,
+      following,
+      onToggle: (slug: string, next: boolean) =>
+        setFollowing((cur) => {
+          const updated = new Set(cur);
+          if (next) updated.add(slug);
+          else updated.delete(slug);
+          return updated;
+        }),
+    }),
+    [loggedIn, following],
+  );
   const [query, setQuery] = useState("");
   // Genres are multi-select: a band matches if it has ANY of the chosen ones.
   // Empty = no genre filter (the "All" pill).
@@ -699,7 +762,7 @@ export default function BandGrid({
           }}
         >
           {sorted.map((band) => (
-            <BandCard key={band.slug} band={band} />
+            <BandCard key={band.slug} band={band} follow={follow} />
           ))}
         </div>
       ) : (
@@ -708,7 +771,7 @@ export default function BandGrid({
           className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3"
         >
           {sorted.map((band) => (
-            <BandRow key={band.slug} band={band} />
+            <BandRow key={band.slug} band={band} follow={follow} />
           ))}
         </div>
       )}

@@ -1,6 +1,8 @@
-// Slice 2 of Phase 3 (user collections): following bands. Distinct from
-// saved_bands (a bookmark) — a follow means "keep up with this band" and will
-// drive a feed/notifications later. See migration 0018 for the schema.
+// Following a band — the heart. One concept covering what used to be two:
+// saved_bands (a public bookmark) was merged into band_follows in migration
+// 0028, so a heart now both lists the band on your profile AND subscribes you
+// to its notifications (lib/notifications.ts fans out over this table).
+// Schema originally from migration 0018.
 
 import { sql } from "./db.ts";
 
@@ -35,6 +37,18 @@ export async function isBandFollowing(userId: number, bandId: number): Promise<b
     select 1 from band_follows where user_id = ${userId} and band_id = ${bandId} limit 1
   `;
   return !!row;
+}
+
+/** Just the slugs a user follows, for rendering heart state across a whole
+ * list of bands (the directory grid) without a query per card. */
+export async function listFollowedSlugs(userId: number): Promise<string[]> {
+  const rows = await sql<{ slug: string }[]>`
+    select bands.slug
+    from band_follows
+    join bands on bands.id = band_follows.band_id
+    where band_follows.user_id = ${userId}
+  `;
+  return rows.map((r) => r.slug);
 }
 
 // Newest-followed first, for the "Bands you follow" profile section.

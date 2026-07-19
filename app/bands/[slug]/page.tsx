@@ -7,7 +7,6 @@ import { fetchPress } from "@/lib/fetchPress";
 import { getVisibleVideosBySlug } from "@/lib/videos";
 import { getBandBySlug } from "@/lib/bands";
 import { getCurrentUser, canEditBand, isAdmin } from "@/lib/auth";
-import { isBandSaved } from "@/lib/savedBands";
 import { isBandFollowing } from "@/lib/bandFollows";
 import { listShowStatuses } from "@/lib/showSaves";
 import { getBandMembers } from "@/lib/musicians";
@@ -16,7 +15,7 @@ import { canApproveMemberClaim, listPendingClaimsForBand } from "@/lib/bandMembe
 import BandProfile, { editHref } from "@/components/BandProfile";
 import ClaimOwnershipButton from "@/components/ClaimOwnershipButton";
 import { iconProps, locationLabel } from "@/components/band-shared";
-import { SaveBandButton, FollowBandButton } from "@/components/band-shared-client";
+import { FollowBandButton } from "@/components/band-shared-client";
 import BackLink from "@/components/BackLink";
 
 type Props = {
@@ -71,9 +70,8 @@ export default async function BandProfilePage({ params }: Props) {
   const user = await getCurrentUser();
   // fetchBands()'s Band shape carries no numeric id (see lib/fetchBands.ts),
   // so a second lookup against the raw row is the cheapest way to get one for
-  // isBandSaved.
+  // isBandFollowing.
   const bandRow = await getBandBySlug(slug);
-  const initialSaved = user && bandRow ? await isBandSaved(user.id, bandRow.id) : false;
   const initialFollowing = user && bandRow ? await isBandFollowing(user.id, bandRow.id) : false;
   const showStatuses = user ? await listShowStatuses(user.id, bandShows.map((s) => s.id)) : {};
   const members = bandRow ? await getBandMembers(bandRow.id) : [];
@@ -105,7 +103,6 @@ export default async function BandProfilePage({ params }: Props) {
               already edit (!canEdit == showClaimEntry); the member-request flow
               for already-owned bands stays inside BandProfile. */}
           {!canEdit && !hasOwner && <ClaimOwnershipButton loggedIn={!!user} />}
-          <SaveBandButton slug={slug} initialSaved={initialSaved} loggedIn={!!user} />
           <FollowBandButton slug={slug} initialFollowing={initialFollowing} loggedIn={!!user} />
 
           {canEdit && (

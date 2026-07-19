@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getUserByUsername, type PublicProfileUser } from "@/lib/users";
-import { listSavedBands } from "@/lib/savedBands";
+import { listFollowedBands } from "@/lib/bandFollows";
 import { listAttended, getAttendedStats } from "@/lib/showSaves";
 import Link from "next/link";
 import { formatShowDate } from "@/components/band-shared";
@@ -39,7 +39,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-// Public, unauthenticated profile page — favorite bands, shows attended, and
+// Public, unauthenticated profile page — followed bands, shows attended, and
 // stats for a user, gated by users.profile_public (see migration 0020). The
 // underlying lookup (lib/users.ts#getUserByUsername) selects an explicit
 // column list that never includes email, so nothing here can leak it. Shows
@@ -75,8 +75,8 @@ export default async function PublicProfilePage({ params }: Props) {
     );
   }
 
-  const [savedBands, attendedShows, stats] = await Promise.all([
-    listSavedBands(profileUser.id),
+  const [followedBands, attendedShows, stats] = await Promise.all([
+    listFollowedBands(profileUser.id),
     listAttended(profileUser.id),
     getAttendedStats(profileUser.id),
   ]);
@@ -130,12 +130,12 @@ export default async function PublicProfilePage({ params }: Props) {
       </div>
 
       <div>
-        <h2 className="text-xl font-medium">Favorite bands</h2>
-        {savedBands.length === 0 ? (
-          <p className="mt-4 text-sm text-[#E8E0D0]/50">No favorite bands yet.</p>
+        <h2 className="text-xl font-medium">Bands they follow</h2>
+        {followedBands.length === 0 ? (
+          <p className="mt-4 text-sm text-[#E8E0D0]/50">Not following any bands yet.</p>
         ) : (
           <ul className="mt-4 flex flex-col gap-2">
-            {savedBands.map((b) => (
+            {followedBands.map((b) => (
               <li
                 key={b.band_id}
                 className="rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"

@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import type { FollowedBand } from "@/lib/bandFollows";
 
-// "Bands you follow" list on /profile — same shape/pattern as SavedBandsList.
+// "Bands you follow" list on /profile — the one band list, since saved and
+// followed merged in migration 0028.
 // Unfollow removes the row immediately (server delete is idempotent — see
 // lib/bandFollows.ts — so a slow/duplicate click can't error), reverting the
 // list if the request fails.
