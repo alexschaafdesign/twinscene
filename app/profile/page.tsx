@@ -65,13 +65,6 @@ export default async function ProfilePage({
           <p className="truncate text-lg font-medium">{user.name || user.email}</p>
           {user.username && <p className="text-sm text-[#E8E0D0]/60">@{user.username}</p>}
           {user.bio && <p className="mt-1 text-sm text-[#E8E0D0]/80">{user.bio}</p>}
-          <div className="mt-2">
-            <StatusEditor
-              name={user.name?.trim() || user.username || "You"}
-              initialStatus={user.status}
-              initialStatusAt={user.status_at}
-            />
-          </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
             <Link
               href="/profile/edit"
@@ -94,6 +87,13 @@ export default async function ProfilePage({
           </div>
         </div>
       </div>
+
+      <StatusEditor
+        name={user.name?.trim() || user.username || "You"}
+        initialStatus={user.status}
+        initialStatusAt={user.status_at}
+        size="large"
+      />
 
       <div>
         <h2 className="text-xl font-medium">Musician profile</h2>

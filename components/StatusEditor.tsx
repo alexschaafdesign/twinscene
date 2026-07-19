@@ -9,16 +9,22 @@ const MAX_STATUS_LENGTH = 140;
 /** The old-Facebook status box, on a user's own profile: "[name] is ___".
  * Saves to PUT /api/profile/status. Clearing the box and saving removes the
  * status entirely. Kept inline (rather than in /profile/edit) because a status
- * is meant to be changed often — the edit form is for things you set once. */
+ * is meant to be changed often — the edit form is for things you set once.
+ *
+ * `size="large"` is the prominent card treatment used on /profile and atop
+ * /feed; the default stays compact for anywhere space is tighter. */
 export default function StatusEditor({
   name,
   initialStatus,
   initialStatusAt,
+  size = "default",
 }: {
   name: string;
   initialStatus: string | null;
   initialStatusAt: string | null;
+  size?: "default" | "large";
 }) {
+  const large = size === "large";
   const router = useRouter();
   const [status, setStatus] = useState(initialStatus ?? "");
   const [savedAt, setSavedAt] = useState(initialStatusAt);
@@ -56,21 +62,33 @@ export default function StatusEditor({
 
   if (!editing) {
     return (
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        {current ? (
-          <>
-            <p className="text-sm text-[#E8E0D0]/80">
-              <span className="text-[#E8E0D0]/50">{name} is</span> {current}
-            </p>
-            {savedAt && <span className="text-xs text-[#E8E0D0]/40">{formatStatusAge(savedAt)}</span>}
-          </>
-        ) : (
-          <p className="text-sm text-[#E8E0D0]/40">{name} is…</p>
-        )}
+      <div
+        className={
+          large
+            ? "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-5 py-4"
+            : "flex flex-wrap items-baseline gap-x-2 gap-y-1"
+        }
+      >
+        <div className={large ? "flex flex-wrap items-baseline gap-x-2 gap-y-1" : "contents"}>
+          {current ? (
+            <>
+              <p className={large ? "text-base text-[#E8E0D0]" : "text-sm text-[#E8E0D0]/80"}>
+                <span className="text-[#E8E0D0]/50">{name} is</span> {current}
+              </p>
+              {savedAt && <span className="text-xs text-[#E8E0D0]/40">{formatStatusAge(savedAt)}</span>}
+            </>
+          ) : (
+            <p className={large ? "text-base text-[#E8E0D0]/40" : "text-sm text-[#E8E0D0]/40"}>{name} is…</p>
+          )}
+        </div>
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="text-xs text-[#E8E0D0]/60 underline underline-offset-2 transition hover:text-[#E8E0D0]"
+          className={
+            large
+              ? "shrink-0 rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-xs transition hover:bg-[#E8E0D0]/10"
+              : "text-xs text-[#E8E0D0]/60 underline underline-offset-2 transition hover:text-[#E8E0D0]"
+          }
         >
           {current ? "Change" : "Set a status"}
         </button>
@@ -86,10 +104,14 @@ export default function StatusEditor({
         e.preventDefault();
         void save(status);
       }}
-      className="flex flex-col gap-2"
+      className={
+        large
+          ? "flex flex-col gap-2 rounded-xl border border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.04] px-5 py-4"
+          : "flex flex-col gap-2"
+      }
     >
       <div className="flex items-center gap-2">
-        <label htmlFor="user-status" className="shrink-0 text-sm text-[#E8E0D0]/50">
+        <label htmlFor="user-status" className={large ? "shrink-0 text-base text-[#E8E0D0]/50" : "shrink-0 text-sm text-[#E8E0D0]/50"}>
           {name} is
         </label>
         <input
@@ -100,7 +122,11 @@ export default function StatusEditor({
           onChange={(e) => setStatus(e.target.value.slice(0, MAX_STATUS_LENGTH))}
           maxLength={MAX_STATUS_LENGTH}
           placeholder="at First Ave tonight"
-          className="w-full rounded-md border border-[#E8E0D0]/25 bg-transparent px-3 py-1.5 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
+          className={
+            large
+              ? "w-full rounded-md border border-[#E8E0D0]/25 bg-transparent px-3 py-2 text-base text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
+              : "w-full rounded-md border border-[#E8E0D0]/25 bg-transparent px-3 py-1.5 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
+          }
         />
       </div>
       <div className="flex flex-wrap items-center gap-3">

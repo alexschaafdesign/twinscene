@@ -108,20 +108,6 @@ export default async function PublicProfilePage({ params }: Props) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg font-medium">{displayName(profileUser)}</p>
           <p className="text-sm text-[#E8E0D0]/60">@{profileUser.username}</p>
-          {canSeeStatus && profileUser.status && (
-            <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm text-[#E8E0D0]/80">
-              <span>
-                <span className="text-[#E8E0D0]/50">{displayName(profileUser)} is</span>{" "}
-                {profileUser.status}
-              </span>
-              {profileUser.status_at && (
-                <span className="text-xs text-[#E8E0D0]/40">{formatStatusAge(profileUser.status_at)}</span>
-              )}
-              {isOwner && !profileUser.show_status && (
-                <span className="text-xs text-[#E8B84B]/80">(hidden from your public profile)</span>
-              )}
-            </p>
-          )}
           {canSeeBio && profileUser.bio && (
             <p className="mt-1 text-sm text-[#E8E0D0]/80">
               {profileUser.bio}
@@ -132,6 +118,22 @@ export default async function PublicProfilePage({ params }: Props) {
           )}
         </div>
       </div>
+
+      {canSeeStatus && profileUser.status && (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-5 py-4 text-base text-[#E8E0D0]">
+          <span>
+            <span className="text-[#E8E0D0]/50">{displayName(profileUser)} is</span> {profileUser.status}
+          </span>
+          <span className="flex items-center gap-2">
+            {profileUser.status_at && (
+              <span className="text-xs text-[#E8E0D0]/40">{formatStatusAge(profileUser.status_at)}</span>
+            )}
+            {isOwner && !profileUser.show_status && (
+              <span className="text-xs text-[#E8B84B]/80">(hidden from your public profile)</span>
+            )}
+          </span>
+        </div>
+      )}
 
       {canSeeFollows && (
         <div>
