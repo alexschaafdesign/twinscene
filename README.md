@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Twin Scene
 
-## Getting Started
+Twin Cities band directory and show listings — [twinscene.org](https://twinscene.org).
 
-First, run the development server:
+Next.js 16 (App Router) + React 19 + TypeScript on Vercel, with a Neon Postgres
+database queried through raw SQL (`postgres.js`, no ORM) and images on
+Cloudflare R2.
+
+> **Note:** this is a *customized* Next.js 16 build. Check
+> `node_modules/next/dist/docs/` before relying on framework-coupled behavior —
+> APIs and conventions may differ from stock Next.js.
+
+## What's in here
+
+- **Bands** (`/bands`) — the canonical Twin Cities band directory. Twin Scene
+  owns this data; sibling projects read it over `/api/public/bands`.
+- **Shows** (`/shows`) — venue scrapers plus a daily cron, public submissions,
+  and an admin review queue.
+- **Musicians** (`/musicians`, `/m/[slug]`) — people as first-class entities,
+  linked to the bands they play in.
+- **Accounts** — passwordless magic-link login, public profiles at
+  `/u/[username]`, following bands, show attendance, an in-app notification
+  inbox, statuses, and a site-wide `/feed`.
+- **Admin** (`/admin`) — one `is_admin`-gated dashboard: bands, shows, review,
+  claims, activity, users.
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`.env.local` (gitignored) supplies `DATABASE_URL` and friends. `.envrc` loads it
+via `dotenv_if_exists` so direnv keeps the shell in sync — **it must point at
+the Neon dev branch, never prod.**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Local logins print the magic link to the dev console: `RESEND_API_KEY` and
+`EMAIL_FROM` live in Vercel Production only.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+| Command | Does |
+|---|---|
+| `npm run dev` / `build` / `start` / `lint` | The usual Next.js lifecycle. |
+| `node scripts/whichdb.mjs` | **Which database am I pointed at?** Run before any write. |
+| `node scripts/migrate.mjs` | Apply pending migrations (targets the shell's `DATABASE_URL` = dev by default). |
+| `npm run scrape:local` | Run the `localOnly` venue scrapers from a residential IP (needs `npm run dev` in another terminal). |
+| `node scripts/make-admin.mjs` | Grant `is_admin`. |
+| `node scripts/create-api-client.mjs` | Mint a public-API key. |
 
-To learn more about Next.js, take a look at the following resources:
+## Database
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Migrations are additive and sequential in `scripts/migrations/NNNN_*.sql`, and
+are applied to prod **before** the code that reads them is deployed.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+⚠️ This repo shares its database with Crawlspace, and the same Neon project
+hosts prod. Read [`docs/auth-and-db.md`](./docs/auth-and-db.md) before running
+any migration or write — it covers the dev/prod isolation setup and the rules
+for deliberately targeting prod.
 
-## Deploy on Vercel
+## Docs
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [`AGENTS.md`](./AGENTS.md) / [`CLAUDE.md`](./CLAUDE.md) — conventions for
+  coding agents; local-only scrapers.
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) — how Twin Scene, Crawlspace, and
+  the-birdhaus share data. Read before touching the public bands API, the
+  lineup matcher, or the shared DB.
+- [`docs/auth-and-db.md`](./docs/auth-and-db.md) — auth model + database
+  safety rules. Operational, day-to-day.
+- [`docs/architecture.md`](./docs/architecture.md) — the fuller auth/accounts/
+  profiles design record, schema, and shipped-status narrative.
+- [`perf-baseline.md`](./perf-baseline.md) — measured performance baseline.
+</content>

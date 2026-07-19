@@ -3,12 +3,14 @@ Operational context for coding agents in this repo. (Fuller design rationale liv
 Auth & accounts model
 * ONE users table is the single identity. Authorization is a SEPARATE layer:
     * users.is_admin → may edit ANY band.
-    * band_editors(user_id, band_id, role) → which non-admin users may edit which bands (many-to-many).
+    * band_editors(user_id, band_id, role) → which non-admin users may edit which bands (many-to-many). role is 'editor' or 'owner'; an 'owner' (earned by redeeming an admin-issued ownership code) may ALSO approve that band's member claims, which is how approval delegates out of the admin queue.
 * Permission check, ALWAYS server-side: canEditBand(user, bandId) = user.is_admin OR row in band_editors(user_id, band_id). Never gate on hidden UI — a missing button is not a permission check.
 * Login is passwordless magic link: login_tokens (store a HASH of the token, single-use, ~15 min expiry) → sets an opaque sessions token in an HTTP-only, Secure, SameSite=Lax cookie. getCurrentUser() reads it. Logging in creates the user row — that IS signup; there is no separate signup flow.
 * band_claims = a user requests a band; an admin approves, which inserts the band_editors row AND marks the claim decided in ONE transaction.
+* band_member_claims = "I'm <musician> in <band>" — band-scoped, approved by that band's owner (admin fallback when the band has no owner). Check canApproveMemberClaim server-side. Supersedes the dropped musician_claims table, which granted rights on every band a musician appeared in.
+* Ownership codes (band_ownership_codes) follow the login_tokens rule: store only a HASH, single-use, expiring. The plaintext exists only in the admin's one-time generate response.
 * Validate any login next/redirect param as same-origin relative only (open-redirect guard).
-* Key files: lib/auth.ts (sessions, getCurrentUser, canEditBand, isAdmin, findOrCreateUserByEmail), lib/email.ts, app/api/auth/*, lib/bandEditors.ts, lib/bandClaims.ts, lib/savedBands.ts, admin UI under app/admin/* — the whole dashboard now gates on is_admin (the shared AdminNav in app/admin/layout.tsx + lib/fetchUsers.ts back the users view). SCRAPE_SECRET is no longer a page gate anywhere; it survives ONLY as the machine token for the scrape/show APIs, the daily cron, and scrape:local. The is_admin-gated scraper pages still read SCRAPE_SECRET server-side and hand it to their client panels so those API calls authenticate.
+* Key files: lib/auth.ts (sessions, getCurrentUser, canEditBand, isAdmin, findOrCreateUserByEmail), lib/email.ts, app/api/auth/*, lib/bandEditors.ts, lib/bandClaims.ts, lib/bandFollows.ts (the heart — lib/savedBands.ts is GONE, merged in migration 0028), lib/bandOwnership.ts, lib/bandMemberClaims.ts, lib/musicians.ts, lib/notifications.ts, lib/feed.ts, admin UI under app/admin/* — the whole dashboard now gates on is_admin (the shared AdminNav in app/admin/layout.tsx + lib/fetchUsers.ts back the users view). SCRAPE_SECRET is no longer a page gate anywhere; it survives ONLY as the machine token for the scrape/show APIs, the daily cron, and scrape:local. The is_admin-gated scraper pages still read SCRAPE_SECRET server-side and hand it to their client panels so those API calls authenticate.
 Email
 * Sends via Resend (HTTP fetch, no SDK). lib/email.ts logs the link to the console in dev when RESEND_API_KEY is unset, and throws in prod if unset.
 * EMAIL_FROM = "Twin Scene <login@thebirdhaus.org>" — Resend free tier allows one verified domain, so Twin Scene borrows Birdhaus's verified domain (display name still reads "Twin Scene"). RESEND_API_KEY + EMAIL_FROM live in Vercel Production ONLY, not in local .env.local — so local logins print the magic link to the dev console.
@@ -29,6 +31,9 @@ Deploy to prod
 4. Verify on the live site (twinscene.org).
 Status (details in the team Claude Project doc)
 * Phase 1 (admin editing) + Phase 2 (band self-editing, claim→approve, closed a public-write hole in app/api/bands/submit mode=correct) — SHIPPED to prod.
-* Phase 3 (public profiles): slice 1 (save-a-band + /profile) SHIPPED to prod. Migration 0018 already created saved_bands, band_follows, show_saves. Slice 2 (follows + shows attendance: 'interested' | 'going' | 'went') is code-only — NO new migration needed.
+* Phase 3 (public profiles): slices 1–3 SHIPPED to prod — saves/follows, show attendance, public /u/[username] profiles (0018–0020).
+* Musicians (0021–0022, superseded by 0024), band ownership codes (0023), band-scoped member claims (0024), last_seen_at (0025), notifications (0026), user statuses + /feed (0027) — all SHIPPED to prod.
+* Migration 0028 (merge saved_bands into band_follows) — APPLIED to prod and SHIPPED. Prod had 0 saved_bands, so the data merge was a no-op there; dev merged 1 save + 1 follow into 2 rows.
+* PENDING: saved_bands still exists on dev + prod, orphaned — nothing reads it. 0028 deliberately did not drop it (a drop in the same migration that ships the code means a rollback lands on a missing table). A follow-up migration should drop it.
 This is a customized Next.js 16 build
 Check node_modules/next/dist/docs/ before relying on framework-coupled behavior; APIs and conventions may differ from standard Next.js.

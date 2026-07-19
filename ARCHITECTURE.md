@@ -76,6 +76,9 @@ a no-traffic window before it's actually deleted.
 
 ### Known data-quality gaps
 
+Counts below are a point-in-time snapshot (2026-07-17), not a live figure — re-count
+before relying on them.
+
 - Twin Scene: 357 bands, 283 with a photo (74 without; backfill is manual/ongoing).
 - Birdhaus's overlay: 353 local bands, 347 linked to a Twin Scene canonical
   record. Six Birdhaus-only bands have no Twin Scene counterpart yet (Beech
@@ -100,6 +103,20 @@ summary). This has no connection to Twin Scene/Crawlspace's scraped-show
 pipeline — it's a naming coincidence, not shared infrastructure. Don't assume a
 "show" reference in Birdhaus code touches the Twin Scene/Crawlspace shows table.
 
+## Accounts: Twin-Scene-owned, physically shared with Crawlspace
+
+Twin Scene owns the whole identity/profile layer — `users`, `sessions`,
+`login_tokens`, `band_editors`, the claim tables, `musicians`/`band_members`,
+`band_follows`/`show_saves`, and `notifications`. Because Crawlspace shares the
+same Neon database, those tables are physically visible to it, but they are
+**not a shared contract**: Crawlspace neither reads nor writes them, has no
+login of its own, and nothing in this layer is exposed over the public API.
+Treat it as Twin-Scene-internal — a Crawlspace feature that needs identity is a
+design conversation (see "Cross-site one login" in `docs/architecture.md`), not
+a query it can just write.
+
+Birdhaus is on a separate database entirely, so it shares none of this.
+
 ## Feature flags
 
 Twin Scene's Shows feature (scrapers, `app/shows/**`, the shows admin, plus the
@@ -111,10 +128,10 @@ shows bits in the home page/band profiles/`SubmitForm`) was gated behind
 
 | Var | Lives in | Purpose |
 |---|---|---|
-| `DATABASE_URL` | twinscene, crawlspace | Shared Neon Postgres — `shows`, and (twinscene only) `bands`, `api_clients`, `rate_limits`. |
+| `DATABASE_URL` | twinscene, crawlspace | Shared Neon Postgres — `shows`, and (twinscene only) `bands`, `api_clients`, `rate_limits`, plus all the auth/user/profile tables. Birdhaus has its own separate DB. |
 | `TWIN_SCENE_API_KEY` / `TWIN_SCENE_API_URL` | crawlspace | Auth for Twin Scene's `/api/public/bands` (read + write, `can_write = true`). |
 | `TWIN_SCENE_API_KEY` / `TWIN_SCENE_API_URL` | the-birdhaus | Same endpoint, used read-only in practice (`lib/twinscene.ts`). |
-| `SCRAPE_SECRET` | twinscene | Gates admin scrape/import/review routes and on-demand scrape endpoints. |
+| `SCRAPE_SECRET` | twinscene | Machine token for the show/scrape **API routes**, the daily cron, and `scrape:local`. It is no longer a *page* gate anywhere — the admin dashboard gates on `users.is_admin` (see `docs/auth-and-db.md`); those pages just read the secret server-side and hand it to their client panels so the panels' API calls authenticate. |
 | `BIRDHAUS_API_KEY` | *(removed 2026-07-17)* | Used to authenticate Twin Scene's scraper against Birdhaus's now-deprecated `/api/public/bands`; no longer needed once the scraper's lineup matcher was repointed to Twin Scene's own table. |
 
 ## See also
