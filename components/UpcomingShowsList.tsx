@@ -5,18 +5,19 @@ import type { UpcomingShowStatus } from "@/lib/showSaves";
 import { formatShowDate } from "@/components/band-shared";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 
-// "Shows you're going to" list on /profile — shows marked interested/going,
-// soonest first. Clearing a show's status (via ShowStatusButtons) drops it
-// from the list immediately, same optimistic-removal pattern as
-// SavedBandsList/FollowedBandsList use for unsave/unfollow.
+// "Shows you're interested in" list on /profile, soonest first. Clearing a
+// show's status (via ShowStatusButtons) drops it from the list immediately,
+// same optimistic-removal pattern as SavedBandsList/FollowedBandsList use for
+// unsave/unfollow. Rows with a legacy "going" status (from before that option
+// was dropped) still show up here — listUpcomingForUser matches on both.
 export default function UpcomingShowsList({ initialShows }: { initialShows: UpcomingShowStatus[] }) {
   const [shows, setShows] = useState(initialShows);
 
   if (shows.length === 0) {
     return (
       <p className="mt-6 text-sm text-[#E8E0D0]/50">
-        No upcoming shows tracked yet. Mark yourself interested or going from
-        the shows list.
+        No upcoming shows tracked yet. Mark yourself interested from the shows
+        list.
       </p>
     );
   }

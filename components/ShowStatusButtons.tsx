@@ -23,6 +23,7 @@ export function ShowStatusButtons({
   loggedIn,
   returnTo,
   onStatusChange,
+  showGoing = false,
 }: {
   showId: string;
   isPast: boolean;
@@ -32,6 +33,11 @@ export function ShowStatusButtons({
   /** Called after a toggle succeeds — e.g. so a profile list can drop the row
    * once its status is cleared. */
   onStatusChange?: (status: ShowStatus | null) => void;
+  /** Show the "Going" toggle. Off by default — we no longer offer separate
+   * interested/going tracking, just "Interested" (and "I went to this" for
+   * past shows). Existing "going" rows in the DB are untouched; this only
+   * hides the control. */
+  showGoing?: boolean;
 }) {
   const [status, setStatus] = useState<ShowStatus | null>(initialStatus);
   const [pending, setPending] = useState(false);
@@ -100,15 +106,17 @@ export function ShowStatusButtons({
       >
         Interested
       </button>
-      <button
-        type="button"
-        onClick={() => toggle("going")}
-        disabled={pending}
-        aria-pressed={status === "going"}
-        className={status === "going" ? activeBtn : inactiveBtn}
-      >
-        Going
-      </button>
+      {showGoing && (
+        <button
+          type="button"
+          onClick={() => toggle("going")}
+          disabled={pending}
+          aria-pressed={status === "going"}
+          className={status === "going" ? activeBtn : inactiveBtn}
+        >
+          Going
+        </button>
+      )}
     </div>
   );
 }

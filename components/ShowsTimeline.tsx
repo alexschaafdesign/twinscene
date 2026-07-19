@@ -118,7 +118,6 @@ export default function ShowsTimeline({
               // source it came from.
               const imageSrc = show.flyerUrl || venueFallbackImage(show.venue);
               const isLogo = isVenueLogo(imageSrc);
-              const imageHref = show.link || show.flyerUrl;
               return (
               <li
                 key={`${show.title}-${show.venue}-${i}`}
@@ -146,16 +145,14 @@ export default function ShowsTimeline({
                           }`}
                         />
                       );
-                      return imageHref ? (
-                        <a
-                          href={ensureUrl(imageHref)}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                      return show.id ? (
+                        <Link
+                          href={`/shows/${show.id}`}
                           className="shrink-0"
-                          aria-label={`${show.title} ${isLogo ? "venue" : "flyer"}`}
+                          aria-label={show.title}
                         >
                           {img}
-                        </a>
+                        </Link>
                       ) : (
                         <span className="shrink-0">{img}</span>
                       );
@@ -232,16 +229,6 @@ export default function ShowsTimeline({
                       />
                     )}
                     <div className="flex items-center gap-3">
-                      {show.link && (
-                        <a
-                          href={ensureUrl(show.link)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-sm text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10"
-                        >
-                          Tickets / Info →
-                        </a>
-                      )}
                       {show.id && (
                         <Link
                           href={editHref(show)}
