@@ -139,6 +139,15 @@ export async function fetchBands(): Promise<Band[]> {
   return bands;
 }
 
+// Just the bands matching these directory slugs (0..n), in Band shape — for the
+// show page's lineup, which renders each linked band's photo/genre/bio. Order
+// isn't guaranteed; the caller keys by slug.
+export async function fetchBandsBySlugs(slugs: string[]): Promise<Band[]> {
+  if (slugs.length === 0) return [];
+  const wanted = new Set(slugs);
+  return (await getAllBands()).filter((b) => wanted.has(b.slug)).map(fromTwinScene);
+}
+
 // ---------------------------------------------------------------------------
 // Dead code below: the old Google Sheet CSV reader that used to back
 // fetchBands() above. Kept present (not deleted) in case the Birdhaus cutover

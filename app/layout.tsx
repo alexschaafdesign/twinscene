@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { getCurrentUser } from "@/lib/auth";
+import { getUnreadCount } from "@/lib/notifications";
 import AccountMenu from "@/components/AccountMenu";
 import "./globals.css";
 
@@ -26,6 +27,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const user = await getCurrentUser();
+  const notificationsUnread = user ? await getUnreadCount(user.id) : 0;
   return (
     <html lang="en" className={`${appFont.variable} h-full`}>
       <body className="min-h-full antialiased">
@@ -35,6 +37,7 @@ export default async function RootLayout({
               ? { email: user.email, name: user.name, username: user.username, image_url: user.image_url }
               : null
           }
+          notificationsUnread={notificationsUnread}
         />
         {children}
         <Analytics />

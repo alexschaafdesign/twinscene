@@ -16,6 +16,7 @@ export type Show = {
   title: string; // marquee / headliner — the show's display title
   lineup: string; // full lineup, e.g. "shugE, Average Joey, Ditch Pigeon"
   bandSlugs: string[]; // directory slugs this show links to (0..n)
+  lineupEntries: LineupEntry[]; // raw name+bandSlug pairs, in order — for the show page, which renders each lineup name alongside its matched band's photo/bio (bandSlugs above is just the flattened slug list)
   eventType: string; // non-band listing label (e.g. "Private Event"), "" for shows
   notes: string;
   link: string;
@@ -74,6 +75,7 @@ function mapRow(row: ShowsQueryRow): Show {
     bandSlugs: lineup
       .map((e) => e.bandSlug)
       .filter((slug): slug is string => !!slug),
+    lineupEntries: lineup,
     eventType: row.event_type ?? "",
     notes: row.notes ?? "",
     link: row.ticket_url ?? "",
@@ -89,6 +91,27 @@ function mapRow(row: ShowsQueryRow): Show {
     confidence: row.confidence ?? "ok",
     reviewReasons: row.review_reasons ?? [],
   };
+}
+
+// One show by id, for the per-show page (/shows/[id]). No confidence/date
+// filtering — a direct link to a specific show should resolve even if it's a
+// 'broken'-flagged or already-past row; the page renders whatever exists.
+export async function fetchShowById(id: string): Promise<Show | null> {
+  let rows: ShowsQueryRow[];
+  try {
+    rows = await sql<ShowsQueryRow[]>`
+      SELECT
+        id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
+        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        needs_review, confidence, review_reasons
+      FROM shows
+      WHERE id = ${id}
+    `;
+  } catch (err) {
+    console.error("fetchShowById: query failed", err);
+    return null;
+  }
+  return rows[0] ? mapRow(rows[0]) : null;
 }
 
 export async function fetchShows(): Promise<Show[]> {

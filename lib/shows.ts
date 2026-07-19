@@ -15,8 +15,22 @@
 import { randomUUID } from "node:crypto";
 import type postgres from "postgres";
 import { sql } from "@/lib/db";
+import { todayInChicago } from "@/lib/fetchShows";
+import { notifyBandOnNewShow, notifyShowChanged } from "@/lib/notifications";
 
 type TransactionSql = postgres.TransactionSql;
+
+/** Linked directory slugs in a resolved lineup, for follower fan-out. */
+function linkedSlugs(lineup: LineupEntry[]): string[] {
+  return lineup.map((e) => e.bandSlug).filter((s): s is string => !!s);
+}
+
+/** A date string is "in the future" (worth notifying about) if it's today or
+ * later in America/Chicago. Empty/malformed dates sort before today, so they're
+ * naturally excluded. */
+function isUpcoming(date: string): boolean {
+  return date >= todayInChicago();
+}
 
 export type LineupEntry = { name: string; bandSlug: string | null };
 export type StarredByEntry = { outlet: string; blurb: string; url: string };
@@ -201,6 +215,15 @@ export async function upsertScrapedShow(
       actor,
       { venue: input.venue, title: input.title, date: input.date, lineup },
     );
+
+    // Notify followers of any linked band on a newly-created upcoming show.
+    // Only on "created": re-scrapes of an existing row re-run resolveLineupBandSlugs
+    // and would otherwise fan out nightly — and the band_show unique index would
+    // dedupe them anyway, but skipping the query entirely is cheaper. A band
+    // freshly linked to an *existing* show is instead caught by linkBandToShow.
+    if (!wasExisting && isUpcoming(input.date)) {
+      await notifyBandOnNewShow(tx, rows[0].id, linkedSlugs(lineup));
+    }
     return { outcome: wasExisting ? "updated" : "created" };
   });
 }
@@ -241,6 +264,11 @@ export async function insertManualShow(
       { venue: input.venue, title: input.title, date: input.date, lineup },
       submitter,
     );
+    // Notify followers of any linked band on this upcoming show (e.g. a band's
+    // own editor adding a gig from the band form fans out to its followers).
+    if (isUpcoming(input.date)) {
+      await notifyBandOnNewShow(tx, id, linkedSlugs(lineup));
+    }
     return { id };
   });
 }
@@ -271,6 +299,13 @@ export async function editShow(
   const lineup = await resolveLineupBandSlugs(input.lineup);
 
   return sql.begin(async (tx) => {
+    // Read the pre-edit date/venue under the row lock so we can tell savers what
+    // actually moved (and skip notifying when neither did).
+    const before = await tx<{ venue_name: string; date: string }[]>`
+      SELECT venue_name, to_char(date, 'YYYY-MM-DD') AS date FROM shows WHERE id = ${id} FOR UPDATE
+    `;
+    if (before.length === 0) return { success: false };
+
     const rows = await tx`
       UPDATE shows SET
         venue_name = ${input.venue},
@@ -298,6 +333,15 @@ export async function editShow(
       { venue: input.venue, title: input.title, date: input.date, lineup },
       submitter,
     );
+
+    // Notify savers (interested/going) when the show's date or venue changed —
+    // the two facts they planned around. Title/notes/link edits are cosmetic
+    // and don't warrant a ping.
+    const changed: string[] = [];
+    if (before[0].date !== input.date) changed.push("date");
+    if (before[0].venue_name !== input.venue) changed.push("venue");
+    await notifyShowChanged(tx, id, changed);
+
     return { success: true };
   });
 }
@@ -347,7 +391,9 @@ export async function linkBandToShow(
   actor: string,
 ): Promise<{ success: boolean }> {
   return sql.begin(async (tx) => {
-    const rows = await tx`SELECT lineup FROM shows WHERE id = ${id} FOR UPDATE`;
+    const rows = await tx<{ lineup: unknown; date: string }[]>`
+      SELECT lineup, to_char(date, 'YYYY-MM-DD') AS date FROM shows WHERE id = ${id} FOR UPDATE
+    `;
     if (rows.length === 0) return { success: false };
 
     const lineup: LineupEntry[] = Array.isArray(rows[0].lineup) ? rows[0].lineup : [];
@@ -366,6 +412,13 @@ export async function linkBandToShow(
       UPDATE shows SET lineup = ${tx.json(updated)}, updated_at = now() WHERE id = ${id}
     `;
     await logHistory(tx, id, "linked_band", actor, { scrapedName, bandSlug });
+
+    // This band just got attached to an existing upcoming show — its followers
+    // haven't heard about it yet (the show was created before the link existed).
+    // The band_show unique index makes this a no-op if they somehow already were.
+    if (isUpcoming(rows[0].date)) {
+      await notifyBandOnNewShow(tx, id, [bandSlug]);
+    }
     return { success: true };
   });
 }

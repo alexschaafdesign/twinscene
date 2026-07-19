@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
   // "add" always inserts a fresh row (see upsertBand) — no existing band to
   // authorize against. "correct" updates a specific band in place, so it
   // needs the same canEditBand gate as the admin PATCH route.
+  let actorUserId: number | undefined;
   if (mode === "correct") {
     const targetBand = existingSlug ? await getBandBySlug(existingSlug) : null;
     if (!targetBand) {
@@ -74,6 +75,7 @@ export async function POST(request: NextRequest) {
         { status: user ? 403 : 401 },
       );
     }
+    actorUserId = user?.id;
   }
 
   const featuredLinks = parseJson<{ url: string; label: string }[]>(
@@ -131,7 +133,7 @@ export async function POST(request: NextRequest) {
       removePhoto: str(form.get("removeImage")) === "true",
     };
 
-    const { band, action } = await upsertBand(input, mode, existingSlug);
+    const { band, action } = await upsertBand(input, mode, existingSlug, actorUserId);
 
     if (removeVideoIds.length > 0) {
       await removeVideos(band.id, removeVideoIds.filter((id) => Number.isInteger(id)));

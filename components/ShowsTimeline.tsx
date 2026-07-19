@@ -152,7 +152,13 @@ export default function ShowsTimeline({
                     })()}
                     <div className="min-w-0">
                       <p className="font-medium text-[#E8E0D0]">
-                        {show.title}
+                        {show.id ? (
+                          <Link href={`/shows/${show.id}`} className="hover:underline">
+                            {show.title}
+                          </Link>
+                        ) : (
+                          show.title
+                        )}
                         {show.starredBy.length > 0 && (
                           <span className="ml-1.5 text-amber-400">★</span>
                         )}

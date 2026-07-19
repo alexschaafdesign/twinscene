@@ -7,6 +7,7 @@ import type postgres from "postgres";
 import { resolveBandcampEmbedUrl } from "./bandcamp.ts";
 import { extractOgImage } from "./ogImage.ts";
 import { reconcileBandMembers } from "./musicians.ts";
+import { notifyBandProfileUpdated } from "./notifications.ts";
 
 // Mirrors the `bands` columns exactly (snake_case), so a `select *` row IS a
 // Band with no transform. The public allowlist below is keyed off this type, so
@@ -107,6 +108,7 @@ export interface BandCoreFieldsInput {
 export async function updateBandCoreFields(
   bandId: number,
   input: BandCoreFieldsInput,
+  actorUserId?: number,
 ): Promise<Band> {
   const current = await sql<Band[]>`select * from bands where id = ${bandId} limit 1`;
   const existing = current[0];
@@ -122,6 +124,17 @@ export async function updateBandCoreFields(
     where id = ${bandId}
     returning *
   `;
+
+  // Same follower notification as the fuller upsertBand path, scoped to the
+  // fan-visible fields this minimal editor can touch.
+  const norm = (s: string | null | undefined) => (s ?? "").trim();
+  const changed: string[] = [];
+  if (norm(existing.bio) !== norm(updated.bio)) changed.push("bio");
+  if (norm(existing.genre) !== norm(updated.genre)) changed.push("genre");
+  if (changed.length > 0) {
+    await notifyBandProfileUpdated(sql, bandId, changed, actorUserId);
+  }
+
   return updated;
 }
 
@@ -267,18 +280,76 @@ async function resolveBandcampEmbed(
   return resolveBandcampEmbedUrl(trimmed);
 }
 
+// Order-insensitive key for a jsonb object ({ platform: url }), for diffing
+// whether a band's socials actually changed between edits.
+function objKey(v: unknown): string {
+  if (!v || typeof v !== "object") return "";
+  const o = v as Record<string, unknown>;
+  return Object.keys(o)
+    .sort()
+    .map((k) => `${k}=${typeof o[k] === "string" ? o[k] : JSON.stringify(o[k])}`)
+    .join("&");
+}
+
+// Featured-link identity ignores the resolved og:image (which can change on a
+// re-fetch without the user touching anything) — only url + label count.
+function linksKey(v: unknown): string {
+  return featuredLinksOf(v)
+    .map((l) => `${l.url}|${l.label}`)
+    .join(",");
+}
+
+function listKey(v: unknown): string {
+  return Array.isArray(v) ? v.map(String).join("|") : "";
+}
+
+// Which follower-visible fields changed between the stored band and the edit —
+// drives the 'band_update' notification. Deliberately ignores internal fields
+// (contact_email/method, thumbnails, bandcamp embed plumbing) and no-op saves,
+// so followers only hear about changes a fan would actually care to see.
+function changedProfileFields(
+  existing: Band,
+  next: {
+    bio: string;
+    genre: string | null;
+    city: string;
+    neighborhoods: string[];
+    members: string[];
+    photo: string | null;
+    socials: Record<string, string> | null;
+    featuredLinks: FeaturedLink[] | null;
+  },
+): string[] {
+  const norm = (s: string | null | undefined) => (s ?? "").trim();
+  const changed: string[] = [];
+  if (norm(existing.bio) !== norm(next.bio)) changed.push("bio");
+  if (norm(existing.photo) !== norm(next.photo)) changed.push("photo");
+  if (norm(existing.genre) !== norm(next.genre)) changed.push("genre");
+  if (norm(existing.city) !== norm(next.city) || listKey(existing.neighborhoods) !== next.neighborhoods.join("|")) {
+    changed.push("location");
+  }
+  if (objKey(existing.socials) !== objKey(next.socials) || linksKey(existing.featured_links) !== linksKey(next.featuredLinks)) {
+    changed.push("links");
+  }
+  if (listKey(existing.members) !== next.members.join("|")) changed.push("members");
+  return changed;
+}
+
 /**
  * Create or update a band from the public submit/correct form. `mode:
  * "correct"` looks the row up by `existingSlug` and updates it in place
  * (the slug itself never changes on a correction, matching the old Apps
  * Script behavior); `mode: "add"` generates a fresh unique slug from the
  * name. Runs in a transaction so the lookup/slug-generation/write can't race
- * a concurrent submission.
+ * a concurrent submission. `actorUserId`, when given, is the editing user —
+ * excluded from the 'band_update' follower fan-out so they aren't notified of
+ * their own edit.
  */
 export async function upsertBand(
   input: BandSubmissionInput,
   mode: "add" | "correct",
   existingSlug?: string,
+  actorUserId?: number,
 ): Promise<UpsertBandResult> {
   return sql.begin(async (tx) => {
     const existing =
@@ -336,6 +407,23 @@ export async function upsertBand(
         returning *
       `;
       await reconcileBandMembers(tx, existing.id, members);
+
+      // Notify followers when a fan-visible field actually changed (skips
+      // no-op saves and internal-only edits). Runs in the same tx as the write.
+      const changed = changedProfileFields(existing, {
+        bio: input.bio,
+        genre,
+        city: input.city,
+        neighborhoods,
+        members,
+        photo,
+        socials,
+        featuredLinks,
+      });
+      if (changed.length > 0) {
+        await notifyBandProfileUpdated(tx, existing.id, changed, actorUserId);
+      }
+
       return { band: updated, action: "updated" as const };
     }
 

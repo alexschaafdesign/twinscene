@@ -27,12 +27,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const { name, bio, genre, hometown } = body as Record<string, unknown>;
-  const updated = await updateBandCoreFields(band.id, {
-    name: typeof name === "string" ? name : undefined,
-    bio: typeof bio === "string" ? bio : undefined,
-    genre: typeof genre === "string" ? genre : undefined,
-    hometown: typeof hometown === "string" ? hometown : undefined,
-  });
+  const updated = await updateBandCoreFields(
+    band.id,
+    {
+      name: typeof name === "string" ? name : undefined,
+      bio: typeof bio === "string" ? bio : undefined,
+      genre: typeof genre === "string" ? genre : undefined,
+      hometown: typeof hometown === "string" ? hometown : undefined,
+    },
+    user?.id,
+  );
 
   return NextResponse.json({ success: true, band: toPublicBand(updated) });
 }

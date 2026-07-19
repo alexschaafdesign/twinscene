@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import NotificationsBell from "@/components/NotificationsBell";
 
 export interface AccountMenuUser {
   email: string;
@@ -15,7 +16,13 @@ export interface AccountMenuUser {
   image_url: string | null;
 }
 
-export default function AccountMenu({ user }: { user: AccountMenuUser | null }) {
+export default function AccountMenu({
+  user,
+  notificationsUnread = 0,
+}: {
+  user: AccountMenuUser | null;
+  notificationsUnread?: number;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -69,7 +76,8 @@ export default function AccountMenu({ user }: { user: AccountMenuUser | null }) 
   const initial = (user.name?.trim()?.[0] || user.email[0] || "?").toUpperCase();
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl items-center justify-end px-5 py-3 sm:px-8">
+    <div className="mx-auto flex w-full max-w-6xl items-center justify-end gap-2 px-5 py-3 sm:px-8">
+      <NotificationsBell initialUnread={notificationsUnread} />
       <div className="relative" ref={containerRef}>
         <button
           ref={buttonRef}
