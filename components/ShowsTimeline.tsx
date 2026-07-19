@@ -69,6 +69,7 @@ export default function ShowsTimeline({
   statuses = {},
   loggedIn = false,
   returnTo = "/shows",
+  columns = 1,
 }: {
   shows: Show[];
   press?: Press[];
@@ -81,6 +82,9 @@ export default function ShowsTimeline({
   loggedIn?: boolean;
   /** Where a logged-out attendance click's /login redirects back to. */
   returnTo?: string;
+  /** Cards per row on wide screens. Only opt into 2 in a full-width container —
+   * in a narrow column (e.g. a venue profile) the cards get too cramped. */
+  columns?: 1 | 2;
 }) {
   const groups = groupByDate(shows);
 
@@ -99,7 +103,13 @@ export default function ShowsTimeline({
           <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
             {formatDateLabel(group.date)}
           </h2>
-          <ul className="space-y-3">
+          <ul
+            className={
+              columns === 2
+                ? "grid gap-3 lg:grid-cols-2"
+                : "space-y-3"
+            }
+          >
             {group.shows.map((show, i) => {
               // Scraped flyer if we have one; otherwise fall back to the venue's
               // logo for venues that never publish flyers (e.g. Acadia). The

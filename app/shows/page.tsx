@@ -29,7 +29,7 @@ export default async function ShowsPage() {
     : {};
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
+    <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
         <nav className="flex items-center justify-end gap-3">
           <Link

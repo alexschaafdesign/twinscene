@@ -223,6 +223,7 @@ export default function ShowsList({
 
       <ShowsTimeline
         shows={visible}
+        columns={2}
         press={press}
         today={today}
         statuses={statuses}
