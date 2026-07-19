@@ -22,11 +22,11 @@ Dev/prod isolation — DO NOT UNDO:
 * scripts/whichdb.mjs prints which DB the repo is pointed at (host + current_database, and warns if the shell disagrees with .env.local). RUN IT before any write.
 Rules:
 * NEVER run test writes against prod. Test against the dev branch, or a seeded throwaway row with a guard that hard-fails if the target isn't the throwaway. Delete test rows after and verify zero leftovers.
-* To target PROD deliberately (e.g. run a migration on prod), use a ONE-OFF prefix: DATABASE_URL='<prod-url>' node scripts/migrate.mjs Before applying, print current_database() + host and confirm it's the PROD host, not dev. Never write the prod URL to a file or commit it; never echo it back.
+* To target PROD deliberately (e.g. run a migration on prod), run `npm run migrate:prod` (scripts/migrate-prod.mjs). It reads the prod connection string from `.env.prod.local` (gitignored, one-time setup — see the script's header comment for where to get the value; `vercel env pull` won't work, it redacts sensitive vars), prints the connected host + database, and requires typing "yes" before it applies anything (`--yes` skips the prompt). Falling back to the manual one-off prefix — `DATABASE_URL='<prod-url>' node scripts/migrate.mjs` — still works if `.env.prod.local` isn't set up. Either way: confirm the printed host is PROD, not dev, before applying. Never commit the prod URL or paste it into a chat/session transcript.
 * Migrations are additive and sequential (scripts/migrations/NNNN_*.sql). Apply new migrations to PROD BEFORE deploying code that reads the new tables.
 Deploy to prod
 1. Confirm you're on dev via whichdb.mjs. Commit only the intended files (leave unrelated untracked work alone).
-2. Apply new migration(s) to prod via the one-off DATABASE_URL='<prod>' prefix. Verify the host is prod; sanity-check it was additive (e.g. existing row counts unchanged).
+2. Apply new migration(s) to prod: `npm run migrate:prod` (see above). Verify the host is prod; sanity-check it was additive (e.g. existing row counts unchanged).
 3. Push to main — Vercel builds production from main.
 4. Verify on the live site (twinscene.org).
 Status (details in the team Claude Project doc)
