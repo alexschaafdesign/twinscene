@@ -38,6 +38,8 @@ function Field({
 
 type Mode = "add" | "correct";
 
+const MAX_GALLERY_IMAGES = 5;
+
 export default function MediaProSubmitForm({
   mode = "add",
   initialSlug = "",
@@ -50,6 +52,7 @@ export default function MediaProSubmitForm({
   initialContact = "",
   initialPortfolioUrl = "",
   initialPhotoUrl = "",
+  initialGallery = [],
 }: {
   mode?: Mode;
   initialSlug?: string;
@@ -62,6 +65,7 @@ export default function MediaProSubmitForm({
   initialContact?: string;
   initialPortfolioUrl?: string;
   initialPhotoUrl?: string;
+  initialGallery?: string[];
 }) {
   const isCorrect = mode === "correct";
 
@@ -82,6 +86,14 @@ export default function MediaProSubmitForm({
   const [photoPreview, setPhotoPreview] = useState(initialPhotoUrl);
   const [removePhoto, setRemovePhoto] = useState(false);
 
+  // Gallery: `existingGallery` holds already-uploaded URLs the user kept,
+  // `galleryFiles`/`galleryPreviews` the new ones picked this session. The
+  // two lists together (kept + new) are what gets sent — see handleSubmit.
+  const [existingGallery, setExistingGallery] = useState<string[]>(initialGallery);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
+  const gallerySlotsLeft = MAX_GALLERY_IMAGES - existingGallery.length - galleryFiles.length;
+
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
@@ -97,6 +109,24 @@ export default function MediaProSubmitForm({
     setPhotoFile(file);
     setRemovePhoto(false);
     if (file) setPhotoPreview(URL.createObjectURL(file));
+  }
+
+  function handleGalleryChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(e.target.files ?? []);
+    e.target.value = ""; // allow re-picking the same file after a remove
+    if (picked.length === 0) return;
+    const accepted = picked.slice(0, gallerySlotsLeft);
+    setGalleryFiles((prev) => [...prev, ...accepted]);
+    setGalleryPreviews((prev) => [...prev, ...accepted.map((f) => URL.createObjectURL(f))]);
+  }
+
+  function removeExistingGalleryImage(url: string) {
+    setExistingGallery((prev) => prev.filter((u) => u !== url));
+  }
+
+  function removeNewGalleryImage(index: number) {
+    setGalleryFiles((prev) => prev.filter((_, i) => i !== index));
+    setGalleryPreviews((prev) => prev.filter((_, i) => i !== index));
   }
 
   function validate(): Record<string, string> {
@@ -131,6 +161,8 @@ export default function MediaProSubmitForm({
       payload.set("portfolioUrl", portfolioUrl.trim());
       payload.set("removePhoto", removePhoto ? "true" : "false");
       if (photoFile) payload.set("photo", photoFile);
+      payload.set("existingGallery", JSON.stringify(existingGallery));
+      galleryFiles.forEach((file) => payload.append("galleryPhotos", file));
 
       const res = await fetch("/api/media-pros/submit", { method: "POST", body: payload });
       const data = await res.json();
@@ -239,6 +271,59 @@ export default function MediaProSubmitForm({
             >
               Remove photo
             </button>
+          )}
+        </Field>
+
+        <Field
+          label="Gallery"
+          htmlFor="gallery"
+          hint={
+            gallerySlotsLeft > 0
+              ? `Up to ${MAX_GALLERY_IMAGES} high-quality work samples. ${gallerySlotsLeft} left.`
+              : `Up to ${MAX_GALLERY_IMAGES} high-quality work samples — remove one to add another.`
+          }
+        >
+          {(existingGallery.length > 0 || galleryPreviews.length > 0) && (
+            <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+              {existingGallery.map((url) => (
+                <div key={url} className="group relative aspect-square overflow-hidden rounded-md ring-1 ring-[#E8E0D0]/15">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- R2 URL */}
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeExistingGalleryImage(url)}
+                    className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-xs text-[#E8E0D0] opacity-0 transition group-hover:opacity-100"
+                    aria-label="Remove image"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              {galleryPreviews.map((url, i) => (
+                <div key={url} className="group relative aspect-square overflow-hidden rounded-md ring-1 ring-[#E8E0D0]/15">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- local preview */}
+                  <img src={url} alt="" className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeNewGalleryImage(i)}
+                    className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-xs text-[#E8E0D0] opacity-0 transition group-hover:opacity-100"
+                    aria-label="Remove image"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {gallerySlotsLeft > 0 && (
+            <input
+              id="gallery"
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleGalleryChange}
+              className="block w-full text-sm text-[#E8E0D0]/70 file:mr-3 file:rounded-md file:border file:border-[#E8E0D0]/25 file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:text-[#E8E0D0] hover:file:border-[#E8E0D0]/50"
+            />
           )}
         </Field>
 

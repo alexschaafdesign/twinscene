@@ -24,6 +24,7 @@ export interface MediaPro {
   portfolio_url: string | null;
   photo: string | null;
   thumbnail_url: string | null;
+  gallery: string[];
   created_at: string;
   updated_at: string;
 }
@@ -62,6 +63,7 @@ export interface MediaProSubmissionInput {
   photoUrl?: string; // set when a new photo was just uploaded (lib/r2.ts)
   thumbnailUrl?: string;
   removePhoto?: boolean;
+  galleryUrls: string[]; // full desired gallery (kept + newly uploaded), always sent
 }
 
 export interface UpsertMediaProResult {
@@ -109,6 +111,7 @@ export async function upsertMediaPro(
           portfolio_url = ${input.portfolioUrl || null},
           photo = ${photo},
           thumbnail_url = ${thumbnailUrl},
+          gallery = ${input.galleryUrls},
           updated_at = now()
         where id = ${existing.id}
         returning *
@@ -120,11 +123,11 @@ export async function upsertMediaPro(
     const [created] = await tx<MediaPro[]>`
       insert into media_pros (
         slug, name, role, bio, city, website, instagram, contact,
-        portfolio_url, photo, thumbnail_url
+        portfolio_url, photo, thumbnail_url, gallery
       ) values (
         ${slug}, ${input.name}, ${input.role}, ${input.bio || null}, ${input.city || null},
         ${input.website || null}, ${input.instagram || null}, ${input.contact || null},
-        ${input.portfolioUrl || null}, ${photo}, ${thumbnailUrl}
+        ${input.portfolioUrl || null}, ${photo}, ${thumbnailUrl}, ${input.galleryUrls}
       )
       returning *
     `;

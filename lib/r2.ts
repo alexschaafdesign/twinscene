@@ -229,6 +229,68 @@ export async function uploadMediaProThumbnail(
   return `${R2_PUBLIC_URL}/${key}`;
 }
 
+// --- Media pro gallery images ----------------------------------------------
+// Up to 5 portfolio images per listing (media_pros.gallery, migration 0032),
+// separate from the single profile `photo`. Each gets its own random key
+// under media-pros/gallery/<slug>/ — unlike `photo`/thumbnail (one object per
+// slug, overwritten in place) multiple images coexist and are added/removed
+// independently, so a shared slug-only key would collide.
+
+const GALLERY_MAX_DIMENSION = 2400;
+
+/** Re-encode a gallery upload: honor EXIF rotation then strip it, and cap the
+ * long edge at GALLERY_MAX_DIMENSION without upscaling. Quality stays high
+ * (92) since these are meant to showcase the work, not thumbnail it. */
+export async function processGalleryImage(bytes: Uint8Array): Promise<Buffer> {
+  return sharp(bytes)
+    .rotate()
+    .resize(GALLERY_MAX_DIMENSION, GALLERY_MAX_DIMENSION, {
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: 92, mozjpeg: true })
+    .toBuffer();
+}
+
+/** Upload one processed gallery image under media-pros/gallery/<slug>/<random>.jpg
+ * and return its public URL. */
+export async function uploadMediaProGalleryImage(
+  slug: string,
+  bytes: Uint8Array | Buffer,
+): Promise<string> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
+  }
+  const key = `media-pros/gallery/${slug}/${crypto.randomUUID()}.jpg`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: bytes,
+      ContentType: "image/jpeg",
+    }),
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
+/** Best-effort delete of a gallery image removed on edit, given its public
+ * URL. Silently no-ops on anything that isn't a gallery object under this
+ * public base — replacing a listing's gallery should never fail because
+ * cleanup of a dropped image did. */
+export async function deleteMediaProGalleryImage(publicUrl: string): Promise<void> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) return;
+  if (!publicUrl.startsWith(`${R2_PUBLIC_URL}/media-pros/gallery/`)) return;
+  const key = publicUrl.slice(`${R2_PUBLIC_URL}/`.length);
+
+  try {
+    await client().send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+  } catch (err) {
+    console.error("lib/r2: failed to delete removed gallery image", err);
+  }
+}
+
 // Musician avatars (Musicians Slice 3) reuse generateAvatar above — same
 // sharp resize/re-encode pipeline — but live under their own musicians/<id>/
 // prefix (rather than avatars/<userId>/) since a musician's avatar and its

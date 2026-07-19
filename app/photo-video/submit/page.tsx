@@ -26,6 +26,7 @@ export default async function MediaProSubmitPage({
   const slug = param("slug");
 
   let initialPhotoUrl = "";
+  let initialGallery: string[] = [];
   if (isCorrect) {
     const mediaPro = slug ? await getMediaProBySlug(slug) : null;
     if (!mediaPro) notFound();
@@ -42,6 +43,7 @@ export default async function MediaProSubmitPage({
       );
     }
     initialPhotoUrl = mediaPro.photo ?? "";
+    initialGallery = mediaPro.gallery;
   }
 
   return (
@@ -58,6 +60,7 @@ export default async function MediaProSubmitPage({
         initialContact={param("contact")}
         initialPortfolioUrl={param("portfolioUrl")}
         initialPhotoUrl={initialPhotoUrl}
+        initialGallery={initialGallery}
       />
     </main>
   );
