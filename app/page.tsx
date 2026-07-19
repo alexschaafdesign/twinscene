@@ -128,8 +128,8 @@ export default async function Home() {
       )}
       </div>
 
-      {/* Intro + primary CTA. Handed to BandGrid so it can sit in a column
-          beside the search bar (keeps the band grid higher up the page). */}
+      {/* Primary CTA. Handed to BandGrid so it can sit beside the search bar
+          (keeps the band grid higher up the page). */}
       <BandGrid
         bands={bands}
         bandsWithUpcomingShows={bandsWithUpcomingShows}
@@ -137,20 +137,12 @@ export default async function Home() {
         loggedIn={!!user}
         followedSlugs={followedSlugs}
         intro={
-          <>
-            <p className="text-[13px] leading-relaxed text-[#E8E0D0]/75">
-              <span className="font-semibold text-[#E8E0D0]">Bands</span> —
-              search and filter to find yours; you might already be on here (i
-              took most of the photos/initial info from your Instagram page,
-              feel free to update/edit). Otherwise, add yourself!
-            </p>
-            <Link
-              href="/submit"
-              className="mt-3 inline-flex items-center gap-1 rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-semibold text-[#2A2420] shadow-sm transition hover:bg-white"
-            >
-              + Add your band
-            </Link>
-          </>
+          <Link
+            href="/submit"
+            className="inline-flex items-center gap-1 rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-semibold text-[#2A2420] shadow-sm transition hover:bg-white"
+          >
+            + Add your band
+          </Link>
         }
       />
     </main>

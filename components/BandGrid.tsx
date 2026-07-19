@@ -739,9 +739,7 @@ export default function BandGrid({
       </div>
 
         {intro && (
-          <aside className="shrink-0 rounded-lg border border-[#E8E0D0]/10 bg-[#E8E0D0]/[0.03] p-4 lg:w-72 lg:max-w-xs">
-            {intro}
-          </aside>
+          <aside className="shrink-0">{intro}</aside>
         )}
       </div>
 
