@@ -1,10 +1,10 @@
 "use client";
 
-// The site's top-level section tabs (Bands, Shows, Venues, Playlists,
-// Musicians, Feed). Rendered once from the root layout, outside {children},
-// so it's part of the persistent shell and never unmounts on navigation —
-// unlike the old copy that lived inline on the home page and vanished on
-// every other route.
+// The site's top-level section tabs (Feed, then Bands, Shows, Venues,
+// Playlists, Musicians). Rendered once from the root layout, outside
+// {children}, so it's part of the persistent shell and never unmounts on
+// navigation — unlike the old copy that lived inline on the home page and
+// vanished on every other route.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -32,10 +32,28 @@ const SECTIONS: { href: string; label: string; isActive: (path: string) => boole
 export default function SectionNav() {
   const pathname = usePathname();
 
+  const feedActive = pathname.startsWith("/feed");
+
   return (
     <nav className="border-b border-[#E8E0D0]/20">
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
         <ul className="flex flex-wrap items-end gap-x-6 gap-y-2">
+          {/* Feed leads the group but reads as a personal, separate
+              destination from the scene-wide directory tabs — a thin
+              divider (rather than another gap) keeps that distinction
+              without pushing it out to the opposite side of the bar. */}
+          <li>
+            {feedActive ? (
+              <span aria-current="page" className={`${tabClass} ${activeClass}`}>
+                Feed
+              </span>
+            ) : (
+              <Link href="/feed" className={`${tabClass} ${inactiveClass}`}>
+                Feed
+              </Link>
+            )}
+          </li>
+          <li aria-hidden="true" className="mb-3 h-4 w-px shrink-0 bg-[#E8E0D0]/20" />
           {SECTIONS.map(({ href, label, isActive }) => {
             const active = isActive(pathname);
             return (
@@ -52,22 +70,6 @@ export default function SectionNav() {
               </li>
             );
           })}
-          {/* sm:ml-auto splits the bar into two groups: the section tabs above
-              stay left, Feed sits hard right. Only from sm up — on a narrow
-              screen the tabs wrap, and ml-auto would strand Feed alone on a
-              second row against the right edge. Below sm it just flows as the
-              last tab. */}
-          <li className="sm:ml-auto">
-            {pathname.startsWith("/feed") ? (
-              <span aria-current="page" className={`${tabClass} ${activeClass}`}>
-                Feed
-              </span>
-            ) : (
-              <Link href="/feed" className={`${tabClass} ${inactiveClass}`}>
-                Feed
-              </Link>
-            )}
-          </li>
         </ul>
       </div>
     </nav>
