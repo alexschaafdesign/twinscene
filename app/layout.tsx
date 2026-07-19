@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque } from "next/font/google";
+import { Bricolage_Grotesque, IBM_Plex_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getUnreadCount } from "@/lib/notifications";
 import AccountMenu from "@/components/AccountMenu";
+import SectionNav from "@/components/SectionNav";
 import "./globals.css";
 
 // The app's typeface, exposed as the generic `--font-app` CSS variable so
@@ -13,6 +14,14 @@ import "./globals.css";
 const appFont = Bricolage_Grotesque({
   subsets: ["latin"],
   variable: "--font-app",
+});
+
+// Used just for the "TWIN SCENE" header wordmark — a mono typeface next to
+// the round logo mark gives it a bit of a stamped/lockup feel.
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  variable: "--font-plex-mono",
 });
 
 export const metadata: Metadata = {
@@ -29,7 +38,7 @@ export default async function RootLayout({
   const user = await getCurrentUser();
   const notificationsUnread = user ? await getUnreadCount(user.id) : 0;
   return (
-    <html lang="en" className={`${appFont.variable} h-full`}>
+    <html lang="en" className={`${appFont.variable} ${plexMono.variable} h-full`}>
       <body className="min-h-full antialiased">
         <AccountMenu
           user={
@@ -40,6 +49,7 @@ export default async function RootLayout({
           notificationsUnread={notificationsUnread}
           isAdmin={isAdmin(user)}
         />
+        <SectionNav />
         {children}
         <Analytics />
       </body>

@@ -32,46 +32,12 @@ export default async function Home() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
-      <header className="mb-5 flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
-        <h1 className="m-0 order-1 sm:order-none">
-          {/*
-            Optimized 400×400 WebP (~23 KB) — this logo is the LCP element on
-            mobile, so it's kept small rather than serving the full-res source.
-            The full-res PNG stays as the OG-image source (app/api/og/today),
-            which renders it at 120px. Explicit width/height reserve the box
-            before load so it can't shift layout in (CLS).
-          */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.webp"
-            alt="Twin Scene"
-            width={400}
-            height={400}
-            className="mx-auto block h-auto w-full max-w-[180px] sm:mx-0"
-          />
-        </h1>
-
-        <div className="text-center sm:text-right">
-          <p className="mt-0 text-lg font-medium leading-snug text-[#E8E0D0]">
-            welcome to the Twin Cities music scene
-          </p>
-          <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#E8E0D0]/65">
-            No algorithms <span className="text-[#E8E0D0]/30">/</span> No ads{" "}
-            <span className="text-[#E8E0D0]/30">/</span> No corporate overlords
-          </p>
-          <p className="mt-1.5 text-[13px] text-[#E8E0D0]/70">
-            Created and maintained by Alex at{" "}
-            <a
-              href="https://thebirdhaus.org"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-[#E8E0D0]"
-            >
-              the Birdhaus
-            </a>
-          </p>
-        </div>
-      </header>
+      {/* The "welcome" header moved up into the persistent site header
+          (components/AccountMenu.tsx) as a tagline between the logo and the
+          account controls. Only the page's h1 stays here, visually hidden —
+          every page needs one for accessibility/SEO, but the visual identity
+          now lives in the shared header. */}
+      <h1 className="sr-only">Twin Scene — the Twin Cities band directory</h1>
 
       {/* Two-up row: the beta explainer (left) sits beside a sign-in card
           (right) so logged-out visitors have an obvious, one-step way in. On
@@ -161,65 +127,6 @@ export default async function Home() {
         </div>
       )}
       </div>
-
-      {/* Section nav. Bands, Shows, Venues, Playlists, and Musicians on the
-          left; Feed pushed to the far right. */}
-      <nav className="mb-6 border-b border-[#E8E0D0]/20">
-        <ul className="-mb-px flex flex-wrap items-end gap-x-6 gap-y-2">
-          <li>
-            <span
-              aria-current="page"
-              className="inline-block border-b-2 border-[#E8E0D0] px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]"
-            >
-              Bands
-            </span>
-          </li>
-          <li>
-            <Link
-              href="/shows"
-              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
-            >
-              Shows
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/venues"
-              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
-            >
-              Venues
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/playlists"
-              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
-            >
-              Playlists
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/musicians"
-              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
-            >
-              Musicians
-            </Link>
-          </li>
-          {/* ml-auto splits the bar into two groups: the section tabs above
-              stay left, Feed sits hard right. It stays a single list (it's one
-              nav), and if the tabs wrap on a narrow screen Feed just lands
-              right-aligned on its own row. */}
-          <li className="ml-auto">
-            <Link
-              href="/feed"
-              className="inline-block border-b-2 border-transparent px-1 pb-3 text-sm font-semibold uppercase tracking-wide text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
-            >
-              Feed
-            </Link>
-          </li>
-        </ul>
-      </nav>
 
       {/* Intro + primary CTA. Handed to BandGrid so it can sit in a column
           beside the search bar (keeps the band grid higher up the page). */}

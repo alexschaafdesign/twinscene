@@ -9,6 +9,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-app);
+  --font-mono: var(--font-plex-mono);
 
   /* Light "paper" panel palette — a warm light surface that inverts the
      site's dark theme for focused, readable forms (e.g. the submit form).
