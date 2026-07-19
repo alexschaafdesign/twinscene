@@ -3,10 +3,17 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { postToAppsScript } from "@/lib/postToAppsScript";
+import { resizeImageFile } from "@/lib/resizeImage";
 
 // Shared input styling, kept in sync with SubmitForm.tsx.
 const inputClass =
   "w-full rounded-md border border-[#E8E0D0]/20 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#E8E0D0]";
+
+// Mirrors app/api/shows/submit/route.ts's MAX_FLYER_BYTES/ALLOWED_TYPES —
+// checked here too so an oversized flyer never has to make a round trip
+// just to be rejected.
+const MAX_FLYER_BYTES = 4 * 1024 * 1024;
+const ALLOWED_FLYER_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -268,6 +275,10 @@ export default function ShowSubmitForm({
   const [submitterName, setSubmitterName] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
 
+  const [flyerFile, setFlyerFile] = useState<File | null>(null);
+  const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
+  const flyerInputRef = useRef<HTMLInputElement>(null);
+
   const [selectedBands, setSelectedBands] = useState<BandOption[]>(
     initial?.bands ?? [],
   );
@@ -292,6 +303,41 @@ export default function ShowSubmitForm({
 
   function removeBand(slug: string) {
     setSelectedBands((prev) => prev.filter((b) => b.slug !== slug));
+  }
+
+  async function handleFlyerChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const input = e.target;
+
+    if (!ALLOWED_FLYER_TYPES.has(file.type)) {
+      setErrors((prev) => ({ ...prev, flyer: "Unsupported image type — use JPEG, PNG, WebP, or GIF" }));
+      input.value = "";
+      return;
+    }
+
+    const resized = file.size > MAX_FLYER_BYTES ? await resizeImageFile(file) : file;
+    if (resized.size > MAX_FLYER_BYTES) {
+      const mb = (resized.size / (1024 * 1024)).toFixed(1);
+      setErrors((prev) => ({ ...prev, flyer: `That image is still ${mb}MB after downsizing — try a smaller file` }));
+      input.value = "";
+      return;
+    }
+
+    setErrors((prev) => {
+      if (!("flyer" in prev)) return prev;
+      const rest = { ...prev };
+      delete rest.flyer;
+      return rest;
+    });
+    setFlyerFile(resized);
+    setFlyerPreview(URL.createObjectURL(resized));
+  }
+
+  function removeFlyer() {
+    setFlyerFile(null);
+    setFlyerPreview(null);
+    if (flyerInputRef.current) flyerInputRef.current.value = "";
   }
 
   /**
@@ -351,6 +397,7 @@ export default function ShowSubmitForm({
     setSubmitterName("");
     setSubmitterEmail("");
     setSelectedBands([]);
+    removeFlyer();
     cancelNewBand();
     setErrors({});
     setErrorMsg("");
@@ -390,42 +437,55 @@ export default function ShowSubmitForm({
     setErrorMsg("");
 
     try {
-      const url = isEdit ? "/api/shows/edit" : "/api/shows/submit";
-      const body: Record<string, unknown> = isEdit
-        ? {
-            id: initial?.id ?? "",
-            date: date.trim(),
-            venue: venue.trim(),
-            title: title.trim(),
-            lineup: lineup.trim(),
-            notes: notes.trim(),
-            link: link.trim(),
-            linkedBands: selectedBands.map((b) => ({ name: b.name, slug: b.slug })),
-            submitterName: submitterName.trim(),
-            submitterEmail: submitterEmail.trim(),
-          }
-        : {
-            date: date.trim(),
-            venue: venue.trim(),
-            notes: notes.trim(),
-            link: link.trim(),
-            linkedBands: selectedBands.map((b) => ({ name: b.name, slug: b.slug })),
-            submitterName: submitterName.trim(),
-            submitterEmail: submitterEmail.trim(),
-          };
+      if (isEdit) {
+        const body = {
+          id: initial?.id ?? "",
+          date: date.trim(),
+          venue: venue.trim(),
+          title: title.trim(),
+          lineup: lineup.trim(),
+          notes: notes.trim(),
+          link: link.trim(),
+          linkedBands: selectedBands.map((b) => ({ name: b.name, slug: b.slug })),
+          submitterName: submitterName.trim(),
+          submitterEmail: submitterEmail.trim(),
+        };
+        const res = await fetch("/api/shows/edit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || "Submission failed");
+        }
+      } else {
+        const payload = new FormData();
+        payload.set("date", date.trim());
+        payload.set("venue", venue.trim());
+        payload.set("notes", notes.trim());
+        payload.set("link", link.trim());
+        payload.set(
+          "linkedBands",
+          JSON.stringify(selectedBands.map((b) => ({ name: b.name, slug: b.slug }))),
+        );
+        payload.set("submitterName", submitterName.trim());
+        payload.set("submitterEmail", submitterEmail.trim());
+        if (showNewBand && newBandName.trim()) {
+          payload.set("newBandName", newBandName.trim());
+        }
+        if (flyerFile) payload.set("flyer", flyerFile);
 
-      if (!isEdit && showNewBand && newBandName.trim()) {
-        body.newBandName = newBandName.trim();
-      }
-
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || "Submission failed");
+        const res = await fetch("/api/shows/submit", { method: "POST", body: payload });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success) {
+          const message =
+            data?.error ||
+            (res.status === 413
+              ? "That flyer is too large — try a smaller file"
+              : "Submission failed. Please try again.");
+          throw new Error(message);
+        }
       }
       setStatus("success");
     } catch (err) {
@@ -565,6 +625,38 @@ export default function ShowSubmitForm({
             className={inputClass}
           />
         </Field>
+
+        {!isEdit && (
+          <Field label="Flyer" htmlFor="flyer" error={errors.flyer} hint="Optional — JPG, PNG, WebP, or GIF.">
+            <div className="flex items-center gap-3">
+              {flyerPreview && (
+                // eslint-disable-next-line @next/next/no-img-element -- local preview
+                <img
+                  src={flyerPreview}
+                  alt=""
+                  className="h-16 w-16 shrink-0 rounded-md object-cover ring-1 ring-[#E8E0D0]/15"
+                />
+              )}
+              <input
+                id="flyer"
+                ref={flyerInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handleFlyerChange}
+                className="block w-full text-sm text-[#E8E0D0]/70 file:mr-3 file:rounded-md file:border file:border-[#E8E0D0]/25 file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:text-[#E8E0D0] hover:file:border-[#E8E0D0]/50"
+              />
+            </div>
+            {flyerPreview && (
+              <button
+                type="button"
+                onClick={removeFlyer}
+                className="mt-2 text-xs text-[#E8E0D0]/50 underline underline-offset-2 hover:text-[#E8E0D0]"
+              >
+                Remove flyer
+              </button>
+            )}
+          </Field>
+        )}
 
         <div className="grid gap-5 sm:grid-cols-2">
           <Field

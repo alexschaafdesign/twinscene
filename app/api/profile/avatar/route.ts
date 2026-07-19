@@ -6,7 +6,11 @@ import { generateAvatar, uploadAvatar, deleteAvatar } from "@/lib/r2";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+// Kept comfortably under Vercel Functions' ~4.5MB request-body cap (see the
+// matching client-side check in ProfileEditForm.tsx) — a larger file gets
+// rejected by the platform itself before this route ever runs, as a
+// non-JSON response the client can't turn into a useful message.
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 // Logged-in user uploading their own avatar. The photo is never stored as
@@ -29,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Unsupported image type" }, { status: 400 });
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ success: false, error: "Image must be 5MB or smaller" }, { status: 400 });
+    return NextResponse.json({ success: false, error: "Image must be 4MB or smaller" }, { status: 400 });
   }
 
   try {

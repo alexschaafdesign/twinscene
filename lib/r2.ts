@@ -328,3 +328,43 @@ export async function deleteMusicianAvatar(publicUrl: string): Promise<void> {
     console.error("lib/r2: failed to delete previous musician avatar", err);
   }
 }
+
+// --- Show flyers -------------------------------------------------------
+// Flyer art for a manually-submitted show (app/api/shows/submit). Scraped
+// shows populate flyer_url directly with an already-external URL and never
+// touch this pipeline — see upsertScrapedShow in lib/shows.ts. A
+// user-submitted flyer gets a random key (shows have no stable slug at
+// upload time, unlike bands), long edge capped like media-pro gallery
+// images since flyer art is meant to display at close to full size.
+
+const FLYER_MAX_DIMENSION = 2000;
+
+/** Re-encode a submitted flyer: honor EXIF rotation then strip it, and cap
+ * the long edge without upscaling. */
+export async function processShowFlyer(bytes: Uint8Array): Promise<Buffer> {
+  return sharp(bytes)
+    .rotate()
+    .resize(FLYER_MAX_DIMENSION, FLYER_MAX_DIMENSION, { fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 90, mozjpeg: true })
+    .toBuffer();
+}
+
+/** Upload a processed show flyer under shows/flyer/<random>.jpg and return
+ * its public URL. */
+export async function uploadShowFlyer(bytes: Uint8Array | Buffer): Promise<string> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
+  }
+  const key = `shows/flyer/${crypto.randomUUID()}.jpg`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: bytes,
+      ContentType: "image/jpeg",
+    }),
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}

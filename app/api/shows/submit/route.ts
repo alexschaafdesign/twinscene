@@ -1,8 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildLineupEntries, insertManualShow } from "@/lib/shows";
+import { processShowFlyer, uploadShowFlyer } from "@/lib/r2";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+// Kept comfortably under Vercel Functions' ~4.5MB request-body cap — same
+// rationale as the avatar/media-pro upload routes.
+const MAX_FLYER_BYTES = 4 * 1024 * 1024;
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 /** Lowercase/hyphenate. Mirrors slugify() in lib/fetchBands.ts. */
 function slugify(name: string): string {
@@ -13,11 +19,27 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+function str(raw: FormDataEntryValue | null): string {
+  return typeof raw === "string" ? raw : "";
+}
+
 // Public "Add a show" submission. No secret gate — matches the old public
-// /shows/submit form, open to any site visitor.
+// /shows/submit form, open to any site visitor. Multipart (rather than JSON)
+// since an optional flyer image rides along with the other fields.
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { venue, date, notes, link, newBandName, submitterName, submitterEmail } = body;
+  const form = await request.formData().catch(() => null);
+  if (!form) {
+    return NextResponse.json({ success: false, error: "Malformed submission" }, { status: 400 });
+  }
+
+  const venue = str(form.get("venue")).trim();
+  const date = str(form.get("date")).trim();
+  const notes = str(form.get("notes"));
+  const link = str(form.get("link"));
+  const newBandName = str(form.get("newBandName"));
+  const submitterName = str(form.get("submitterName"));
+  const submitterEmail = str(form.get("submitterEmail"));
+
   if (!date || !venue) {
     return NextResponse.json(
       { success: false, error: "Missing date or venue" },
@@ -25,24 +47,47 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const linkedBands: { name: string; slug: string }[] = Array.isArray(body.linkedBands)
-    ? [...body.linkedBands]
-    : [];
+  let linkedBands: { name: string; slug: string }[] = [];
+  try {
+    const parsed = JSON.parse(str(form.get("linkedBands")) || "[]");
+    if (Array.isArray(parsed)) linkedBands = parsed;
+  } catch {
+    // Malformed JSON from the client falls back to no linked bands.
+  }
   if (newBandName) linkedBands.push({ name: newBandName, slug: slugify(newBandName) });
 
   const names = linkedBands.map((b) => b.name);
   const title = names[0] || venue;
   const lineup = names.join(", ");
 
+  const flyer = form.get("flyer");
+  const flyerFile = flyer instanceof File && flyer.size > 0 ? flyer : null;
+  if (flyerFile) {
+    if (!ALLOWED_TYPES.has(flyerFile.type)) {
+      return NextResponse.json({ success: false, error: "Unsupported image type" }, { status: 400 });
+    }
+    if (flyerFile.size > MAX_FLYER_BYTES) {
+      return NextResponse.json({ success: false, error: "Flyer must be 4MB or smaller" }, { status: 400 });
+    }
+  }
+
   try {
+    let flyerUrl: string | undefined;
+    if (flyerFile) {
+      const bytes = new Uint8Array(await flyerFile.arrayBuffer());
+      const processed = await processShowFlyer(bytes);
+      flyerUrl = await uploadShowFlyer(processed);
+    }
+
     const { id } = await insertManualShow(
       {
         venue,
         title,
         date,
         lineup: buildLineupEntries(lineup, linkedBands),
-        notes: notes ?? "",
-        link: link ?? "",
+        notes: notes || "",
+        link: link || "",
+        flyerUrl,
       },
       "public_submission",
       { name: submitterName, email: submitterEmail },

@@ -12,6 +12,13 @@ import { getCurrentUser, canEditMediaPro } from "@/lib/auth";
 import type { MediaProRole } from "@/lib/mediaProUtils";
 
 const MAX_GALLERY_IMAGES = 5;
+// Combined budget for photo + gallery files in one request — kept
+// comfortably under Vercel Functions' ~4.5MB request-body cap, same
+// rationale as SubmitForm.tsx's MAX_IMAGE_BYTES and the avatar routes'
+// MAX_UPLOAD_BYTES. This route bundles every new image into a single
+// multipart POST, so the limit applies to their sum, not each file alone.
+const MAX_MEDIA_UPLOAD_BYTES = 4 * 1024 * 1024;
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,14 +96,30 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const photoField = form.get("photo");
+  const photoFile = photoField instanceof File && photoField.size > 0 ? photoField : null;
+
+  for (const file of photoFile ? [photoFile, ...galleryFiles] : galleryFiles) {
+    if (!ALLOWED_TYPES.has(file.type)) {
+      return NextResponse.json({ success: false, error: "Unsupported image type" }, { status: 400 });
+    }
+  }
+
+  const totalUploadBytes = (photoFile?.size ?? 0) + galleryFiles.reduce((sum, f) => sum + f.size, 0);
+  if (totalUploadBytes > MAX_MEDIA_UPLOAD_BYTES) {
+    return NextResponse.json(
+      { success: false, error: "That upload is too large — try smaller images or fewer gallery photos" },
+      { status: 400 },
+    );
+  }
+
   try {
     let photoUrl: string | undefined;
     let thumbnailUrl: string | undefined;
-    const photo = form.get("photo");
-    if (photo instanceof File && photo.size > 0) {
+    if (photoFile) {
       const key = mode === "correct" && existingSlug ? existingSlug : slugForPhoto;
-      const bytes = new Uint8Array(await photo.arrayBuffer());
-      photoUrl = await uploadMediaProPhoto(key, bytes, photo.type || "image/jpeg");
+      const bytes = new Uint8Array(await photoFile.arrayBuffer());
+      photoUrl = await uploadMediaProPhoto(key, bytes, photoFile.type || "image/jpeg");
       try {
         const thumb = await generateThumbnail(bytes);
         thumbnailUrl = await uploadMediaProThumbnail(key, thumb);

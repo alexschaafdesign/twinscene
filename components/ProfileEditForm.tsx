@@ -2,8 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { resizeImageFile } from "@/lib/resizeImage";
 
 const MAX_BIO_LENGTH = 280;
+// Mirrors app/api/profile/avatar/route.ts's MAX_UPLOAD_BYTES/ALLOWED_TYPES —
+// checked here too so an oversized file never has to make a round trip just
+// to be rejected (a large enough upload gets killed by Vercel's own
+// request-body cap before our route handler runs, which comes back as a
+// non-JSON response we can't extract a message from).
+const MAX_AVATAR_BYTES = 4 * 1024 * 1024;
+const ALLOWED_AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 export interface ProfileEditUser {
   name: string | null;
@@ -35,11 +43,28 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
     {},
   );
 
-  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setAvatarFile(file);
-    setAvatarPreview(URL.createObjectURL(file));
+    const input = e.target;
+
+    if (!ALLOWED_AVATAR_TYPES.has(file.type)) {
+      setFieldError((prev) => ({ ...prev, avatar: "Unsupported image type — use JPEG, PNG, WebP, or GIF" }));
+      input.value = "";
+      return;
+    }
+
+    const resized = file.size > MAX_AVATAR_BYTES ? await resizeImageFile(file, { maxDimension: 1200 }) : file;
+    if (resized.size > MAX_AVATAR_BYTES) {
+      const mb = (resized.size / (1024 * 1024)).toFixed(1);
+      setFieldError((prev) => ({ ...prev, avatar: `That image is still ${mb}MB after downsizing — try a smaller file` }));
+      input.value = "";
+      return;
+    }
+
+    setFieldError((prev) => ({ ...prev, avatar: undefined }));
+    setAvatarFile(resized);
+    setAvatarPreview(URL.createObjectURL(resized));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -54,7 +79,12 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
         const res = await fetch("/api/profile/avatar", { method: "POST", body: form });
         const data = await res.json().catch(() => null);
         if (!res.ok || !data?.success) {
-          setFieldError({ avatar: data?.error || "Couldn't upload that image" });
+          const message =
+            data?.error ||
+            (res.status === 413
+              ? "That image is too large — please use a file under 4MB"
+              : "Couldn't upload that image. Try a different file, or try again in a moment.");
+          setFieldError({ avatar: message });
           setStatus("error");
           return;
         }

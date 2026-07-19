@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { slugify, MEDIA_PRO_ROLES, mediaProRoleLabel, type MediaProRole } from "@/lib/mediaProUtils";
+import { resizeImageFile } from "@/lib/resizeImage";
 
 // Shared input styling, kept in sync with VenueSubmitForm.tsx / SubmitForm.tsx.
 const inputClass =
@@ -39,6 +40,12 @@ function Field({
 type Mode = "add" | "correct";
 
 const MAX_GALLERY_IMAGES = 5;
+// Mirrors app/api/media-pros/submit/route.ts's MAX_MEDIA_UPLOAD_BYTES —
+// checked here too so an over-budget selection is caught before it ever
+// makes a round trip (this route bundles photo + gallery into one
+// multipart POST, so the limit is on their combined size, not each file).
+const MAX_MEDIA_UPLOAD_BYTES = 4 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
 export default function MediaProSubmitForm({
   mode = "add",
@@ -104,20 +111,84 @@ export default function MediaProSubmitForm({
     ? "Update your listing below."
     : "List yourself in the Twin Cities photo/video directory — bands and venues can find and credit you.";
 
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
-    setPhotoFile(file);
+    if (!file) return;
+    const input = e.target;
+
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      setErrors((prev) => ({ ...prev, photo: "Unsupported image type — use JPEG, PNG, WebP, or GIF" }));
+      input.value = "";
+      return;
+    }
+
+    const galleryBytes = galleryFiles.reduce((sum, f) => sum + f.size, 0);
+    const resized = file.size + galleryBytes > MAX_MEDIA_UPLOAD_BYTES ? await resizeImageFile(file) : file;
+    if (resized.size + galleryBytes > MAX_MEDIA_UPLOAD_BYTES) {
+      setErrors((prev) => ({
+        ...prev,
+        photo: "That photo is still too large for this upload — try a smaller file or fewer gallery images (4MB combined limit)",
+      }));
+      input.value = "";
+      return;
+    }
+
+    setErrors((prev) => {
+      if (!("photo" in prev)) return prev;
+      const rest = { ...prev };
+      delete rest.photo;
+      return rest;
+    });
+    setPhotoFile(resized);
     setRemovePhoto(false);
-    if (file) setPhotoPreview(URL.createObjectURL(file));
+    setPhotoPreview(URL.createObjectURL(resized));
   }
 
-  function handleGalleryChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleGalleryChange(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
-    e.target.value = ""; // allow re-picking the same file after a remove
+    const input = e.target;
+    input.value = ""; // allow re-picking the same file after a remove
     if (picked.length === 0) return;
-    const accepted = picked.slice(0, gallerySlotsLeft);
-    setGalleryFiles((prev) => [...prev, ...accepted]);
-    setGalleryPreviews((prev) => [...prev, ...accepted.map((f) => URL.createObjectURL(f))]);
+
+    let runningBytes = (photoFile?.size ?? 0) + galleryFiles.reduce((sum, f) => sum + f.size, 0);
+    const accepted: File[] = [];
+    let skippedType = false;
+    let skippedBudget = false;
+
+    for (const file of picked.slice(0, gallerySlotsLeft)) {
+      if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+        skippedType = true;
+        continue;
+      }
+      const candidate = runningBytes + file.size > MAX_MEDIA_UPLOAD_BYTES ? await resizeImageFile(file) : file;
+      if (runningBytes + candidate.size > MAX_MEDIA_UPLOAD_BYTES) {
+        skippedBudget = true;
+        continue;
+      }
+      runningBytes += candidate.size;
+      accepted.push(candidate);
+    }
+
+    if (accepted.length > 0) {
+      setGalleryFiles((prev) => [...prev, ...accepted]);
+      setGalleryPreviews((prev) => [...prev, ...accepted.map((f) => URL.createObjectURL(f))]);
+    }
+
+    if (skippedType) {
+      setErrors((prev) => ({ ...prev, gallery: "Unsupported image type — use JPEG, PNG, WebP, or GIF" }));
+    } else if (skippedBudget) {
+      setErrors((prev) => ({
+        ...prev,
+        gallery: "Some images were skipped — combined upload size is limited to 4MB",
+      }));
+    } else {
+      setErrors((prev) => {
+        if (!("gallery" in prev)) return prev;
+        const rest = { ...prev };
+        delete rest.gallery;
+        return rest;
+      });
+    }
   }
 
   function removeExistingGalleryImage(url: string) {
@@ -165,9 +236,14 @@ export default function MediaProSubmitForm({
       galleryFiles.forEach((file) => payload.append("galleryPhotos", file));
 
       const res = await fetch("/api/media-pros/submit", { method: "POST", body: payload });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || "Submission failed");
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        const message =
+          data?.error ||
+          (res.status === 413
+            ? "That upload is too large — try smaller images or fewer gallery photos"
+            : "Submission failed. Please try again.");
+        throw new Error(message);
       }
       setSubmittedSlug(typeof data.slug === "string" ? data.slug : targetSlug);
       setStatus("success");
@@ -241,7 +317,7 @@ export default function MediaProSubmitForm({
           </div>
         </Field>
 
-        <Field label="Photo" htmlFor="photo" hint="Square works best.">
+        <Field label="Photo" htmlFor="photo" hint="Square works best." error={errors.photo}>
           <div className="flex items-center gap-3">
             {photoPreview && !removePhoto && (
               // eslint-disable-next-line @next/next/no-img-element -- local preview / R2 URL
@@ -282,6 +358,7 @@ export default function MediaProSubmitForm({
               ? `Up to ${MAX_GALLERY_IMAGES} high-quality work samples. ${gallerySlotsLeft} left.`
               : `Up to ${MAX_GALLERY_IMAGES} high-quality work samples — remove one to add another.`
           }
+          error={errors.gallery}
         >
           {(existingGallery.length > 0 || galleryPreviews.length > 0) && (
             <div className="mb-3 grid grid-cols-3 gap-2 sm:grid-cols-5">

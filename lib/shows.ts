@@ -235,6 +235,7 @@ export type ManualShowInput = {
   lineup: LineupEntry[];
   notes: string;
   link: string;
+  flyerUrl?: string;
 };
 
 /** Insert a new manually-submitted show. Mirrors handleShowSubmission_. */
@@ -248,10 +249,10 @@ export async function insertManualShow(
 
   return sql.begin(async (tx) => {
     const rows = await tx`
-      INSERT INTO shows (source, source_key, venue_name, title, date, ticket_url, lineup, notes)
+      INSERT INTO shows (source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url)
       VALUES (
         'manual', ${sourceKey}, ${input.venue}, ${input.title}, ${input.date},
-        ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}
+        ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}, ${input.flyerUrl || null}
       )
       RETURNING id
     `;
