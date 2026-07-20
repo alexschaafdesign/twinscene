@@ -647,11 +647,16 @@ export default function BandProfile({
     </div>
   );
 
-  // Editors get the same profile with a per-section Edit pencil (in-place
-  // editing); everyone else renders the plain view and ships no editor
-  // JavaScript at all. Section order/visibility still comes from `layout`,
-  // applied above — it just isn't editable from the profile right now.
-  if (canEdit) {
+  // In-place section editing (per-section Edit pencils + inspector) is PARKED.
+  // Editing currently happens through the "Edit this band" form link in the
+  // page header (app/bands/[slug]/page.tsx → /submit?correct=true). Flip this
+  // to true to re-activate the in-place editor: everything it needs is still
+  // here — EditableProfile, SectionInspector, the /api/bands/[slug]/section
+  // route, the field schema (lib/bandProfileFields.ts) and the section
+  // updaters in lib/bands.ts. Left off because it didn't earn its keep yet.
+  // Section order/visibility still comes from `layout`, applied above.
+  const EDIT_IN_PLACE = false;
+  if (canEdit && EDIT_IN_PLACE) {
     return (
       <EditableProfile
         slug={band.slug}
