@@ -24,35 +24,35 @@ export default async function MusiciansPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
-      <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
-        <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
-          Musicians
-        </h1>
-        <p className="mt-2 text-sm text-[#E8E0D0]/70">
-          Every person listed as a band member, ranked by how many bands
-          they&apos;re in. Only bands that have listed their members show up
-          here — most haven&apos;t yet, so this is a small (but growing) slice
-          of the scene.
-        </p>
-        {musician ? (
-          <p className="mt-3 text-sm text-[#E8E0D0]/60">
-            You&apos;re listed as{" "}
-            <Link href={`/m/${musician.slug}`} className="underline underline-offset-2 hover:text-[#E8E0D0]">
-              {musician.name}
-            </Link>
-            .
-          </p>
-        ) : (
-          <Link
-            href="/profile/musician?next=/musicians"
-            className="mt-3 inline-block rounded-md border border-[#E8E0D0]/25 px-3.5 py-2 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
-          >
-            Not listed? Add yourself
-          </Link>
-        )}
-      </header>
+      {/* Visually hidden — every page needs an h1 for accessibility/SEO, but
+          the header row (search/sort + CTA) carries the visual identity
+          now, same as the home page. */}
+      <h1 className="sr-only">Musicians — Twin Scene</h1>
 
-      <MusiciansTable musicians={musicians} />
+      <MusiciansTable
+        musicians={musicians}
+        intro={
+          musician ? (
+            <p className="text-sm text-[#E8E0D0]/60">
+              You&apos;re listed as{" "}
+              <Link
+                href={`/m/${musician.slug}`}
+                className="underline underline-offset-2 hover:text-[#E8E0D0]"
+              >
+                {musician.name}
+              </Link>
+              .
+            </p>
+          ) : (
+            <Link
+              href="/profile/musician?next=/musicians"
+              className="inline-flex items-center gap-1 rounded-md bg-[#E8E0D0] px-4 py-2 text-sm font-semibold text-[#2A2420] shadow-sm transition hover:bg-white"
+            >
+              + Not listed? Add yourself
+            </Link>
+          )
+        }
+      />
     </main>
   );
 }

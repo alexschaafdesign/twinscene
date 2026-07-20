@@ -29,14 +29,10 @@ const PLAYLISTS: Playlist[] = [
 export default function PlaylistsPage() {
   return (
     <main className="mx-auto w-full max-w-3xl px-5 py-6 sm:px-8 sm:py-8">
-      <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
-        <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
-          Playlists
-        </h1>
-        <p className="mt-2 text-sm text-[#E8E0D0]/70">
-          A collection of great playlists capturing the local scene.
-        </p>
-      </header>
+      {/* Visually hidden — every page needs an h1 for accessibility/SEO, but
+          there's no search/filter UI to hang it on here (just two static
+          embeds), unlike the other directory pages. */}
+      <h1 className="sr-only">Playlists — Twin Scene</h1>
 
       <div className="space-y-10">
         {PLAYLISTS.map((playlist) => (

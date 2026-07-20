@@ -1,10 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import type { MusicianEntry } from "@/lib/musicians";
 
-export default function MusiciansTable({ musicians }: { musicians: MusicianEntry[] }) {
+export default function MusiciansTable({
+  musicians,
+  intro,
+}: {
+  musicians: MusicianEntry[];
+  intro?: ReactNode;
+}) {
   const [query, setQuery] = useState("");
   // "count" (the default — most bands first, already the incoming order) or
   // "name" (A-Z). Mirrors the sort toggle pattern on the bands grid.
@@ -30,13 +36,17 @@ export default function MusiciansTable({ musicians }: { musicians: MusicianEntry
 
   return (
     <div>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {/* Controls on the left, the intro/CTA stacked in a column on the right,
+          matching BandGrid's layout. Stacks on narrow screens. */}
+      <div className="mb-6 flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
+      <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by musician or band name…"
-          className="w-full flex-1 rounded-md border border-[#E8E0D0]/25 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none sm:max-w-sm"
+          className="w-full flex-1 rounded-md border border-[#E8E0D0]/25 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
         />
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-[#E8E0D0]/45">Sort</span>
@@ -67,6 +77,12 @@ export default function MusiciansTable({ musicians }: { musicians: MusicianEntry
             </button>
           </div>
         </div>
+      </div>
+      </div>
+
+        {intro && (
+          <aside className="shrink-0">{intro}</aside>
+        )}
       </div>
 
       <p className="mb-3 text-xs text-[#E8E0D0]/55">
