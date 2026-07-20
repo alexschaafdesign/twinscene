@@ -110,11 +110,11 @@ export default function VenueProfile({
         />
       </div>
 
-      {/* Sidebar extras — directly under the icon */}
+      {/* Sidebar extras — directly under the icon. Owner/Parking hidden for
+          now: those fields were originally written for touring bands and
+          don't fit the more general audience the page serves now. */}
       <div className="space-y-5 md:col-start-1 md:row-start-2">
         <InfoBlock label="Contact" value={venue.contact} />
-        <InfoBlock label="Owner" value={venue.owner} />
-        <InfoBlock label="Parking" value={venue.parking} />
         <InfoBlock label="Accessibility" value={venue.accessibility} />
       </div>
     </div>
