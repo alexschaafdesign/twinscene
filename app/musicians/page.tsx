@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { fetchMusiciansDirectory } from "@/lib/musicians";
+import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
+import { fetchMusiciansDirectory, getMusicianForUser } from "@/lib/musicians";
 import MusiciansTable from "@/components/MusiciansTable";
 
 export const metadata: Metadata = {
@@ -14,7 +16,11 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function MusiciansPage() {
-  const musicians = await fetchMusiciansDirectory();
+  const user = await getCurrentUser();
+  const [musicians, musician] = await Promise.all([
+    fetchMusiciansDirectory(),
+    user ? getMusicianForUser(user.id) : Promise.resolve(null),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
@@ -28,6 +34,22 @@ export default async function MusiciansPage() {
           here — most haven&apos;t yet, so this is a small (but growing) slice
           of the scene.
         </p>
+        {musician ? (
+          <p className="mt-3 text-sm text-[#E8E0D0]/60">
+            You&apos;re listed as{" "}
+            <Link href={`/m/${musician.slug}`} className="underline underline-offset-2 hover:text-[#E8E0D0]">
+              {musician.name}
+            </Link>
+            .
+          </p>
+        ) : (
+          <Link
+            href="/profile/musician?next=/musicians"
+            className="mt-3 inline-block rounded-md border border-[#E8E0D0]/25 px-3.5 py-2 text-sm text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+          >
+            Not listed? Add yourself
+          </Link>
+        )}
       </header>
 
       <MusiciansTable musicians={musicians} />
