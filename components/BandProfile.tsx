@@ -7,6 +7,12 @@
 // single readable column on mobile (photo → name → player → bio → shows →
 // links → contact). The surrounding chrome (back / edit links) is supplied by
 // the page, using `editHref` below.
+//
+// The body is assembled from a registry of named sections (SECTIONS below)
+// placed by a BandProfileLayout — see lib/bandProfileLayout.ts for the ids and
+// the default arrangement. Name, actions and photo are page furniture and stay
+// pinned outside the registry. Adding a section means adding a renderer here
+// and an id there; nothing else needs to know about it.
 
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -30,6 +36,12 @@ import { BandImage, CopyButton } from "@/components/band-shared-client";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 import BandMemberClaimSection from "@/components/BandMemberClaimSection";
 import BandMemberClaimsManager from "@/components/BandMemberClaimsManager";
+import {
+  DEFAULT_LAYOUT,
+  type BandProfileLayout,
+  type Region,
+  type SectionId,
+} from "@/lib/bandProfileLayout";
 import { parseYoutubeId } from "@/lib/youtube";
 
 /** Prefilled "correct this band" submit URL — shown in the profile header. */
@@ -70,15 +82,38 @@ function linkHost(url: string): string {
   }
 }
 
+/** Shared section heading — small, uppercase, muted. */
+function SectionHeading({ children }: { children: ReactNode }) {
+  return (
+    <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+      {children}
+    </h2>
+  );
+}
+
+/** Everything any section might need. Sections take the whole bundle so the
+ * registry can stay a uniform `(props) => ReactNode` map. */
+type SectionProps = {
+  band: Band;
+  members: BandMusician[];
+  shows: Show[];
+  press: Press[];
+  videos: VideoRow[];
+  today: string;
+  showStatuses: Record<string, ShowStatus>;
+  loggedIn: boolean;
+  showClaimEntry: boolean;
+  hasOwner: boolean;
+  pendingMemberClaims: PendingBandMemberClaim[];
+};
+
 /** Band-curated highlight links, shown as image cards (or text-only cards). */
-function FeaturedLinks({ band }: { band: Band }) {
+function FeaturedLinks({ band }: SectionProps) {
   if (band.featuredLinks.length === 0) return null;
 
   return (
     <div>
-      <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-        Featured
-      </h2>
+      <SectionHeading>Featured</SectionHeading>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {band.featuredLinks.map((link, i) => (
           <a
@@ -133,12 +168,12 @@ function FeaturedLinks({ band }: { band: Band }) {
 /** Band's YouTube videos — scraper-matched (UnderCurrentMPLS backfill) and/or
  * hand-entered via the edit form. Each renders as a responsive embed with its
  * title as a caption. */
-function BandVideos({ videos }: { videos: VideoRow[] }) {
+function BandVideos({ videos }: SectionProps) {
   if (videos.length === 0) return null;
 
   return (
     <div>
-      <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+      <SectionHeading>
         Videos from{" "}
         <a
           href="https://www.youtube.com/@UnderCurrentMPLS"
@@ -148,7 +183,7 @@ function BandVideos({ videos }: { videos: VideoRow[] }) {
         >
           UnderCurrentMPLS
         </a>
-      </h2>
+      </SectionHeading>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {videos.map((video) => {
           const videoId = parseYoutubeId(video.video_url);
@@ -174,7 +209,7 @@ function BandVideos({ videos }: { videos: VideoRow[] }) {
   );
 }
 
-function BandLinks({ band }: { band: Band }) {
+function BandLinks({ band }: SectionProps) {
   // Prefer the plain bandcampLink field; fall back to the embed field's raw
   // URL for bands that only ever filled that one in (never an <iframe>
   // snippet, which isn't a usable href).
@@ -217,7 +252,7 @@ function BandLinks({ band }: { band: Band }) {
 }
 
 /** Surface the band's preferred contact method. */
-function ContactMethod({ band }: { band: Band }) {
+function ContactMethod({ band }: SectionProps) {
   const usesInstagram = band.contactMethod === "instagram" && !!band.instagram;
   const usesEmail = band.contactMethod === "email" && !!band.contactEmail;
   const usesWebsite = band.contactMethod === "website" && !!band.website;
@@ -273,6 +308,194 @@ function ContactMethod({ band }: { band: Band }) {
   );
 }
 
+function Bio({ band }: SectionProps) {
+  return (
+    <p className="whitespace-pre-line break-words text-sm leading-relaxed text-[#E8E0D0]/85">
+      {band.bio || "No bio yet."}
+    </p>
+  );
+}
+
+function Members({ members }: SectionProps) {
+  if (members.length === 0) return null;
+
+  return (
+    <div>
+      <SectionHeading>Members</SectionHeading>
+      <div className="flex flex-wrap gap-1.5">
+        {members.map((m) => (
+          <Link
+            key={m.id}
+            href={`/m/${m.slug}`}
+            className="rounded-full bg-[#E8E0D0]/10 px-2.5 py-0.5 text-xs text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/20 hover:text-[#E8E0D0]"
+          >
+            {m.name}
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Owner/admin-only: pending band-member requests for this band. */
+function MemberClaims({ pendingMemberClaims }: SectionProps) {
+  if (pendingMemberClaims.length === 0) return null;
+
+  return (
+    <div>
+      <SectionHeading>Pending member requests</SectionHeading>
+      <BandMemberClaimsManager initialClaims={pendingMemberClaims} scope="band" />
+    </div>
+  );
+}
+
+/** Member-request entry for an already-owned band, shown to visitors who can't
+ * already edit it — sending a request the owner reviews. The unclaimed-band
+ * "Is this your band?" entry now lives in the page top bar beside the
+ * Unclaimed tag (app/bands/[slug]/page.tsx). */
+function ClaimEntry({ band, members, loggedIn, showClaimEntry, hasOwner }: SectionProps) {
+  if (!showClaimEntry || !hasOwner) return null;
+  return <BandMemberClaimSection bandSlug={band.slug} members={members} loggedIn={loggedIn} />;
+}
+
+function Music({ band }: SectionProps) {
+  if (!band.bandcampEmbedUrl && !band.bandcamp) return null;
+
+  return (
+    <BandcampPlayer
+      name={band.name}
+      bandcamp={band.bandcamp}
+      bandcampEmbedUrl={band.bandcampEmbedUrl}
+      bandcampEmbedHeight={band.bandcampEmbedHeight}
+    />
+  );
+}
+
+function UpcomingShows({
+  band,
+  shows,
+  press,
+  today,
+  showStatuses,
+  loggedIn,
+}: SectionProps) {
+  if (shows.length === 0) return null;
+
+  return (
+    <div>
+      <SectionHeading>Upcoming shows</SectionHeading>
+      <ul className="space-y-2">
+        {shows.map((show, i) => (
+          <li
+            key={`${show.date}-${show.venue}-${i}`}
+            className={`rounded-md border px-3 py-2.5 ${
+              show.starredBy.length > 0
+                ? "border-amber-400/40 bg-amber-400/[0.06]"
+                : "border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)]"
+            }`}
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-sm font-medium text-[#E8E0D0]">
+                {formatShowDate(show.date)}
+              </span>
+              {show.link && (
+                <a
+                  href={ensureUrl(show.link)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 text-xs text-[#E8E0D0]/70 underline decoration-[#E8E0D0]/30 underline-offset-2 transition hover:text-[#E8E0D0]"
+                >
+                  Tickets / Info →
+                </a>
+              )}
+            </div>
+            {show.title && (
+              <p className="mt-0.5 text-sm font-medium text-[#E8E0D0]/90">
+                {show.title}
+                {show.starredBy.length > 0 && (
+                  <span className="ml-1.5 text-amber-400">★</span>
+                )}
+              </p>
+            )}
+            {show.venue && (
+              <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
+                {show.venue}
+              </p>
+            )}
+            {show.notes && (
+              <p className="mt-0.5 text-xs text-[#E8E0D0]/50">
+                {show.notes}
+              </p>
+            )}
+            {pressNotes(show.starredBy, show.starredNotes, press).map(
+              (note) => (
+                <div key={note.id} className="mt-1.5">
+                  <p className="text-xs font-medium text-amber-400">
+                    ★ Recommended by{" "}
+                    {note.url ? (
+                      <a
+                        href={ensureUrl(note.url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-amber-400/50 underline-offset-2 hover:text-amber-300"
+                      >
+                        {note.name}
+                      </a>
+                    ) : (
+                      note.name
+                    )}
+                  </p>
+                  {note.blurb && (
+                    <p className="mt-0.5 text-xs leading-relaxed text-[#E8E0D0]/60">
+                      {note.blurb}
+                    </p>
+                  )}
+                </div>
+              ),
+            )}
+            {show.id && (
+              <div className="mt-2">
+                <ShowStatusButtons
+                  showId={show.id}
+                  isPast={show.date < today}
+                  initialStatus={showStatuses[show.id] ?? null}
+                  loggedIn={loggedIn}
+                  returnTo={`/bands/${band.slug}`}
+                />
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Section id → renderer. Keep in sync with SectionId in
+ * lib/bandProfileLayout.ts; the layout there decides order and placement. */
+const SECTIONS: Record<SectionId, (props: SectionProps) => ReactNode> = {
+  bio: Bio,
+  members: Members,
+  memberClaims: MemberClaims,
+  claimEntry: ClaimEntry,
+  featured: FeaturedLinks,
+  music: Music,
+  videos: BandVideos,
+  shows: UpcomingShows,
+  links: BandLinks,
+  contact: ContactMethod,
+};
+
+/** Render one region's sections in order. Sections that have nothing to show
+ * return null, which keeps them out of the DOM entirely — so the container's
+ * `space-y-*` never opens a gap for an absent section. */
+function renderRegion(region: Region, layout: BandProfileLayout, props: SectionProps) {
+  return layout[region].map((id) => {
+    const Section = SECTIONS[id];
+    return <Section key={id} {...props} />;
+  });
+}
+
 export default function BandProfile({
   band,
   members,
@@ -285,6 +508,7 @@ export default function BandProfile({
   showClaimEntry = false,
   hasOwner = true,
   pendingMemberClaims = [],
+  layout = DEFAULT_LAYOUT,
   actions,
 }: {
   band: Band;
@@ -313,12 +537,27 @@ export default function BandProfile({
    * viewer canApproveMemberClaim (owner or admin), so the page fetches this
    * conditionally. */
   pendingMemberClaims?: PendingBandMemberClaim[];
+  /** Section order and visibility. Defaults to the standard arrangement;
+   * pass a normalized layout (lib/bandProfileLayout.ts) to vary it. */
+  layout?: BandProfileLayout;
   /** Ownership/edit action buttons (Claim, Follow, Edit, admin Manage) — the
    * page assembles these (they need page-level data like `canEdit`) but they
    * render inline with the band name so the header stays a single row. */
   actions?: ReactNode;
 }) {
-  const hasBandcamp = band.bandcampEmbedUrl || band.bandcamp;
+  const sectionProps: SectionProps = {
+    band,
+    members,
+    shows,
+    press,
+    videos,
+    today,
+    showStatuses,
+    loggedIn,
+    showClaimEntry,
+    hasOwner,
+    pendingMemberClaims,
+  };
 
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-[300px_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:gap-x-10">
@@ -357,162 +596,12 @@ export default function BandProfile({
           )}
         </div>
 
-        {/* Bio — right below the name */}
-        <p className="whitespace-pre-line break-words text-sm leading-relaxed text-[#E8E0D0]/85">
-          {band.bio || "No bio yet."}
-        </p>
-
-        {/* Members */}
-        {members.length > 0 && (
-          <div>
-            <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-              Members
-            </h2>
-            <div className="flex flex-wrap gap-1.5">
-              {members.map((m) => (
-                <Link
-                  key={m.id}
-                  href={`/m/${m.slug}`}
-                  className="rounded-full bg-[#E8E0D0]/10 px-2.5 py-0.5 text-xs text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/20 hover:text-[#E8E0D0]"
-                >
-                  {m.name}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Owner/admin-only: pending band-member requests for this band */}
-        {pendingMemberClaims.length > 0 && (
-          <div>
-            <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-              Pending member requests
-            </h2>
-            <BandMemberClaimsManager initialClaims={pendingMemberClaims} scope="band" />
-          </div>
-        )}
-
-        {/* Member-request entry for an already-owned band, shown to visitors
-            who can't already edit it — sending a request the owner reviews.
-            The unclaimed-band "Is this your band?" entry now lives in the page
-            top bar beside the Unclaimed tag (app/bands/[slug]/page.tsx). */}
-        {showClaimEntry && hasOwner && (
-          <BandMemberClaimSection bandSlug={band.slug} members={members} loggedIn={loggedIn} />
-        )}
-
-        {/* Featured links — band-curated highlights */}
-        <FeaturedLinks band={band} />
-
-        {/* Bandcamp player — right below the bio */}
-        {hasBandcamp && (
-          <BandcampPlayer
-            name={band.name}
-            bandcamp={band.bandcamp}
-            bandcampEmbedUrl={band.bandcampEmbedUrl}
-            bandcampEmbedHeight={band.bandcampEmbedHeight}
-          />
-        )}
-
-        {/* Videos */}
-        <BandVideos videos={videos} />
-
-        {/* Upcoming shows */}
-        {shows.length > 0 && (
-          <div>
-            <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-              Upcoming shows
-            </h2>
-            <ul className="space-y-2">
-              {shows.map((show, i) => (
-                <li
-                  key={`${show.date}-${show.venue}-${i}`}
-                  className={`rounded-md border px-3 py-2.5 ${
-                    show.starredBy.length > 0
-                      ? "border-amber-400/40 bg-amber-400/[0.06]"
-                      : "border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)]"
-                  }`}
-                >
-                  <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-sm font-medium text-[#E8E0D0]">
-                      {formatShowDate(show.date)}
-                    </span>
-                    {show.link && (
-                      <a
-                        href={ensureUrl(show.link)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="shrink-0 text-xs text-[#E8E0D0]/70 underline decoration-[#E8E0D0]/30 underline-offset-2 transition hover:text-[#E8E0D0]"
-                      >
-                        Tickets / Info →
-                      </a>
-                    )}
-                  </div>
-                  {show.title && (
-                    <p className="mt-0.5 text-sm font-medium text-[#E8E0D0]/90">
-                      {show.title}
-                      {show.starredBy.length > 0 && (
-                        <span className="ml-1.5 text-amber-400">★</span>
-                      )}
-                    </p>
-                  )}
-                  {show.venue && (
-                    <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
-                      {show.venue}
-                    </p>
-                  )}
-                  {show.notes && (
-                    <p className="mt-0.5 text-xs text-[#E8E0D0]/50">
-                      {show.notes}
-                    </p>
-                  )}
-                  {pressNotes(show.starredBy, show.starredNotes, press).map(
-                    (note) => (
-                      <div key={note.id} className="mt-1.5">
-                        <p className="text-xs font-medium text-amber-400">
-                          ★ Recommended by{" "}
-                          {note.url ? (
-                            <a
-                              href={ensureUrl(note.url)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="underline decoration-amber-400/50 underline-offset-2 hover:text-amber-300"
-                            >
-                              {note.name}
-                            </a>
-                          ) : (
-                            note.name
-                          )}
-                        </p>
-                        {note.blurb && (
-                          <p className="mt-0.5 text-xs leading-relaxed text-[#E8E0D0]/60">
-                            {note.blurb}
-                          </p>
-                        )}
-                      </div>
-                    ),
-                  )}
-                  {show.id && (
-                    <div className="mt-2">
-                      <ShowStatusButtons
-                        showId={show.id}
-                        isPast={show.date < today}
-                        initialStatus={showStatuses[show.id] ?? null}
-                        loggedIn={loggedIn}
-                        returnTo={`/bands/${band.slug}`}
-                      />
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+        {renderRegion("main", layout, sectionProps)}
       </div>
 
       {/* Sidebar extras — directly under the photo */}
       <div className="space-y-5 md:col-start-1 md:row-start-2">
-        <BandLinks band={band} />
-        <ContactMethod band={band} />
+        {renderRegion("sidebar", layout, sectionProps)}
       </div>
     </div>
   );
