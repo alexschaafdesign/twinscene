@@ -29,7 +29,7 @@ export default async function OnboardingDonePage({
   const next = sanitizeNextPath(typeof sp.next === "string" ? sp.next : null) || "/";
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
+    <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#E8B84B]">
         Welcome to Twin Scene
       </span>

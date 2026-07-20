@@ -52,7 +52,7 @@ export default async function ActivityPage() {
   const entries = await fetchShowHistory();
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
+    <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
         <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
           Recent Activity

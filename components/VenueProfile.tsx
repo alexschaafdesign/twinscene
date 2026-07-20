@@ -3,6 +3,7 @@
 // a left sidebar (icon, contact/logistics) and a wider main column (name,
 // notes, shows).
 
+import type { ReactNode } from "react";
 import type { Show } from "@/lib/fetchShows";
 import type { Venue } from "@/lib/fetchVenues";
 import type { Press } from "@/lib/fetchPress";
@@ -37,6 +38,7 @@ export default function VenueProfile({
   today,
   showStatuses = {},
   loggedIn = false,
+  actions,
 }: {
   venue: Venue;
   shows?: Show[];
@@ -46,6 +48,9 @@ export default function VenueProfile({
   /** Logged-in user's attendance status per show id. */
   showStatuses?: Record<string, ShowStatus>;
   loggedIn?: boolean;
+  /** Edit/admin action buttons — the page assembles these but they render
+   * inline with the venue name so the header stays a single row. */
+  actions?: ReactNode;
 }) {
   return (
     <div className="grid grid-cols-1 gap-8 md:grid-cols-[300px_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:gap-x-10">
@@ -60,9 +65,14 @@ export default function VenueProfile({
       {/* Main content — name, type/capacity, notes, upcoming shows */}
       <div className="space-y-6 md:col-start-2 md:row-span-2 md:row-start-1">
         <div>
-          <h1 className="text-3xl font-medium leading-tight break-words sm:text-4xl">
-            {venue.name}
-          </h1>
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+            <h1 className="text-3xl font-medium leading-tight break-words sm:text-4xl">
+              {venue.name}
+            </h1>
+            {actions && (
+              <div className="flex flex-wrap items-center gap-3">{actions}</div>
+            )}
+          </div>
           <VenuePlaceLine venue={venue} className="mt-2 text-sm" />
           {(venue.type || venue.capacity != null) && (
             <div className="mt-3 flex flex-wrap gap-1.5">

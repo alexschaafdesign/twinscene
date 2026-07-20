@@ -119,7 +119,7 @@ export default function AllShowsPanel({
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
+    <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <header className="mb-8 flex flex-wrap items-center justify-between gap-3 border-b border-[#E8E0D0]/20 pb-6">
         <div>
           <h1 className="text-2xl font-medium tracking-tight">All Shows</h1>

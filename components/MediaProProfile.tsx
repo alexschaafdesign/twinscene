@@ -2,6 +2,7 @@
 // contact/links sidebar. Mirrors VenueProfile.tsx's layout: a left sidebar
 // (photo, contact info) and a wider main column (name, bio).
 
+import type { ReactNode } from "react";
 import type { MediaPro } from "@/lib/mediaPros";
 import { mediaProRoleLabel } from "@/components/media-pro-shared";
 import { MediaProImage } from "@/components/media-pro-shared-client";
@@ -35,7 +36,15 @@ function ensureUrl(value: string): string {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-export default function MediaProProfile({ mediaPro }: { mediaPro: MediaPro }) {
+export default function MediaProProfile({
+  mediaPro,
+  actions,
+}: {
+  mediaPro: MediaPro;
+  /** Edit/claim/admin action buttons — the page assembles these but they
+   * render inline with the name so the header stays a single row. */
+  actions?: ReactNode;
+}) {
   const instagramHandle = mediaPro.instagram?.replace(/^@/, "").trim();
 
   return (
@@ -48,9 +57,14 @@ export default function MediaProProfile({ mediaPro }: { mediaPro: MediaPro }) {
       {/* Main content — name, role/city, bio */}
       <div className="space-y-6 md:col-start-2 md:row-span-2 md:row-start-1">
         <div>
-          <h1 className="text-3xl font-medium leading-tight break-words sm:text-4xl">
-            {mediaPro.name}
-          </h1>
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+            <h1 className="text-3xl font-medium leading-tight break-words sm:text-4xl">
+              {mediaPro.name}
+            </h1>
+            {actions && (
+              <div className="flex flex-wrap items-center gap-3">{actions}</div>
+            )}
+          </div>
           {mediaPro.city && (
             <p className="mt-2 truncate text-sm text-[#E8E0D0]/55">{mediaPro.city}</p>
           )}

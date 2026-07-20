@@ -50,7 +50,7 @@ export default async function AdminUsersPage() {
   }
   if (!isAdmin(user)) {
     return (
-      <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
+      <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
         <p className="text-sm text-[#F5A3A3]">You don&apos;t have access to this page.</p>
       </main>
     );
@@ -60,7 +60,7 @@ export default async function AdminUsersPage() {
   const adminCount = users.filter((u) => u.is_admin).length;
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
+    <main className="mx-auto w-full max-w-5xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
         <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">Users</h1>
         <p className="mt-2 text-sm text-[#E8E0D0]/70">

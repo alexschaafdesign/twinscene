@@ -25,7 +25,7 @@ export default async function NotificationsPage() {
   await markAllRead(user.id);
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-14">
+    <main className="mx-auto w-full max-w-2xl px-5 py-6 sm:px-8 sm:py-8">
       <h1 className="text-2xl font-medium text-[#E8E0D0]">Notifications</h1>
 
       {items.length === 0 ? (

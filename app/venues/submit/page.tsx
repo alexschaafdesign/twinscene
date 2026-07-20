@@ -36,7 +36,7 @@ export default async function VenueSubmitPage({
     .sort((a, b) => a.localeCompare(b));
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-14">
+    <main className="mx-auto w-full max-w-2xl px-5 py-6 sm:px-8 sm:py-8">
       <VenueSubmitForm
         mode={isCorrect ? "correct" : "add"}
         initialSlug={param("venue")}

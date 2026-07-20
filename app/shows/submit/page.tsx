@@ -49,7 +49,7 @@ export default async function ShowSubmitPage({
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-5 py-10 sm:px-8 sm:py-14">
+    <main className="mx-auto w-full max-w-2xl px-5 py-6 sm:px-8 sm:py-8">
       <ShowSubmitForm
         bands={bandOptions}
         mode={initial ? "edit" : "add"}

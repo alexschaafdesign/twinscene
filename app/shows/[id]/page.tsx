@@ -101,7 +101,7 @@ export default async function ShowDetailPage({
   const isPast = show.date < todayInChicago();
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-14">
+    <main className="mx-auto w-full max-w-3xl px-5 py-6 sm:px-8 sm:py-8">
       <div className="flex flex-col gap-6 sm:flex-row">
         {imageSrc && (
           // eslint-disable-next-line @next/next/no-img-element -- external flyer art / local venue logo

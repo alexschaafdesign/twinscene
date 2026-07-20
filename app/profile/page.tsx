@@ -50,7 +50,7 @@ export default async function ProfilePage({
   const initial = (user.name?.trim()?.[0] || user.email[0] || "?").toUpperCase();
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
+    <main className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <SavedBanner show={justSaved} />
 
       <div className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,22rem)_1fr] lg:items-start">

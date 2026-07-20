@@ -9,6 +9,7 @@
 // the page, using `editHref` below.
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { Band } from "@/lib/fetchBands";
 import type { Show } from "@/lib/fetchShows";
 import type { Press } from "@/lib/fetchPress";
@@ -284,6 +285,7 @@ export default function BandProfile({
   showClaimEntry = false,
   hasOwner = true,
   pendingMemberClaims = [],
+  actions,
 }: {
   band: Band;
   /** Real `musicians` rows via `band_members`, in display order
@@ -311,6 +313,10 @@ export default function BandProfile({
    * viewer canApproveMemberClaim (owner or admin), so the page fetches this
    * conditionally. */
   pendingMemberClaims?: PendingBandMemberClaim[];
+  /** Ownership/edit action buttons (Claim, Follow, Edit, admin Manage) — the
+   * page assembles these (they need page-level data like `canEdit`) but they
+   * render inline with the band name so the header stays a single row. */
+  actions?: ReactNode;
 }) {
   const hasBandcamp = band.bandcampEmbedUrl || band.bandcamp;
 
@@ -328,9 +334,14 @@ export default function BandProfile({
       */}
       <div className="space-y-6 md:col-start-2 md:row-span-2 md:row-start-1">
         <div>
-          <h1 className="text-3xl font-medium leading-tight break-words sm:text-4xl">
-            {band.name}
-          </h1>
+          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+            <h1 className="text-3xl font-medium leading-tight break-words sm:text-4xl">
+              {band.name}
+            </h1>
+            {actions && (
+              <div className="flex flex-wrap items-center gap-3">{actions}</div>
+            )}
+          </div>
           <PlaceLine band={band} className="mt-2 text-sm" />
           {band.genres.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">

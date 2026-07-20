@@ -23,7 +23,7 @@ export default async function MusiciansPage() {
   ]);
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-5 py-10 sm:px-8 sm:py-14">
+    <main className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
       <header className="mb-8 border-b border-[#E8E0D0]/20 pb-6">
         <h1 className="text-2xl font-medium tracking-tight sm:text-3xl">
           Musicians

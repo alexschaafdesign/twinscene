@@ -38,7 +38,7 @@ export default async function MusicianPage({ params }: Props) {
   const initial = (musician.name.trim()[0] || "?").toUpperCase();
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col gap-10 px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
+    <main className="mx-auto flex w-full max-w-lg flex-col gap-10 px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <div className="flex items-center gap-4">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#E8E0D0]/25 bg-[#E8E0D0]/10 text-lg font-medium text-[#E8E0D0]">
           {musician.image_url ? (

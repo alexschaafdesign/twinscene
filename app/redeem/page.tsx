@@ -19,7 +19,7 @@ export default async function RedeemPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
+    <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <h1 className="text-xl font-medium">Redeem an ownership code</h1>
       <p className="mt-2 text-sm text-[#E8E0D0]/60">
         If an admin sent you a code over Instagram DM, enter it below to claim
