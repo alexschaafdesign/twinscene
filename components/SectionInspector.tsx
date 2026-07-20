@@ -121,6 +121,18 @@ export default function SectionInspector({
                     rows={field.rows ?? 5}
                     className="w-full resize-y rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-3 py-2 text-sm text-[#E8E0D0] outline-none transition focus:border-[#E8E0D0]/45"
                   />
+                ) : field.type === "select" ? (
+                  <select
+                    value={values[field.key] ?? ""}
+                    onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
+                    className="w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-3 py-2 text-sm text-[#E8E0D0] outline-none transition focus:border-[#E8E0D0]/45"
+                  >
+                    {field.options.map((o) => (
+                      <option key={o.value} value={o.value} className="bg-[#1a1a1a]">
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
                 ) : (
                   <input
                     type="text"
@@ -131,7 +143,7 @@ export default function SectionInspector({
                     className="w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-3 py-2 text-sm text-[#E8E0D0] outline-none transition focus:border-[#E8E0D0]/45"
                   />
                 )}
-                {field.maxLength && (
+                {field.type !== "select" && field.maxLength && (
                   <span className="mt-1 block text-right text-xs text-[#E8E0D0]/35">
                     {(values[field.key] ?? "").length}/{field.maxLength}
                   </span>

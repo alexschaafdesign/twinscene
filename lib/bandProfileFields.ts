@@ -21,6 +21,12 @@ export type SectionField =
       placeholder?: string;
       maxLength?: number;
       rows?: number;
+    }
+  | {
+      key: string;
+      type: "select";
+      label: string;
+      options: { value: string; label: string }[];
     };
 
 export type SectionEditSchema = {
@@ -40,6 +46,53 @@ export const SECTION_EDIT: Partial<Record<SectionId, SectionEditSchema>> = {
         rows: 7,
         maxLength: 2000,
         placeholder: "Tell people who you are…",
+      },
+    ],
+  },
+  links: {
+    fields: [
+      {
+        key: "website",
+        type: "text",
+        label: "Website",
+        placeholder: "https://…",
+        maxLength: 300,
+      },
+      {
+        key: "instagram",
+        type: "text",
+        label: "Instagram handle",
+        placeholder: "yourband (no @)",
+        maxLength: 100,
+      },
+      {
+        key: "bandcampLink",
+        type: "text",
+        label: "Bandcamp",
+        placeholder: "https://yourband.bandcamp.com",
+        maxLength: 300,
+      },
+    ],
+  },
+  contact: {
+    fields: [
+      {
+        key: "contactMethod",
+        type: "select",
+        label: "Preferred contact method",
+        options: [
+          { value: "", label: "Not set" },
+          { value: "email", label: "Email" },
+          { value: "instagram", label: "Instagram DMs" },
+          { value: "website", label: "Website" },
+        ],
+      },
+      {
+        key: "contactEmail",
+        type: "text",
+        label: "Public email",
+        placeholder: "band@example.com",
+        maxLength: 200,
       },
     ],
   },

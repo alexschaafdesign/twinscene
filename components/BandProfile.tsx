@@ -537,6 +537,15 @@ function emptySectionIds(props: SectionProps): SectionId[] {
 function sectionFieldValues(band: Band): Partial<Record<SectionId, Record<string, string>>> {
   return {
     bio: { bio: band.bio },
+    links: {
+      website: band.website,
+      instagram: band.instagram, // already the bare handle (fetchBands normalizes)
+      bandcampLink: band.bandcampLink,
+    },
+    contact: {
+      contactMethod: band.contactMethod,
+      contactEmail: band.contactEmail,
+    },
   };
 }
 

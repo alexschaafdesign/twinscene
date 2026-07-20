@@ -143,6 +143,116 @@ export async function updateBandCoreFields(
   return updated;
 }
 
+/** Reduce a full URL or "@handle" to a bare Instagram handle — mirrors the
+ * reader in fetchBands.ts (kept local to avoid a bands ⇄ fetchBands cycle). */
+function igHandle(value: string): string {
+  let s = value.trim();
+  if (!s) return "";
+  s = s.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+  s = s.replace(/^instagram\.com\//i, "");
+  s = s.replace(/^@/, "");
+  return s.split(/[/?#]/)[0];
+}
+
+export interface BandLinksInput {
+  website: string;
+  instagram: string; // a handle; stored normalized
+  bandcampLink: string; // plain Bandcamp profile link (the social icon)
+}
+
+// Update the band's social links in the `socials` jsonb, from the in-place
+// inspector. Merges onto the existing object rather than replacing it, so keys
+// this doesn't expose survive — most importantly `bandcamp`, the embed *source*
+// URL that drives the player (edited elsewhere, through the embed-resolving
+// upsert path). No embed re-resolution here: bandcampLink is the plain profile
+// link, not the player source.
+//
+// Instagram is compared and stored as a normalized handle, so a band whose
+// stored value is a full URL doesn't get spuriously rewritten (or its
+// followers notified) when the inspector re-submits the same handle.
+export async function updateBandLinks(
+  bandId: number,
+  input: BandLinksInput,
+  actorUserId?: number,
+): Promise<Band> {
+  const [existing] = await sql<Band[]>`select * from bands where id = ${bandId} limit 1`;
+  if (!existing) throw new Error(`updateBandLinks: no band with id ${bandId}`);
+
+  const prevObj =
+    existing.socials && typeof existing.socials === "object"
+      ? (existing.socials as Record<string, unknown>)
+      : {};
+  const str = (x: unknown) => (typeof x === "string" ? x : "");
+
+  // Start from everything already stored (preserves bandcamp embed source),
+  // then overlay only the three fields this editor owns.
+  const merged: Record<string, string> = {};
+  for (const [k, v] of Object.entries(prevObj)) if (typeof v === "string") merged[k] = v;
+
+  const setOrDrop = (key: string, val: string) => {
+    const t = val.trim();
+    if (t) merged[key] = t;
+    else delete merged[key];
+  };
+
+  const changed: boolean[] = [];
+  // website / bandcampLink: stored and displayed verbatim, so compare directly.
+  const webChanged = input.website.trim() !== str(prevObj.website).trim();
+  const bcChanged = input.bandcampLink.trim() !== str(prevObj.bandcampLink).trim();
+  if (webChanged) setOrDrop("website", input.website);
+  if (bcChanged) setOrDrop("bandcampLink", input.bandcampLink);
+  changed.push(webChanged, bcChanged);
+
+  // instagram: compare normalized handles; only rewrite when the handle moved.
+  const nextIg = igHandle(input.instagram);
+  const igChanged = nextIg !== igHandle(str(prevObj.instagram));
+  if (igChanged) {
+    if (nextIg) merged.instagram = nextIg;
+    else delete merged.instagram;
+  }
+  changed.push(igChanged);
+
+  const next = Object.keys(merged).length ? merged : null;
+  const [updated] = await sql<Band[]>`
+    update bands set socials = ${next ? sql.json(next) : null}, updated_at = now()
+    where id = ${bandId}
+    returning *
+  `;
+
+  if (changed.some(Boolean)) {
+    await notifyBandProfileUpdated(sql, bandId, ["links"], actorUserId);
+  }
+  return updated;
+}
+
+export interface BandContactInput {
+  contactMethod: string; // "" | "email" | "instagram" | "website"
+  contactEmail: string;
+}
+
+// Update the band's preferred contact method + public email columns. No
+// follower notification: which inbox a band prefers is operational, not
+// fan-facing content, so it isn't worth a "band updated their profile" ping
+// (and there's deliberately no notification label for it).
+export async function updateBandContact(
+  bandId: number,
+  input: BandContactInput,
+): Promise<Band> {
+  const method = ["email", "instagram", "website"].includes(input.contactMethod)
+    ? input.contactMethod
+    : "";
+  const [updated] = await sql<Band[]>`
+    update bands set
+      contact_method = ${method || null},
+      contact_email = ${input.contactEmail.trim() || null},
+      updated_at = now()
+    where id = ${bandId}
+    returning *
+  `;
+  if (!updated) throw new Error(`updateBandContact: no band with id ${bandId}`);
+  return updated;
+}
+
 // Save a band's profile section arrangement. The caller is responsible for the
 // canEditBand gate and for passing an already-normalized layout
 // (lib/bandProfileLayout.ts normalizeLayout) — this just persists it.

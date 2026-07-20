@@ -1,6 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser, canEditBand } from "@/lib/auth";
-import { getBandBySlug, updateBandCoreFields } from "@/lib/bands";
+import {
+  getBandBySlug,
+  updateBandCoreFields,
+  updateBandLinks,
+  updateBandContact,
+} from "@/lib/bands";
 import { SECTION_EDIT } from "@/lib/bandProfileFields";
 import type { SectionId } from "@/lib/bandProfileLayout";
 
@@ -58,11 +63,16 @@ export async function PATCH(
     );
   }
 
-  // Accept only declared keys; coerce to string and clamp to the field's max.
+  // Accept only declared keys. Text/textarea are coerced to string and clamped
+  // to maxLength; a select is forced to one of its declared option values.
   const clean: Record<string, string> = {};
   for (const field of schema.fields) {
     let v = typeof values[field.key] === "string" ? (values[field.key] as string) : "";
-    if (field.maxLength) v = v.slice(0, field.maxLength);
+    if (field.type === "select") {
+      if (!field.options.some((o) => o.value === v)) v = field.options[0]?.value ?? "";
+    } else if (field.maxLength) {
+      v = v.slice(0, field.maxLength);
+    }
     clean[field.key] = v;
   }
 
@@ -71,6 +81,23 @@ export async function PATCH(
   switch (section) {
     case "bio":
       await updateBandCoreFields(band.id, { bio: clean.bio }, user.id);
+      break;
+    case "links":
+      await updateBandLinks(
+        band.id,
+        {
+          website: clean.website ?? "",
+          instagram: clean.instagram ?? "",
+          bandcampLink: clean.bandcampLink ?? "",
+        },
+        user.id,
+      );
+      break;
+    case "contact":
+      await updateBandContact(band.id, {
+        contactMethod: clean.contactMethod ?? "",
+        contactEmail: clean.contactEmail ?? "",
+      });
       break;
     default:
       return NextResponse.json(
