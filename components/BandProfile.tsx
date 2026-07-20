@@ -531,6 +531,15 @@ function emptySectionIds(props: SectionProps): SectionId[] {
   return (Object.keys(SECTIONS) as SectionId[]).filter((id) => SECTIONS[id].isEmpty(props));
 }
 
+/** Current values for each in-place-editable section's fields, to prefill the
+ * inspector. Kept next to the section renderers so a new editable field is
+ * mapped here in the same place it's declared in SECTION_EDIT. */
+function sectionFieldValues(band: Band): Partial<Record<SectionId, Record<string, string>>> {
+  return {
+    bio: { bio: band.bio },
+  };
+}
+
 export default function BandProfile({
   band,
   members,
@@ -635,6 +644,7 @@ export default function BandProfile({
         initialLayout={layout}
         sections={renderAllSections(sectionProps)}
         emptyIds={emptySectionIds(sectionProps)}
+        fieldValues={sectionFieldValues(band)}
         photo={photo}
         header={header}
       />

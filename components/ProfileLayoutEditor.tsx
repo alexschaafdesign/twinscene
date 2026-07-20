@@ -39,6 +39,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import BandProfileShell from "@/components/BandProfileShell";
+import SectionInspector from "@/components/SectionInspector";
 import {
   REGIONS,
   SECTION_META,
@@ -46,6 +47,7 @@ import {
   type Region,
   type SectionId,
 } from "@/lib/bandProfileLayout";
+import { SECTION_EDIT, type SectionValues } from "@/lib/bandProfileFields";
 import type { ReactNode } from "react";
 
 type Press = { id: SectionId; from: Region; fromIndex: number; x: number; y: number };
@@ -62,6 +64,7 @@ export default function ProfileLayoutEditor({
   initialLayout,
   sections,
   emptyIds,
+  fieldValues,
   photo,
   header,
 }: {
@@ -72,6 +75,9 @@ export default function ProfileLayoutEditor({
   /** Sections that would render nothing right now — shown as placeholders
    * while editing so they can still be positioned. */
   emptyIds: SectionId[];
+  /** Current stored values for each editable section, to prefill the
+   * inspector. Only sections with an edit schema need an entry. */
+  fieldValues: Partial<Record<SectionId, SectionValues>>;
   photo: ReactNode;
   header: ReactNode;
 }) {
@@ -81,6 +87,8 @@ export default function ProfileLayoutEditor({
   /** Only set once a press becomes a real drag — drives the lifted styling.
    * Nothing else about a drag lives in React state. */
   const [dragging, setDragging] = useState<SectionId | null>(null);
+  /** Section whose inspector is open — a click (not a drag) opens it. */
+  const [inspecting, setInspecting] = useState<SectionId | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -181,11 +189,12 @@ export default function ProfileLayoutEditor({
 
     function finish(commit: boolean) {
       const p = press.current;
+      const wasDrag = active.current;
       // Normally the frame loop has already resolved a target. A drag fast
       // enough to release before any frame ran (a flick, or a synthetic
       // event burst) would otherwise drop nothing, so resolve it here from
       // the final pointer position.
-      const target = p && active.current ? (dropRef.current ?? locate(p)) : null;
+      const target = p && wasDrag ? (dropRef.current ?? locate(p)) : null;
       press.current = null;
       active.current = false;
       dropRef.current = null;
@@ -195,6 +204,16 @@ export default function ProfileLayoutEditor({
       document.body.style.userSelect = "";
       document.body.style.cursor = "";
       setDragging(null);
+
+      // A press that released without ever becoming a drag is a click: open
+      // that section's inspector instead of moving anything. Only sections
+      // with an edit schema respond — the rest aren't wired for in-place
+      // editing yet, and a dead panel is worse than an inert click.
+      if (commit && p && !wasDrag) {
+        if (SECTION_EDIT[p.id]) setInspecting(p.id);
+        return;
+      }
+
       if (!commit || !p || !target) return;
 
       // A drop back into the slot it came from changes nothing.
@@ -397,6 +416,9 @@ export default function ProfileLayoutEditor({
             <div className="flex items-start justify-between gap-2 p-2">
               <span className="rounded bg-[#1a1a1a]/85 px-2 py-1 text-xs font-medium text-[#E8E0D0]/90">
                 ⠿ {meta.label}
+                {SECTION_EDIT[id] && (
+                  <span className="ml-1.5 text-[#E8E0D0]/45">· tap to edit</span>
+                )}
               </span>
               <button
                 type="button"
@@ -512,6 +534,21 @@ export default function ProfileLayoutEditor({
         }
         sidebar={renderRegion("sidebar")}
       />
+
+      {inspecting && (
+        <SectionInspector
+          // Remount per section so the form state resets to that section's
+          // values without an effect.
+          key={inspecting}
+          slug={slug}
+          section={inspecting}
+          initialValues={fieldValues[inspecting] ?? {}}
+          onClose={() => setInspecting(null)}
+          // Re-render the server-side section with its new content, in place,
+          // while staying in edit mode.
+          onSaved={() => router.refresh()}
+        />
+      )}
     </div>
   );
 }
