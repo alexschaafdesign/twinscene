@@ -8,7 +8,7 @@ import type { Show } from "@/lib/fetchShows";
 import type { Venue } from "@/lib/fetchVenues";
 import type { Press } from "@/lib/fetchPress";
 import type { ShowStatus } from "@/lib/showSaves";
-import ShowsTimeline from "@/components/ShowsTimeline";
+import VenueShowsSection from "@/components/VenueShowsSection";
 import { VenuePlaceLine } from "@/components/venue-shared";
 import { VenueImage } from "@/components/venue-shared-client";
 
@@ -35,6 +35,7 @@ function InfoBlock({
 export default function VenueProfile({
   venue,
   shows = [],
+  pastShows = [],
   press = [],
   today,
   showStatuses = {},
@@ -43,6 +44,8 @@ export default function VenueProfile({
 }: {
   venue: Venue;
   shows?: Show[];
+  /** All past shows at this venue, most recent first — the "Past shows" tab. */
+  pastShows?: Show[];
   press?: Press[];
   /** "YYYY-MM-DD" in America/Chicago, for ShowsTimeline's upcoming/past split. */
   today: string;
@@ -95,21 +98,16 @@ export default function VenueProfile({
           {venue.notes || "No notes yet."}
         </p>
 
-        {/* Upcoming shows at this venue */}
-        <div>
-          <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-            Upcoming shows
-          </h2>
-          <ShowsTimeline
-            shows={shows}
-            press={press}
-            today={today}
-            statuses={showStatuses}
-            loggedIn={loggedIn}
-            returnTo={`/venues/${venue.slug}`}
-            emptyMessage="No upcoming shows listed at this venue yet."
-          />
-        </div>
+        {/* Shows at this venue — Upcoming / Past shows tabs */}
+        <VenueShowsSection
+          shows={shows}
+          pastShows={pastShows}
+          press={press}
+          today={today}
+          statuses={showStatuses}
+          loggedIn={loggedIn}
+          venueSlug={venue.slug}
+        />
       </div>
 
       {/* Sidebar extras — directly under the icon */}

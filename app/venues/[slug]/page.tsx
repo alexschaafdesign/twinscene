@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchVenues, matchVenue } from "@/lib/fetchVenues";
-import { fetchShows, todayInChicago } from "@/lib/fetchShows";
+import { fetchShows, fetchAllPastShows, todayInChicago } from "@/lib/fetchShows";
 import { fetchPress } from "@/lib/fetchPress";
 import { getCurrentUser } from "@/lib/auth";
 import { listShowStatuses } from "@/lib/showSaves";
@@ -47,13 +47,18 @@ export default async function VenueProfilePage({ params }: Props) {
   const { venues, venue } = await getVenue(slug);
   if (!venue) notFound();
 
-  const shows = await fetchShows();
+  const [shows, pastShows] = await Promise.all([fetchShows(), fetchAllPastShows()]);
   const press = await fetchPress();
   const venueShows = shows.filter(
     (s) => matchVenue(venues, s.venue)?.slug === venue.slug,
   );
+  const venuePastShows = pastShows.filter(
+    (s) => matchVenue(venues, s.venue)?.slug === venue.slug,
+  );
   const user = await getCurrentUser();
-  const showStatuses = user ? await listShowStatuses(user.id, venueShows.map((s) => s.id)) : {};
+  const showStatuses = user
+    ? await listShowStatuses(user.id, [...venueShows, ...venuePastShows].map((s) => s.id))
+    : {};
 
   const actions = (
     <Link
@@ -77,6 +82,7 @@ export default async function VenueProfilePage({ params }: Props) {
       <VenueProfile
         venue={venue}
         shows={venueShows}
+        pastShows={venuePastShows}
         press={press}
         today={todayInChicago()}
         showStatuses={showStatuses}

@@ -168,6 +168,32 @@ export async function fetchPastShows(days: number): Promise<Show[]> {
   return rows.map(mapRow).sort((a, b) => b.date.localeCompare(a.date));
 }
 
+/**
+ * Every past show, any age, most recent first — unlike fetchPastShows(), not
+ * windowed to the last N days. Used by the venue profile page's "Past shows"
+ * tab, which wants a venue's full history rather than just a recent slice.
+ */
+export async function fetchAllPastShows(): Promise<Show[]> {
+  const today = todayInChicago();
+
+  let rows: ShowsQueryRow[];
+  try {
+    rows = await sql<ShowsQueryRow[]>`
+      SELECT
+        id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
+        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        needs_review, confidence, review_reasons
+      FROM shows
+      WHERE confidence IS DISTINCT FROM 'broken' AND date < ${today}
+    `;
+  } catch (err) {
+    console.error("fetchAllPastShows: query failed", err);
+    return [];
+  }
+
+  return rows.map(mapRow).sort((a, b) => b.date.localeCompare(a.date));
+}
+
 /** Today + the next `days - 1` days, both as "YYYY-MM-DD" (America/Chicago). */
 export function reviewWindow(days: number): { start: string; end: string } {
   const start = todayInChicago();
