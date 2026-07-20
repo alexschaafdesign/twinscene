@@ -20,6 +20,18 @@
 // swallow pointer events, so without a capture layer a drag would die the
 // moment it crossed one.
 //
+// SMOOTHNESS — the reason this file looks the way it does:
+//   * A drag doesn't start until the pointer travels DRAG_THRESHOLD, so a
+//     plain click never disturbs the page.
+//   * The drop indicator and the floating label are positioned `fixed` and
+//     written directly to the DOM from an animation frame. Nothing about a
+//     drag goes through React state, so the profile — iframes and all — does
+//     not re-render while you move the pointer. An in-flow indicator would
+//     reflow the page on every target change, which also moves the very
+//     midpoints the hit-test reads, making the whole thing oscillate.
+//   * Positions are recomputed each frame from live rects, so edge-scrolling
+//     stays in sync for free.
+//
 // Not accessible — dragging is mouse/touch only. /bands/<slug>/customize is
 // the keyboard and screen-reader path to the same layout, and stays supported.
 
@@ -36,10 +48,12 @@ import {
 } from "@/lib/bandProfileLayout";
 import type { ReactNode } from "react";
 
-type Drag = { id: SectionId; from: Region; fromIndex: number };
-type Drop = { region: Region; index: number };
+type Press = { id: SectionId; from: Region; fromIndex: number; x: number; y: number };
+type Drop = { region: Region; index: number; top: number; left: number; width: number };
 
-/** Pixels from the viewport edge where a drag starts scrolling the page. */
+/** Pointer travel before a press becomes a drag. Below this it's a click. */
+const DRAG_THRESHOLD = 6;
+/** Distance from the viewport edge at which a drag scrolls the page. */
 const SCROLL_EDGE = 90;
 const SCROLL_SPEED = 14;
 
@@ -64,14 +78,26 @@ export default function ProfileLayoutEditor({
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [layout, setLayout] = useState(initialLayout);
-  const [drag, setDrag] = useState<Drag | null>(null);
-  const [drop, setDrop] = useState<Drop | null>(null);
+  /** Only set once a press becomes a real drag — drives the lifted styling.
+   * Nothing else about a drag lives in React state. */
+  const [dragging, setDragging] = useState<SectionId | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // The layout to restore if the band cancels out of edit mode.
   const committed = useRef(initialLayout);
-  const pointerY = useRef(0);
+  const press = useRef<Press | null>(null);
+  const active = useRef(false);
+  const dropRef = useRef<Drop | null>(null);
+  const pointer = useRef({ x: 0, y: 0 });
+  // Mirrors `layout` so the delegated pointer handlers read the current
+  // arrangement without the listener effect re-registering on every change.
+  const layoutRef = useRef(layout);
+  useEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
+
+  const indicatorRef = useRef<HTMLDivElement | null>(null);
+  const ghostRef = useRef<HTMLDivElement | null>(null);
 
   const empty = new Set(emptyIds);
 
@@ -87,132 +113,193 @@ export default function ProfileLayoutEditor({
     return () => mq.removeEventListener("change", sync);
   }, []);
 
-  /** Which region and slot the pointer is over. Regions are hit-tested by
-   * their container box (nearest wins, so the gap between columns still
-   * resolves); the slot is the first section whose midpoint we've passed. */
+  /** Where the carried section would land, plus the exact bar geometry for it.
+   * Both come out of one pass over the live rects so they can never disagree. */
   const locate = useCallback(
-    (clientY: number, clientX: number, dragged: Drag): Drop => {
-      let best: { region: Region; distance: number } | null = null;
+    (p: Press): Drop | null => {
+      const { x, y } = pointer.current;
+      let best: { region: Region; el: Element; distance: number } | null = null;
 
       for (const region of REGIONS) {
-        if (!wideEnough && region !== dragged.from) continue;
+        if (!wideEnough && region !== p.from) continue;
         const el = document.querySelector(`[data-region="${region}"]`);
         if (!el) continue;
         const r = el.getBoundingClientRect();
-        const dx = clientX < r.left ? r.left - clientX : clientX > r.right ? clientX - r.right : 0;
-        const dy = clientY < r.top ? r.top - clientY : clientY > r.bottom ? clientY - r.bottom : 0;
+        const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
+        const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
         const distance = Math.hypot(dx, dy);
-        if (!best || distance < best.distance) best = { region, distance };
+        if (!best || distance < best.distance) best = { region, el, distance };
       }
+      if (!best) return null;
 
-      const region = best?.region ?? dragged.from;
-      const ids = layout[region];
+      const { region, el: container } = best;
+      const box = container.getBoundingClientRect();
+      const ids = layoutRef.current[region];
 
       let index = ids.length;
+      let top = box.top;
       for (let i = 0; i < ids.length; i++) {
-        if (ids[i] === dragged.id) continue;
-        const el = document.querySelector(`[data-region="${region}"] [data-section="${ids[i]}"]`);
+        if (ids[i] === p.id) continue;
+        const el = container.querySelector(`[data-section="${ids[i]}"]`);
         if (!el) continue;
         const r = el.getBoundingClientRect();
-        if (clientY < r.top + r.height / 2) {
+        if (y < r.top + r.height / 2) {
           index = i;
-          break;
+          top = r.top - 6;
+          return { region, index, top, left: box.left, width: box.width };
         }
+        top = r.bottom + 6;
       }
-      return { region, index };
+      return { region, index, top, left: box.left, width: box.width };
     },
-    [layout, wideEnough],
+    [wideEnough],
   );
 
-  // Move/up on `window`, so the drag survives leaving the overlay — and an
-  // rAF loop scrolls the page when the pointer nears a viewport edge, since a
-  // profile is far taller than the screen.
-  useEffect(() => {
-    if (!drag) return;
-
-    function onMove(e: PointerEvent) {
-      e.preventDefault();
-      pointerY.current = e.clientY;
-      setDrop(locate(e.clientY, e.clientX, drag!));
-    }
-    function onUp() {
-      setDrag(null);
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setDrop(null);
-        setDrag(null);
+  /** Paint the indicator bar and the floating label straight to the DOM. */
+  const paint = useCallback((drop: Drop | null) => {
+    const bar = indicatorRef.current;
+    if (bar) {
+      if (drop) {
+        bar.style.display = "block";
+        bar.style.transform = `translate3d(${drop.left}px, ${drop.top}px, 0)`;
+        bar.style.width = `${drop.width}px`;
+      } else {
+        bar.style.display = "none";
       }
     }
+    const ghost = ghostRef.current;
+    if (ghost) {
+      const { x, y } = pointer.current;
+      ghost.style.transform = `translate3d(${x + 14}px, ${y + 14}px, 0)`;
+    }
+  }, []);
 
-    // Seeded here rather than on pointerdown so the edge-scroll loop has a
-    // neutral starting value until the first move arrives.
-    pointerY.current = window.innerHeight / 2;
+  // One listener set for the whole editing session. Everything a drag touches
+  // is a ref, so this never re-registers mid-gesture and never re-renders.
+  useEffect(() => {
+    if (!editing) return;
 
+    function finish(commit: boolean) {
+      const p = press.current;
+      // Normally the frame loop has already resolved a target. A drag fast
+      // enough to release before any frame ran (a flick, or a synthetic
+      // event burst) would otherwise drop nothing, so resolve it here from
+      // the final pointer position.
+      const target = p && active.current ? (dropRef.current ?? locate(p)) : null;
+      press.current = null;
+      active.current = false;
+      dropRef.current = null;
+      paint(null);
+      const ghost = ghostRef.current;
+      if (ghost) ghost.style.display = "none";
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+      setDragging(null);
+      if (!commit || !p || !target) return;
+
+      // A drop back into the slot it came from changes nothing.
+      if (
+        target.region === p.from &&
+        (target.index === p.fromIndex || target.index === p.fromIndex + 1)
+      ) {
+        return;
+      }
+
+      setLayout((current) => {
+        const without = current[p.from].filter((s) => s !== p.id);
+        // Removing the section first shifts later slots in that same region
+        // down one, so a downward move needs its index adjusted.
+        const index =
+          target.region === p.from && target.index > p.fromIndex
+            ? target.index - 1
+            : target.index;
+        const next = { ...current, [p.from]: without };
+        const destination = [...next[target.region]];
+        destination.splice(index, 0, p.id);
+        return { ...next, [target.region]: destination };
+      });
+    }
+
+    // Delegated rather than a per-section handler: the drag surface is
+    // identified by data attributes, so no closure is rebuilt per render and
+    // the whole gesture stays out of React.
+    function onDown(e: PointerEvent) {
+      if (e.button !== 0) return;
+      const target = e.target as HTMLElement | null;
+      if (!target || target.closest("[data-no-drag]")) return;
+      const handle = target.closest("[data-drag-handle]");
+      if (!handle) return;
+
+      const id = handle.getAttribute("data-drag-handle") as SectionId;
+      const region = handle.closest("[data-region]")?.getAttribute("data-region") as
+        | Region
+        | undefined;
+      if (!region) return;
+      const fromIndex = layoutRef.current[region].indexOf(id);
+      if (fromIndex === -1) return;
+
+      pointer.current = { x: e.clientX, y: e.clientY };
+      press.current = { id, from: region, fromIndex, x: e.clientX, y: e.clientY };
+    }
+
+    function onMove(e: PointerEvent) {
+      const p = press.current;
+      if (!p) return;
+      pointer.current = { x: e.clientX, y: e.clientY };
+
+      if (!active.current) {
+        if (Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_THRESHOLD) return;
+        active.current = true;
+        document.body.style.userSelect = "none";
+        document.body.style.cursor = "grabbing";
+        const ghost = ghostRef.current;
+        if (ghost) ghost.style.display = "block";
+        setDragging(p.id);
+      }
+      e.preventDefault();
+    }
+
+    function onUp() {
+      finish(true);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") finish(false);
+    }
+
+    // Recomputed per frame rather than per pointermove: it keeps the bar
+    // correct while the page edge-scrolls under a stationary pointer, and
+    // naturally coalesces bursts of pointer events into one update.
     let frame = 0;
     const tick = () => {
-      const y = pointerY.current;
+      frame = requestAnimationFrame(tick);
+      const p = press.current;
+      if (!p || !active.current) return;
+
+      const y = pointer.current.y;
       if (y < SCROLL_EDGE) window.scrollBy(0, -SCROLL_SPEED);
       else if (y > window.innerHeight - SCROLL_EDGE) window.scrollBy(0, SCROLL_SPEED);
-      frame = requestAnimationFrame(tick);
+
+      dropRef.current = locate(p);
+      paint(dropRef.current);
     };
     frame = requestAnimationFrame(tick);
 
+    window.addEventListener("pointerdown", onDown);
     window.addEventListener("pointermove", onMove, { passive: false });
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
     window.addEventListener("keydown", onKey);
     return () => {
       cancelAnimationFrame(frame);
+      window.removeEventListener("pointerdown", onDown);
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("keydown", onKey);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
     };
-  }, [drag, locate]);
-
-  // Commit on release. Kept out of the pointerup handler so it reads the drop
-  // target from the same render that drew the indicator — what you saw is
-  // exactly what lands.
-  const previousDrag = useRef<Drag | null>(null);
-  useEffect(() => {
-    const from = previousDrag.current;
-    previousDrag.current = drag;
-    if (!from || drag) return;
-
-    const target = drop;
-    setDrop(null);
-    if (!target) return;
-
-    // A press that never moved is a click, not a rearrangement.
-    if (
-      target.region === from.from &&
-      (target.index === from.fromIndex || target.index === from.fromIndex + 1)
-    ) {
-      return;
-    }
-
-    setLayout((current) => {
-      const without = current[from.from].filter((s) => s !== from.id);
-      // Removing the section first shifts later slots in that same region
-      // down one, so a downward move needs its index adjusted.
-      const index =
-        target.region === from.from && target.index > from.fromIndex
-          ? target.index - 1
-          : target.index;
-      const next = { ...current, [from.from]: without };
-      const destination = [...next[target.region]];
-      destination.splice(index, 0, from.id);
-      return { ...next, [target.region]: destination };
-    });
-  }, [drag, drop]);
-
-  function startDrag(e: React.PointerEvent, id: SectionId, region: Region, index: number) {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    setDrag({ id, from: region, fromIndex: index });
-    setDrop({ region, index });
-  }
+  }, [editing, locate, paint]);
 
   function hide(region: Region, id: SectionId) {
     setLayout((c) => ({
@@ -263,96 +350,90 @@ export default function ProfileLayoutEditor({
     }
   }
 
-  /** The bar showing where a released section would land. */
-  function Indicator({ region, index }: { region: Region; index: number }) {
-    if (!drag || !drop || drop.region !== region || drop.index !== index) return null;
-    return <div aria-hidden className="h-1 rounded-full bg-[#E8B84B]" />;
-  }
-
   function renderRegion(region: Region) {
-    const ids = layout[region];
-    return (
-      <>
-        <Indicator region={region} index={0} />
-        {ids.map((id, i) => {
-          const meta = SECTION_META[id];
-          const content = sections[id];
-          const isEmpty = empty.has(id);
+    return layout[region].map((id) => {
+      const meta = SECTION_META[id];
+      const content = sections[id];
+      const isEmpty = empty.has(id);
 
-          // Pinned sections (moderation UI) render as-is — they're not the
-          // band's to arrange, so they get no overlay and no drag handle.
-          if (meta.pinned) {
-            // Still measured while editing — a pinned section occupies space,
-            // so dropping "above" or "below" it has to resolve correctly.
-            return (
-              <Fragment key={id}>
-                {editing ? <div data-section={id}>{content}</div> : content}
-                <Indicator region={region} index={i + 1} />
-              </Fragment>
-            );
-          }
+      // Pinned sections (moderation UI) render as-is — they're not the band's
+      // to arrange — but are still measured, so dropping above or below one
+      // resolves correctly.
+      if (meta.pinned) {
+        return (
+          <Fragment key={id}>
+            {editing ? <div data-section={id}>{content}</div> : content}
+          </Fragment>
+        );
+      }
 
-          if (!editing) {
-            return (
-              <Fragment key={id}>
-                {isEmpty ? null : content}
-                <Indicator region={region} index={i + 1} />
-              </Fragment>
-            );
-          }
+      if (!editing) return <Fragment key={id}>{isEmpty ? null : content}</Fragment>;
 
-          return (
-            <Fragment key={id}>
-              <div
-                data-section={id}
-                className={`relative rounded-md ring-1 transition ${
-                  drag?.id === id
-                    ? "opacity-40 ring-2 ring-[#E8B84B]"
-                    : "ring-[#E8E0D0]/15 hover:ring-[#E8E0D0]/35"
-                }`}
+      return (
+        <div
+          key={id}
+          data-section={id}
+          className={`relative rounded-md ring-1 transition-[opacity,box-shadow] duration-150 ${
+            dragging === id
+              ? "opacity-30 ring-2 ring-[#E8B84B]"
+              : "ring-[#E8E0D0]/15 hover:ring-[#E8E0D0]/35"
+          }`}
+        >
+          {isEmpty ? (
+            <div className="px-3 py-6 text-center text-sm italic text-[#E8E0D0]/35">
+              {meta.label} — nothing here yet
+            </div>
+          ) : (
+            content
+          )}
+
+          {/* Capture layer: sits over the section (including any iframe) so
+              the whole thing is a drag surface. */}
+          <div
+            data-drag-handle={id}
+            style={{ touchAction: "none" }}
+            className="absolute inset-0 cursor-grab rounded-md bg-[#1a1a1a]/35 active:cursor-grabbing"
+          >
+            <div className="flex items-start justify-between gap-2 p-2">
+              <span className="rounded bg-[#1a1a1a]/85 px-2 py-1 text-xs font-medium text-[#E8E0D0]/90">
+                ⠿ {meta.label}
+              </span>
+              <button
+                type="button"
+                // Excluded from the delegated drag surface, so pressing it
+                // never arms a drag.
+                data-no-drag
+                onClick={() => hide(region, id)}
+                className="rounded bg-[#1a1a1a]/85 px-2 py-1 text-xs text-[#E8E0D0]/70 transition hover:text-[#E8E0D0]"
               >
-                {isEmpty ? (
-                  <div className="px-3 py-6 text-center text-sm italic text-[#E8E0D0]/35">
-                    {meta.label} — nothing here yet
-                  </div>
-                ) : (
-                  content
-                )}
-
-                {/* Capture layer: sits over the section (including any
-                    iframe) so the whole thing is a drag surface. */}
-                <div
-                  onPointerDown={(e) => startDrag(e, id, region, i)}
-                  style={{ touchAction: "none" }}
-                  className="absolute inset-0 cursor-grab rounded-md bg-[#1a1a1a]/35 active:cursor-grabbing"
-                >
-                  <div className="flex items-start justify-between gap-2 p-2">
-                    <span className="rounded bg-[#1a1a1a]/85 px-2 py-1 text-xs font-medium text-[#E8E0D0]/90">
-                      ⠿ {meta.label}
-                    </span>
-                    <button
-                      type="button"
-                      // Don't let the press that opens this button also pick
-                      // the section up.
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={() => hide(region, id)}
-                      className="rounded bg-[#1a1a1a]/85 px-2 py-1 text-xs text-[#E8E0D0]/70 transition hover:text-[#E8E0D0]"
-                    >
-                      Hide
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <Indicator region={region} index={i + 1} />
-            </Fragment>
-          );
-        })}
-      </>
-    );
+                Hide
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    });
   }
 
   return (
     <div>
+      {/* Drag chrome. Both are fixed and driven straight from the animation
+          frame, so they never participate in layout or trigger a render. */}
+      <div
+        ref={indicatorRef}
+        aria-hidden
+        style={{ display: "none", top: 0, left: 0 }}
+        className="pointer-events-none fixed z-40 h-1 rounded-full bg-[#E8B84B] shadow-[0_0_8px_rgba(232,184,75,0.6)]"
+      />
+      <div
+        ref={ghostRef}
+        aria-hidden
+        style={{ display: "none", top: 0, left: 0 }}
+        className="pointer-events-none fixed z-50 rounded bg-[#E8B84B] px-2.5 py-1 text-xs font-medium text-[#1a1a1a] shadow-lg"
+      >
+        {dragging ? SECTION_META[dragging].label : ""}
+      </div>
+
       {!editing ? (
         <div className="mb-5 flex justify-end">
           <button
