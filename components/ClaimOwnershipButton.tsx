@@ -32,8 +32,9 @@ export function ClaimOwnershipInstructions({ loggedIn = false }: { loggedIn?: bo
 
       <p className="mt-3 text-sm leading-relaxed text-[#E8E0D0]/75">
         {loggedIn ? "Send" : "Then, send"} a DM to{" "}
-        <span className="font-medium text-[#E8E0D0]">@twin.scene</span> on Instagram to verify
-        you&apos;re actually the band. Once we&apos;ve confirmed it, we&apos;ll send you a
+        <span className="font-medium text-[#E8E0D0]">@twin.scene</span>{" "}
+        on Instagram from your band&apos;s account to verify you&apos;re actually the band. Once
+        we&apos;ve confirmed it, we&apos;ll send you a
         one-time code — enter it at{" "}
         <Link href="/redeem" className="underline underline-offset-2 hover:text-[#E8E0D0]">
           twinscene.org/redeem
