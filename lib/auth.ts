@@ -8,6 +8,7 @@ import { cookies } from "next/headers";
 import type postgres from "postgres";
 import { sql } from "./db.ts";
 import { sendEmail } from "./email.ts";
+import { assignDefaultUsername } from "./users.ts";
 
 export interface User {
   id: number;
@@ -113,6 +114,19 @@ async function upsertUserByEmail(
     returning *, (xmax = 0) as is_new
   `;
   const { is_new, ...user } = row;
+
+  // Give every account a default username derived from its email, so the
+  // public /u/[username] URL and the "[name] is …" status line work from the
+  // first login. Gated on a missing username rather than is_new, which also
+  // backfills older accounts created before this existed — the next time they
+  // log in they pick one up (and can rename it in /profile/edit). A user who
+  // deliberately cleared their username would get a fresh default here, an edge
+  // case we accept since a null username is a broken profile either way.
+  if (!user.username) {
+    const withUsername = await assignDefaultUsername(user.id, normalizedEmail, tx);
+    return { user: withUsername, isNew: is_new };
+  }
+
   return { user, isNew: is_new };
 }
 

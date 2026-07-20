@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser, sanitizeNextPath } from "@/lib/auth";
 import OnboardingRoleForm from "@/components/OnboardingRoleForm";
+import OnboardingUsername from "@/components/OnboardingUsername";
 
 export const metadata: Metadata = {
   title: "Welcome to Twin Scene",
@@ -36,7 +37,11 @@ export default async function WelcomePage({
       <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[#E8B84B]">
         Welcome to Twin Scene
       </span>
-      <h1 className="mt-2 text-2xl font-medium">Who are you?</h1>
+      <h1 className="mt-2 text-2xl font-medium">Let&apos;s get you set up</h1>
+
+      <OnboardingUsername initialUsername={user.username ?? ""} />
+
+      <h2 className="mt-8 text-xl font-medium">Who are you?</h2>
       <p className="mt-2 text-sm leading-relaxed text-[#E8E0D0]/70">
         Check anything that applies — we&apos;ll help you find or set up the
         right profile for each. Not sure yet, or just here to browse? Hit

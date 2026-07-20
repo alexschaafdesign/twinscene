@@ -2,8 +2,14 @@
 // lib/auth.ts (which owns sessions/login/authorization) — this is the
 // user-editable profile-fields layer Phase 3 slice B adds on top.
 
+import postgres from "postgres";
 import { sql } from "./db.ts";
 import type { User } from "./auth.ts";
+
+// Either the top-level `sql` or a transaction handle from `sql.begin` — so the
+// default-username assignment can run inside the same transaction that creates
+// the user row (see lib/auth.ts upsertUserByEmail).
+type QueryExecutor = postgres.Sql | postgres.TransactionSql;
 
 // 3-30 chars total, must start with a letter/number, rest is
 // letters/digits/underscore/hyphen. Case-insensitive (the `i` flag) — casing
@@ -99,6 +105,63 @@ function validateUsername(raw: string): string {
     throw new InvalidUsernameError("That username isn't available");
   }
   return username;
+}
+
+/** Turns an email into a starting-point username slug that satisfies
+ * USERNAME_PATTERN (3-30 chars, starts alphanumeric, only [a-z0-9_-]). Drops
+ * any `+tag`, lowercases, strips characters the pattern forbids (dots, etc.),
+ * and pads very short results so the base is always valid on its own — the
+ * caller handles reserved names and collisions. "j.doe+shows@x.io" → "jdoe". */
+function deriveUsernameBase(email: string): string {
+  const local = email.split("@")[0]?.split("+")[0]?.toLowerCase() ?? "";
+  let base = local
+    .replace(/[^a-z0-9_-]/g, "") // drop dots and anything else the pattern rejects
+    .replace(/^[_-]+/, "") // must start with a letter or number
+    .replace(/[_-]+$/, ""); // trailing separators read as typos
+  if (base.length < 3) base = `${base}user`; // e.g. "" → "user", "j" → "juser"
+  return base.slice(0, 30);
+}
+
+/** Gives a freshly created (or username-less) user a default username derived
+ * from their email, guaranteeing uniqueness against the lower(username) index
+ * by appending an incrementing suffix on collision, and skipping reserved
+ * names. Meant to run at signup so every account has a working /u/[username]
+ * and a grammatical "[name] is …" line from the start; the user can rename it
+ * later in /profile/edit. The final fallback keys off the always-unique id, so
+ * this can't fail to assign something. */
+export async function assignDefaultUsername(
+  userId: number,
+  email: string,
+  exec: QueryExecutor = sql,
+): Promise<User> {
+  const base = deriveUsernameBase(email);
+
+  for (let n = 0; n < 100; n++) {
+    let candidate = base;
+    if (n > 0) {
+      const suffix = String(n + 1);
+      candidate = base.slice(0, 30 - suffix.length) + suffix;
+    }
+    if (RESERVED_USERNAMES.has(candidate.toLowerCase())) continue;
+    try {
+      const [user] = await exec<User[]>`
+        update users set username = ${candidate} where id = ${userId} returning *
+      `;
+      if (!user) throw new Error(`lib/users: no user with id ${userId}`);
+      return user;
+    } catch (err) {
+      // 23505 = unique violation on lower(username): taken, try the next suffix.
+      if (err && typeof err === "object" && "code" in err && err.code === "23505") continue;
+      throw err;
+    }
+  }
+
+  // Astronomically unlikely to get here — `user-<id>` is unique by construction.
+  const [user] = await exec<User[]>`
+    update users set username = ${`user-${userId}`} where id = ${userId} returning *
+  `;
+  if (!user) throw new Error(`lib/users: no user with id ${userId}`);
+  return user;
 }
 
 export interface ProfileUpdate {
