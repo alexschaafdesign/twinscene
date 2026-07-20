@@ -33,7 +33,7 @@ export default async function MediaProSubmitPage({
     const user = await getCurrentUser();
     if (!(await canEditMediaPro(user, mediaPro.id))) {
       return (
-        <main className="mx-auto w-full max-w-2xl px-5 py-24 text-[#E8E0D0] sm:px-8">
+        <main className="mx-auto w-full max-w-2xl px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
           <p className="text-sm text-[#F5A3A3]">
             {user
               ? "You don't have edit access to this listing."

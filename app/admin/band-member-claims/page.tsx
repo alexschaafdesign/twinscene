@@ -22,7 +22,7 @@ export default async function BandMemberClaimsPage() {
   }
   if (!isAdmin(user)) {
     return (
-      <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
+      <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
         <p className="text-sm text-[#F5A3A3]">You don&apos;t have access to this page.</p>
       </main>
     );
@@ -31,7 +31,7 @@ export default async function BandMemberClaimsPage() {
   const claims = await listAllPendingClaims();
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
+    <main className="mx-auto flex w-full max-w-lg flex-col px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
       <h1 className="text-xl font-medium">Pending band member claims</h1>
       <p className="mt-2 text-sm text-[#E8E0D0]/60">
         Every pending claim, across all bands. A band&apos;s own owner can

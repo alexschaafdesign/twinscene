@@ -63,30 +63,42 @@ export default function StatusEditor({
   if (!editing) {
     return (
       <div
+        onClick={large ? () => setEditing(true) : undefined}
         className={
           large
-            ? "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-5 py-4"
+            ? "group flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#E8B84B]/25 bg-gradient-to-br from-[#E8B84B]/[0.1] via-[#E8B84B]/[0.02] to-transparent px-5 py-4 transition duration-200 hover:-translate-y-0.5 hover:border-[#E8B84B]/50 hover:shadow-[0_0_28px_-10px_rgba(232,184,75,0.4)] cursor-pointer"
             : "flex flex-wrap items-baseline gap-x-2 gap-y-1"
         }
       >
-        <div className={large ? "flex flex-wrap items-baseline gap-x-2 gap-y-1" : "contents"}>
+        <div className={large ? "flex flex-wrap items-center gap-x-2.5 gap-y-1" : "contents"}>
           {current ? (
             <>
+              {large && (
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#E8B84B] opacity-75" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#E8B84B]" />
+                </span>
+              )}
               <p className={large ? "text-base text-[#E8E0D0]" : "text-sm text-[#E8E0D0]/80"}>
                 <span className="text-[#E8E0D0]/50">{name} is</span> {current}
               </p>
               {savedAt && <span className="text-xs text-[#E8E0D0]/40">{formatStatusAge(savedAt)}</span>}
             </>
           ) : (
-            <p className={large ? "text-base text-[#E8E0D0]/40" : "text-sm text-[#E8E0D0]/40"}>{name} is…</p>
+            <p className={large ? "text-base text-[#E8E0D0]/40" : "text-sm text-[#E8E0D0]/40"}>
+              {large ? <>{name} is… <span className="italic text-[#E8B84B]/50">what?</span></> : `${name} is…`}
+            </p>
           )}
         </div>
         <button
           type="button"
-          onClick={() => setEditing(true)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditing(true);
+          }}
           className={
             large
-              ? "shrink-0 rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-xs transition hover:bg-[#E8E0D0]/10"
+              ? "shrink-0 rounded-full bg-[#E8B84B] px-3.5 py-1.5 text-xs font-semibold text-[#2A2420] shadow-sm transition duration-200 group-hover:scale-105 hover:bg-[#f0c65f]"
               : "text-xs text-[#E8E0D0]/60 underline underline-offset-2 transition hover:text-[#E8E0D0]"
           }
         >
@@ -97,6 +109,8 @@ export default function StatusEditor({
   }
 
   const remaining = MAX_STATUS_LENGTH - status.length;
+  const counterColor =
+    remaining <= 10 ? "text-[#F5A3A3]" : remaining <= 30 ? "text-[#E8B84B]" : "text-[#E8E0D0]/40";
 
   return (
     <form
@@ -106,7 +120,7 @@ export default function StatusEditor({
       }}
       className={
         large
-          ? "flex flex-col gap-2 rounded-xl border border-[#E8E0D0]/25 bg-[#E8E0D0]/[0.04] px-5 py-4"
+          ? "animate-fade-in flex flex-col gap-3 rounded-2xl border border-[#E8B84B]/40 bg-gradient-to-br from-[#E8B84B]/[0.1] via-[#E8B84B]/[0.03] to-transparent px-5 py-4 shadow-[0_0_28px_-10px_rgba(232,184,75,0.3)]"
           : "flex flex-col gap-2"
       }
     >
@@ -124,7 +138,7 @@ export default function StatusEditor({
           placeholder="at First Ave tonight"
           className={
             large
-              ? "w-full rounded-md border border-[#E8E0D0]/25 bg-transparent px-3 py-2 text-base text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
+              ? "w-full rounded-full border border-[#E8B84B]/30 bg-black/20 px-4 py-2.5 text-base text-[#E8E0D0] placeholder:italic placeholder:text-[#E8E0D0]/35 transition duration-200 focus:border-[#E8B84B] focus:outline-none focus:ring-2 focus:ring-[#E8B84B]/30"
               : "w-full rounded-md border border-[#E8E0D0]/25 bg-transparent px-3 py-1.5 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
           }
         />
@@ -133,7 +147,11 @@ export default function StatusEditor({
         <button
           type="submit"
           disabled={state === "saving"}
-          className="rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-xs transition hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+          className={
+            large
+              ? "rounded-full bg-[#E8B84B] px-4 py-1.5 text-xs font-semibold text-[#2A2420] shadow-sm transition duration-200 hover:scale-105 hover:bg-[#f0c65f] disabled:opacity-50 disabled:hover:scale-100"
+              : "rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-xs transition hover:bg-[#E8E0D0]/10 disabled:opacity-50"
+          }
         >
           {state === "saving" ? "Saving…" : "Save"}
         </button>
@@ -159,7 +177,7 @@ export default function StatusEditor({
             Clear
           </button>
         )}
-        <span className="text-xs text-[#E8E0D0]/40">{remaining} left</span>
+        <span className={`text-xs transition-colors ${counterColor}`}>{remaining} left</span>
       </div>
       {error && <p className="text-sm text-[#F5A3A3]">{error}</p>}
     </form>

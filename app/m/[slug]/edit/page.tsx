@@ -30,7 +30,7 @@ export default async function MusicianEditPage({ params }: Props) {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
+    <main className="mx-auto flex w-full max-w-sm flex-col px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
       <Link
         href={`/m/${slug}`}
         className="text-sm text-[#E8E0D0]/60 underline underline-offset-2 transition hover:text-[#E8E0D0]"

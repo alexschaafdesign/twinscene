@@ -17,7 +17,7 @@ export default async function ProfileEditPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-sm flex-col px-5 py-24 text-[#E8E0D0] sm:px-8">
+    <main className="mx-auto flex w-full max-w-sm flex-col px-5 py-10 text-[#E8E0D0] sm:px-8 sm:py-14">
       <h1 className="text-xl font-medium">Edit profile</h1>
       <ProfileEditForm
         user={{
