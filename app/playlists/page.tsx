@@ -28,7 +28,7 @@ const PLAYLISTS: Playlist[] = [
 
 export default function PlaylistsPage() {
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 py-6 sm:px-8 sm:py-8">
+    <main className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
       {/* Visually hidden — every page needs an h1 for accessibility/SEO, but
           there's no search/filter UI to hang it on here (just two static
           embeds), unlike the other directory pages. */}

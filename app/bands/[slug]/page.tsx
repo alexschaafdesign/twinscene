@@ -16,6 +16,7 @@ import BandProfile, { editHref } from "@/components/BandProfile";
 import ClaimOwnershipButton from "@/components/ClaimOwnershipButton";
 import { iconProps, locationLabel } from "@/components/band-shared";
 import { FollowBandButton } from "@/components/band-shared-client";
+import BackLink from "@/components/BackLink";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -136,19 +137,22 @@ export default async function BandProfilePage({ params }: Props) {
   );
 
   return (
-    <BandProfile
-      band={band}
-      members={members}
-      shows={bandShows}
-      press={press}
-      videos={videos}
-      today={todayInChicago()}
-      showStatuses={showStatuses}
-      loggedIn={!!user}
-      showClaimEntry={!canEdit}
-      hasOwner={hasOwner}
-      pendingMemberClaims={pendingMemberClaims}
-      actions={actions}
-    />
+    <div>
+      <BackLink href="/" label="Bands" className="mb-6" />
+      <BandProfile
+        band={band}
+        members={members}
+        shows={bandShows}
+        press={press}
+        videos={videos}
+        today={todayInChicago()}
+        showStatuses={showStatuses}
+        loggedIn={!!user}
+        showClaimEntry={!canEdit}
+        hasOwner={hasOwner}
+        pendingMemberClaims={pendingMemberClaims}
+        actions={actions}
+      />
+    </div>
   );
 }

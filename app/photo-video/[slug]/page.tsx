@@ -7,6 +7,7 @@ import MediaProProfile from "@/components/MediaProProfile";
 import ClaimMediaProButton from "@/components/ClaimMediaProButton";
 import { mediaProEditHref } from "@/components/media-pro-shared";
 import { iconProps } from "@/components/band-shared";
+import BackLink from "@/components/BackLink";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -77,6 +78,7 @@ export default async function MediaProProfilePage({ params }: Props) {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
+      <BackLink href="/photo-video" label="Photo/Video" className="mb-6" />
       <MediaProProfile mediaPro={mediaPro} actions={actions} />
     </main>
   );

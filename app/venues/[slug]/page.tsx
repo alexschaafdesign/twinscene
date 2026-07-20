@@ -4,11 +4,9 @@ import { notFound } from "next/navigation";
 import { fetchVenues, matchVenue } from "@/lib/fetchVenues";
 import { fetchShows, todayInChicago } from "@/lib/fetchShows";
 import { fetchPress } from "@/lib/fetchPress";
-import { getVenueBySlug } from "@/lib/venues";
-import { getCurrentUser, canEditVenue } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { listShowStatuses } from "@/lib/showSaves";
 import VenueProfile from "@/components/VenueProfile";
-import ClaimVenueButton from "@/components/ClaimVenueButton";
 import { venueEditHref, venueLocationLabel } from "@/components/venue-shared";
 import { iconProps } from "@/components/band-shared";
 import BackLink from "@/components/BackLink";
@@ -56,13 +54,8 @@ export default async function VenueProfilePage({ params }: Props) {
   );
   const user = await getCurrentUser();
   const showStatuses = user ? await listShowStatuses(user.id, venueShows.map((s) => s.id)) : {};
-  // fetchVenues()'s public Venue shape has no numeric id (see lib/venueUtils.ts);
-  // canEditVenue needs the DB row's id, mirroring app/bands/[slug]/page.tsx's
-  // bandRow lookup alongside the public `band` used for display.
-  const venueRow = await getVenueBySlug(venue.slug);
-  const canEdit = venueRow ? await canEditVenue(user, venueRow.id) : false;
 
-  const actions = canEdit ? (
+  const actions = (
     <Link
       href={venueEditHref(venue)}
       className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
@@ -76,8 +69,6 @@ export default async function VenueProfilePage({ params }: Props) {
       <span className="md:hidden">Edit</span>
       <span className="hidden md:inline">Edit this venue</span>
     </Link>
-  ) : (
-    <ClaimVenueButton slug={venue.slug} loggedIn={!!user} />
   );
 
   return (
