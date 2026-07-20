@@ -117,23 +117,10 @@ export default async function BandProfilePage({ params }: Props) {
         </Link>
       )}
 
-      {/* Layout arranging lives on its own page rather than in the /submit
-          correction form — that form round-trips every field through the URL,
-          which a layout object doesn't belong in. */}
-      {canEdit && (
-        <Link
-          href={`/bands/${slug}/customize`}
-          className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
-        >
-          {/* ti-layout-columns (Tabler) */}
-          <svg {...iconProps} width={15} height={15}>
-            <path d="M4 4m0 2a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" />
-            <path d="M12 4l0 16" />
-          </svg>
-          <span className="md:hidden">Layout</span>
-          <span className="hidden md:inline">Customize layout</span>
-        </Link>
-      )}
+      {/* Layout arranging is the in-place editor on this page (its "Edit
+          layout" button sits above the profile). /bands/<slug>/customize is
+          still reachable from that editor's toolbar as the keyboard and
+          screen-reader path, but it doesn't need a second entry point here. */}
 
       {/* Admin-only shortcut to this band's editors/ownership-code page —
           saves typing the /admin/bands/<slug>/editors URL by hand when a
@@ -170,6 +157,7 @@ export default async function BandProfilePage({ params }: Props) {
         hasOwner={hasOwner}
         pendingMemberClaims={pendingMemberClaims}
         layout={band.profileLayout}
+        canEdit={canEdit}
         actions={actions}
       />
     </div>

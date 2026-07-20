@@ -36,6 +36,8 @@ import { BandImage, CopyButton } from "@/components/band-shared-client";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 import BandMemberClaimSection from "@/components/BandMemberClaimSection";
 import BandMemberClaimsManager from "@/components/BandMemberClaimsManager";
+import BandProfileShell from "@/components/BandProfileShell";
+import ProfileLayoutEditor from "@/components/ProfileLayoutEditor";
 import {
   DEFAULT_LAYOUT,
   type BandProfileLayout,
@@ -471,19 +473,35 @@ function UpcomingShows({
   );
 }
 
-/** Section id → renderer. Keep in sync with SectionId in
- * lib/bandProfileLayout.ts; the layout there decides order and placement. */
-const SECTIONS: Record<SectionId, (props: SectionProps) => ReactNode> = {
-  bio: Bio,
-  members: Members,
-  memberClaims: MemberClaims,
-  claimEntry: ClaimEntry,
-  featured: FeaturedLinks,
-  music: Music,
-  videos: BandVideos,
-  shows: UpcomingShows,
-  links: BandLinks,
-  contact: ContactMethod,
+/** Section id → how to render it, and whether it currently has anything to
+ * show. Keep in sync with SectionId in lib/bandProfileLayout.ts; the layout
+ * there decides order and placement.
+ *
+ * `isEmpty` exists for the in-place editor: a section with no content renders
+ * nothing, and you can't drag something that isn't in the DOM. The editor
+ * substitutes a placeholder so an empty section is still arrangeable — the
+ * band can put Videos where they want it before there are any videos. */
+const SECTIONS: Record<
+  SectionId,
+  { render: (props: SectionProps) => ReactNode; isEmpty: (props: SectionProps) => boolean }
+> = {
+  bio: { render: Bio, isEmpty: () => false }, // falls back to "No bio yet."
+  members: { render: Members, isEmpty: (p) => p.members.length === 0 },
+  memberClaims: { render: MemberClaims, isEmpty: (p) => p.pendingMemberClaims.length === 0 },
+  claimEntry: { render: ClaimEntry, isEmpty: (p) => !p.showClaimEntry || !p.hasOwner },
+  featured: { render: FeaturedLinks, isEmpty: (p) => p.band.featuredLinks.length === 0 },
+  music: { render: Music, isEmpty: (p) => !p.band.bandcampEmbedUrl && !p.band.bandcamp },
+  videos: { render: BandVideos, isEmpty: (p) => p.videos.length === 0 },
+  shows: { render: UpcomingShows, isEmpty: (p) => p.shows.length === 0 },
+  links: {
+    render: BandLinks,
+    isEmpty: (p) =>
+      !p.band.website &&
+      !p.band.instagram &&
+      !p.band.bandcampLink &&
+      !(p.band.bandcamp && !p.band.bandcamp.includes("<iframe")),
+  },
+  contact: { render: ContactMethod, isEmpty: () => false }, // falls back to "Not set yet"
 };
 
 /** Render one region's sections in order. Sections that have nothing to show
@@ -491,9 +509,26 @@ const SECTIONS: Record<SectionId, (props: SectionProps) => ReactNode> = {
  * `space-y-*` never opens a gap for an absent section. */
 function renderRegion(region: Region, layout: BandProfileLayout, props: SectionProps) {
   return layout[region].map((id) => {
-    const Section = SECTIONS[id];
+    const Section = SECTIONS[id].render;
     return <Section key={id} {...props} />;
   });
+}
+
+/** Every section rendered once, keyed by id — what the in-place editor needs.
+ * The sections stay server-rendered here (they read the DB); the client editor
+ * only reorders the finished nodes, so it never needs the data itself. */
+function renderAllSections(props: SectionProps): Partial<Record<SectionId, ReactNode>> {
+  const out: Partial<Record<SectionId, ReactNode>> = {};
+  for (const id of Object.keys(SECTIONS) as SectionId[]) {
+    const Section = SECTIONS[id].render;
+    out[id] = <Section {...props} />;
+  }
+  return out;
+}
+
+/** Ids whose section would render nothing right now. */
+function emptySectionIds(props: SectionProps): SectionId[] {
+  return (Object.keys(SECTIONS) as SectionId[]).filter((id) => SECTIONS[id].isEmpty(props));
 }
 
 export default function BandProfile({
@@ -509,6 +544,7 @@ export default function BandProfile({
   hasOwner = true,
   pendingMemberClaims = [],
   layout = DEFAULT_LAYOUT,
+  canEdit = false,
   actions,
 }: {
   band: Band;
@@ -540,6 +576,11 @@ export default function BandProfile({
   /** Section order and visibility. Defaults to the standard arrangement;
    * pass a normalized layout (lib/bandProfileLayout.ts) to vary it. */
   layout?: BandProfileLayout;
+  /** Viewer may edit this band — turns on the in-place layout editor. The
+   * page decides it via canEditBand; this only controls whether the editing
+   * affordances render, never whether a save is allowed (the PATCH route
+   * re-checks server-side). */
+  canEdit?: boolean;
   /** Ownership/edit action buttons (Claim, Follow, Edit, admin Manage) — the
    * page assembles these (they need page-level data like `canEdit`) but they
    * render inline with the band name so the header stays a single row. */
@@ -559,50 +600,53 @@ export default function BandProfile({
     pendingMemberClaims,
   };
 
-  return (
-    <div className="grid grid-cols-1 gap-8 md:grid-cols-[300px_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:gap-x-10">
-      {/* Photo — sidebar, top */}
-      <div className="mx-auto w-full max-w-sm md:col-start-1 md:row-start-1 md:mx-0 md:max-w-none">
-        <BandImage band={band} className="rounded-md ring-1 ring-[#E8E0D0]/10" />
-      </div>
+  const photo = <BandImage band={band} className="rounded-md ring-1 ring-[#E8E0D0]/10" />;
 
-      {/*
-        Main content — spans both sidebar rows and stacks internally, so name →
-        bio → player → shows flow tight from the top regardless of the photo's
-        height (rather than each aligning to the photo's grid row).
-      */}
-      <div className="space-y-6 md:col-start-2 md:row-span-2 md:row-start-1">
-        <div>
-          <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-            <h1 className="text-3xl font-medium leading-tight break-words sm:text-4xl">
-              {band.name}
-            </h1>
-            {actions && (
-              <div className="flex flex-wrap items-center gap-3">{actions}</div>
-            )}
-          </div>
-          <PlaceLine band={band} className="mt-2 text-sm" />
-          {band.genres.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {band.genres.map((g) => (
-                <span
-                  key={g}
-                  className="rounded-full border border-[#E8E0D0]/20 px-2 py-0.5 text-xs text-[#E8E0D0]/75"
-                >
-                  {g}
-                </span>
-              ))}
-            </div>
-          )}
+  const header = (
+    <div>
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <h1 className="text-3xl font-medium leading-tight break-words sm:text-4xl">{band.name}</h1>
+        {actions && <div className="flex flex-wrap items-center gap-3">{actions}</div>}
+      </div>
+      <PlaceLine band={band} className="mt-2 text-sm" />
+      {band.genres.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {band.genres.map((g) => (
+            <span
+              key={g}
+              className="rounded-full border border-[#E8E0D0]/20 px-2 py-0.5 text-xs text-[#E8E0D0]/75"
+            >
+              {g}
+            </span>
+          ))}
         </div>
-
-        {renderRegion("main", layout, sectionProps)}
-      </div>
-
-      {/* Sidebar extras — directly under the photo */}
-      <div className="space-y-5 md:col-start-1 md:row-start-2">
-        {renderRegion("sidebar", layout, sectionProps)}
-      </div>
+      )}
     </div>
+  );
+
+  // Editors get the in-place arranger wrapped around the real profile: same
+  // grid, same server-rendered sections, plus an "Edit layout" toggle that
+  // drops draggable overlays over them. Everyone else renders the plain view
+  // and ships no editor JavaScript at all.
+  if (canEdit) {
+    return (
+      <ProfileLayoutEditor
+        slug={band.slug}
+        initialLayout={layout}
+        sections={renderAllSections(sectionProps)}
+        emptyIds={emptySectionIds(sectionProps)}
+        photo={photo}
+        header={header}
+      />
+    );
+  }
+
+  return (
+    <BandProfileShell
+      photo={photo}
+      header={header}
+      main={renderRegion("main", layout, sectionProps)}
+      sidebar={renderRegion("sidebar", layout, sectionProps)}
+    />
   );
 }
