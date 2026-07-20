@@ -11,6 +11,7 @@ import type { ShowStatus } from "@/lib/showSaves";
 import VenueShowsSection from "@/components/VenueShowsSection";
 import { VenuePlaceLine } from "@/components/venue-shared";
 import { VenueImage } from "@/components/venue-shared-client";
+import { iconProps } from "@/components/band-shared";
 
 function InfoBlock({
   label,
@@ -86,8 +87,15 @@ export default function VenueProfile({
                 </span>
               )}
               {venue.capacity != null && (
-                <span className="rounded-full border border-[#E8E0D0]/20 px-2 py-0.5 text-xs text-[#E8E0D0]/75">
-                  Capacity {venue.capacity}
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#E8B84B]/50 bg-gradient-to-br from-[#E8B84B]/25 via-[#E8B84B]/10 to-transparent px-2.5 py-0.5 text-xs font-semibold text-[#E8B84B]">
+                  {/* ti-users (Tabler) */}
+                  <svg {...iconProps} width={13} height={13} strokeWidth={2.2}>
+                    <path d="M9 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0" />
+                    <path d="M3 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    <path d="M21 21v-2a4 4 0 0 0 -3 -3.85" />
+                  </svg>
+                  {venue.capacity.toLocaleString()}
                 </span>
               )}
             </div>
