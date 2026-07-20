@@ -1,0 +1,17 @@
+-- Per-band control over the order, region and visibility of the sections on
+-- /bands/[slug] — so a band can lead with video, pull Contact to the top, or
+-- hide a section it doesn't use, instead of every profile rendering the one
+-- fixed arrangement.
+--
+-- Shape (lib/bandProfileLayout.ts owns the vocabulary and the normalizer):
+--   { "main": SectionId[], "sidebar": SectionId[], "hidden": SectionId[] }
+--
+-- Nullable with no default: null means "the standard arrangement"
+-- (DEFAULT_LAYOUT), so all existing bands keep rendering exactly as they do
+-- today and nothing needs backfilling. normalizeLayout() tolerates partial,
+-- stale and junk values, so a row written by an older client still renders —
+-- a section it doesn't mention is restored at its default slot rather than
+-- disappearing. Presentation only: no other project reads this column, and
+-- it is deliberately NOT in PUBLIC_BAND_FIELDS (lib/bands.ts), so it stays
+-- out of the public bands API that Crawlspace consumes.
+alter table bands add column profile_layout jsonb;

@@ -8,6 +8,7 @@ import { resolveBandcampEmbedUrl } from "./bandcamp.ts";
 import { extractOgImage } from "./ogImage.ts";
 import { reconcileBandMembers } from "./musicians.ts";
 import { notifyBandProfileUpdated } from "./notifications.ts";
+import type { BandProfileLayout } from "./bandProfileLayout.ts";
 
 // Mirrors the `bands` columns exactly (snake_case), so a `select *` row IS a
 // Band with no transform. The public allowlist below is keyed off this type, so
@@ -31,6 +32,10 @@ export interface Band {
   members: unknown; // jsonb — string[] of band member names; null if none
   contact_email: string | null; // not exposed publicly — see PUBLIC_BAND_FIELDS
   contact_method: string | null; // "" | "email" | "instagram" | "website"; not exposed publicly
+  // jsonb — { main, sidebar, hidden } section arrangement for the band's
+  // profile page (lib/bandProfileLayout.ts); null means the default layout.
+  // Presentation-only, so it's deliberately absent from PUBLIC_BAND_FIELDS.
+  profile_layout: unknown;
   created_at: string;
   updated_at: string;
 }
@@ -136,6 +141,23 @@ export async function updateBandCoreFields(
   }
 
   return updated;
+}
+
+// Save a band's profile section arrangement. The caller is responsible for the
+// canEditBand gate and for passing an already-normalized layout
+// (lib/bandProfileLayout.ts normalizeLayout) — this just persists it.
+//
+// Deliberately does NOT touch updated_at or notify followers: rearranging your
+// own page isn't news to a fan, and letting it bump updated_at would push the
+// band to the top of the directory's "Recently updated" sort on a cosmetic
+// change.
+export async function updateBandProfileLayout(
+  bandId: number,
+  layout: BandProfileLayout,
+): Promise<void> {
+  await sql`
+    update bands set profile_layout = ${sql.json(layout)} where id = ${bandId}
+  `;
 }
 
 type Tx = postgres.TransactionSql;

@@ -12,6 +12,7 @@
 // bottom), then Birdhaus's API, and now Twin Scene's own table.
 
 import { getAllBands, type Band as BandRow } from "./bands";
+import { normalizeLayout, type BandProfileLayout } from "./bandProfileLayout";
 
 // A band-curated "linktree" entry: the top things they want people to see
 // (show tickets, a new release, etc.). `image` is a best-effort og:image the
@@ -39,6 +40,9 @@ export type Band = {
   featuredLinks: FeaturedLink[]; // up to 3 band-curated highlight links
   added: string; // not modeled as a distinct field; created_at could back it later
   updatedAt: string; // ISO timestamp of the row's last edit; backs "Recently updated" sort
+  // Section order/visibility for the profile page, already normalized — a band
+  // that has never customized gets DEFAULT_LAYOUT, so consumers never branch.
+  profileLayout: BandProfileLayout;
 };
 
 /** Reduce a full URL or "@handle" to just the bare Instagram handle. The table
@@ -128,6 +132,7 @@ function fromTwinScene(b: BandRow): Band {
     featuredLinks: featuredLinksOf(b.featured_links),
     added: "",
     updatedAt: isoTimestamp(b.updated_at),
+    profileLayout: normalizeLayout(b.profile_layout),
   };
 }
 
