@@ -6,17 +6,30 @@ import type { PendingBandMemberClaim } from "@/lib/bandMemberClaims";
 // Approve/reject UI for pending band-member claims, shared by the admin
 // oversight queue (app/admin/band-member-claims, decides via
 // /api/admin/band-member-claims/[id]) and a band's own owner-facing list
-// (decides via /api/bands/[slug]/member-claims/[id]) — `decideUrl` picks
-// which. Approval on the server links musicians.user_id (if unlinked),
-// ensures a band_members row, and grants band_editors role='member', all in
-// one transaction (lib/bandMemberClaims.ts decideMemberClaim) — this
-// component just reflects the result.
+// (decides via /api/bands/[slug]/member-claims/[id]) — `scope` picks which.
+// Approval on the server links musicians.user_id (if unlinked), ensures a
+// band_members row, and grants band_editors role='member', all in one
+// transaction (lib/bandMemberClaims.ts decideMemberClaim) — this component
+// just reflects the result.
+//
+// `scope` is a plain string rather than a decideUrl(claim) callback because
+// every server caller here is a Server Component, and a function prop can't
+// cross that boundary — it throws "Functions cannot be passed directly to
+// Client Components" the moment a claim exists to render.
+type ClaimScope = "band" | "admin";
+
+function decideUrl(scope: ClaimScope, claim: PendingBandMemberClaim): string {
+  return scope === "admin"
+    ? `/api/admin/band-member-claims/${claim.id}`
+    : `/api/bands/${claim.band_slug}/member-claims/${claim.id}`;
+}
+
 export default function BandMemberClaimsManager({
   initialClaims,
-  decideUrl,
+  scope,
 }: {
   initialClaims: PendingBandMemberClaim[];
-  decideUrl: (claim: PendingBandMemberClaim) => string;
+  scope: ClaimScope;
 }) {
   const [claims, setClaims] = useState(initialClaims);
   const [error, setError] = useState("");
@@ -24,7 +37,7 @@ export default function BandMemberClaimsManager({
   async function decide(claim: PendingBandMemberClaim, decision: "approve" | "reject") {
     setError("");
     try {
-      const res = await fetch(decideUrl(claim), {
+      const res = await fetch(decideUrl(scope, claim), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ decision }),

@@ -388,10 +388,7 @@ export default function BandProfile({
             <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
               Pending member requests
             </h2>
-            <BandMemberClaimsManager
-              initialClaims={pendingMemberClaims}
-              decideUrl={(claim) => `/api/bands/${band.slug}/member-claims/${claim.id}`}
-            />
+            <BandMemberClaimsManager initialClaims={pendingMemberClaims} scope="band" />
           </div>
         )}
 

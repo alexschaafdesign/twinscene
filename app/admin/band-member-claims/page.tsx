@@ -40,10 +40,7 @@ export default async function BandMemberClaimsPage() {
         links the account to that musician, adds them to the band&apos;s
         member list, and grants them editor access to that band.
       </p>
-      <BandMemberClaimsManager
-        initialClaims={claims}
-        decideUrl={(claim) => `/api/admin/band-member-claims/${claim.id}`}
-      />
+      <BandMemberClaimsManager initialClaims={claims} scope="admin" />
     </main>
   );
 }

@@ -183,10 +183,7 @@ export default async function ProfilePage({
                 <h3 className="mt-4 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
                   Pending member requests
                 </h3>
-                <BandMemberClaimsManager
-                  initialClaims={ownerPendingClaims}
-                  decideUrl={(claim) => `/api/bands/${claim.band_slug}/member-claims/${claim.id}`}
-                />
+                <BandMemberClaimsManager initialClaims={ownerPendingClaims} scope="band" />
               </>
             )}
           </div>
