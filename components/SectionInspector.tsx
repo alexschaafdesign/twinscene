@@ -11,7 +11,7 @@
 // knows nothing section-specific.
 
 import { useEffect, useState } from "react";
-import { SECTION_EDIT, type SectionValues } from "@/lib/bandProfileFields";
+import { SECTION_EDIT, type SectionValues, type LinkListItem } from "@/lib/bandProfileFields";
 import { SECTION_META, type SectionId } from "@/lib/bandProfileLayout";
 
 export default function SectionInspector({
@@ -101,55 +101,128 @@ export default function SectionInspector({
           </button>
         </div>
 
+        {schema?.note && (
+          <p className="mb-4 text-sm leading-relaxed text-[#E8E0D0]/55">{schema.note}</p>
+        )}
+
         {!editable ? (
-          <p className="text-sm leading-relaxed text-[#E8E0D0]/60">
-            {schema?.note ?? "This section isn't editable here."}
-          </p>
+          !schema?.note && (
+            <p className="text-sm leading-relaxed text-[#E8E0D0]/60">
+              This section isn&apos;t editable here.
+            </p>
+          )
         ) : (
           <div className="space-y-4">
-            {schema.fields.map((field) => (
-              <label key={field.key} className="block">
-                <span className="mb-1.5 block text-sm font-medium text-[#E8E0D0]/75">
-                  {field.label}
-                </span>
-                {field.type === "textarea" ? (
-                  <textarea
-                    value={values[field.key] ?? ""}
-                    onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
-                    placeholder={field.placeholder}
-                    maxLength={field.maxLength}
-                    rows={field.rows ?? 5}
-                    className="w-full resize-y rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-3 py-2 text-sm text-[#E8E0D0] outline-none transition focus:border-[#E8E0D0]/45"
-                  />
-                ) : field.type === "select" ? (
-                  <select
-                    value={values[field.key] ?? ""}
-                    onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
-                    className="w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-3 py-2 text-sm text-[#E8E0D0] outline-none transition focus:border-[#E8E0D0]/45"
-                  >
-                    {field.options.map((o) => (
-                      <option key={o.value} value={o.value} className="bg-[#1a1a1a]">
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={values[field.key] ?? ""}
-                    onChange={(e) => setValues((v) => ({ ...v, [field.key]: e.target.value }))}
-                    placeholder={field.placeholder}
-                    maxLength={field.maxLength}
-                    className="w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-3 py-2 text-sm text-[#E8E0D0] outline-none transition focus:border-[#E8E0D0]/45"
-                  />
-                )}
-                {field.type !== "select" && field.maxLength && (
-                  <span className="mt-1 block text-right text-xs text-[#E8E0D0]/35">
-                    {(values[field.key] ?? "").length}/{field.maxLength}
+            {schema.fields.map((field) => {
+              const str = typeof values[field.key] === "string" ? (values[field.key] as string) : "";
+              const set = (val: unknown) => setValues((v) => ({ ...v, [field.key]: val }));
+
+              if (field.type === "linkList") {
+                const items = Array.isArray(values[field.key])
+                  ? (values[field.key] as LinkListItem[])
+                  : [];
+                const update = (i: number, patch: Partial<LinkListItem>) =>
+                  set(items.map((it, j) => (j === i ? { ...it, ...patch } : it)));
+                const remove = (i: number) => set(items.filter((_, j) => j !== i));
+                const add = () => set([...items, { url: "", label: "" }]);
+
+                return (
+                  <div key={field.key}>
+                    <span className="mb-1.5 block text-sm font-medium text-[#E8E0D0]/75">
+                      {field.label}
+                    </span>
+                    <div className="space-y-3">
+                      {items.map((item, i) => (
+                        <div
+                          key={i}
+                          className="rounded-md border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-2.5"
+                        >
+                          <div className="mb-2 flex items-center justify-between">
+                            <span className="text-xs text-[#E8E0D0]/45">
+                              {field.itemNoun} {i + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => remove(i)}
+                              className="text-xs text-[#E8E0D0]/50 transition hover:text-red-400"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={item.url}
+                            onChange={(e) => update(i, { url: e.target.value })}
+                            placeholder="https://…"
+                            className="mb-2 w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-3 py-2 text-sm text-[#E8E0D0] outline-none transition focus:border-[#E8E0D0]/45"
+                          />
+                          <input
+                            type="text"
+                            value={item.label}
+                            onChange={(e) => update(i, { label: e.target.value })}
+                            placeholder="Label (optional)"
+                            className="w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-3 py-2 text-sm text-[#E8E0D0] outline-none transition focus:border-[#E8E0D0]/45"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    {items.length < field.max && (
+                      <button
+                        type="button"
+                        onClick={add}
+                        className="mt-2 rounded-md border border-dashed border-[#E8E0D0]/25 px-3 py-1.5 text-xs text-[#E8E0D0]/70 transition hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+                      >
+                        + Add {field.itemNoun}
+                      </button>
+                    )}
+                  </div>
+                );
+              }
+
+              return (
+                <label key={field.key} className="block">
+                  <span className="mb-1.5 block text-sm font-medium text-[#E8E0D0]/75">
+                    {field.label}
                   </span>
-                )}
-              </label>
-            ))}
+                  {field.type === "textarea" ? (
+                    <textarea
+                      value={str}
+                      onChange={(e) => set(e.target.value)}
+                      placeholder={field.placeholder}
+                      maxLength={field.maxLength}
+                      rows={field.rows ?? 5}
+                      className="w-full resize-y rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-3 py-2 text-sm text-[#E8E0D0] outline-none transition focus:border-[#E8E0D0]/45"
+                    />
+                  ) : field.type === "select" ? (
+                    <select
+                      value={str}
+                      onChange={(e) => set(e.target.value)}
+                      className="w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-3 py-2 text-sm text-[#E8E0D0] outline-none transition focus:border-[#E8E0D0]/45"
+                    >
+                      {field.options.map((o) => (
+                        <option key={o.value} value={o.value} className="bg-[#1a1a1a]">
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={str}
+                      onChange={(e) => set(e.target.value)}
+                      placeholder={field.placeholder}
+                      maxLength={field.maxLength}
+                      className="w-full rounded-md border border-[#E8E0D0]/20 bg-[#E8E0D0]/[0.04] px-3 py-2 text-sm text-[#E8E0D0] outline-none transition focus:border-[#E8E0D0]/45"
+                    />
+                  )}
+                  {field.type !== "select" && field.maxLength && (
+                    <span className="mt-1 block text-right text-xs text-[#E8E0D0]/35">
+                      {str.length}/{field.maxLength}
+                    </span>
+                  )}
+                </label>
+              );
+            })}
 
             {error && <p className="text-sm text-red-400">{error}</p>}
 

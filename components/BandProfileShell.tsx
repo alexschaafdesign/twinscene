@@ -1,9 +1,9 @@
 // The band profile's grid geometry, in one place.
 //
-// Two callers render it: BandProfile (server, the normal read-only view) and
-// ProfileLayoutEditor (client, the in-place layout editor). Keeping the grid
-// here means the editing view can't visually drift from the real page — you're
-// arranging the actual profile, not a preview of it.
+// Two callers render it: BandProfile (server, the visitor's read-only view)
+// and EditableProfile (client, the editor's view with per-section Edit
+// pencils). Keeping the grid here means the editor's view can't visually drift
+// from the real page — the pencils sit on the actual profile, not a preview.
 //
 // Deliberately has no "use client" directive: it's pure markup with no
 // server-only dependencies, so it works in either graph (importing it from the

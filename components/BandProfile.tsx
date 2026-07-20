@@ -37,7 +37,8 @@ import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 import BandMemberClaimSection from "@/components/BandMemberClaimSection";
 import BandMemberClaimsManager from "@/components/BandMemberClaimsManager";
 import BandProfileShell from "@/components/BandProfileShell";
-import ProfileLayoutEditor from "@/components/ProfileLayoutEditor";
+import type { SectionValues } from "@/lib/bandProfileFields";
+import EditableProfile from "@/components/EditableProfile";
 import {
   DEFAULT_LAYOUT,
   type BandProfileLayout,
@@ -534,7 +535,7 @@ function emptySectionIds(props: SectionProps): SectionId[] {
 /** Current values for each in-place-editable section's fields, to prefill the
  * inspector. Kept next to the section renderers so a new editable field is
  * mapped here in the same place it's declared in SECTION_EDIT. */
-function sectionFieldValues(band: Band): Partial<Record<SectionId, Record<string, string>>> {
+function sectionFieldValues(band: Band): Partial<Record<SectionId, SectionValues>> {
   return {
     bio: { bio: band.bio },
     links: {
@@ -546,6 +547,10 @@ function sectionFieldValues(band: Band): Partial<Record<SectionId, Record<string
       contactMethod: band.contactMethod,
       contactEmail: band.contactEmail,
     },
+    featured: {
+      featuredLinks: band.featuredLinks.map((l) => ({ url: l.url, label: l.label })),
+    },
+    music: { bandcamp: band.bandcamp },
   };
 }
 
@@ -642,15 +647,15 @@ export default function BandProfile({
     </div>
   );
 
-  // Editors get the in-place arranger wrapped around the real profile: same
-  // grid, same server-rendered sections, plus an "Edit layout" toggle that
-  // drops draggable overlays over them. Everyone else renders the plain view
-  // and ships no editor JavaScript at all.
+  // Editors get the same profile with a per-section Edit pencil (in-place
+  // editing); everyone else renders the plain view and ships no editor
+  // JavaScript at all. Section order/visibility still comes from `layout`,
+  // applied above — it just isn't editable from the profile right now.
   if (canEdit) {
     return (
-      <ProfileLayoutEditor
+      <EditableProfile
         slug={band.slug}
-        initialLayout={layout}
+        layout={layout}
         sections={renderAllSections(sectionProps)}
         emptyIds={emptySectionIds(sectionProps)}
         fieldValues={sectionFieldValues(band)}

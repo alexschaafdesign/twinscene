@@ -27,7 +27,19 @@ export type SectionField =
       type: "select";
       label: string;
       options: { value: string; label: string }[];
+    }
+  | {
+      key: string;
+      type: "linkList";
+      label: string;
+      /** Cap on rows the band can add (matches the profile's own limit). */
+      max: number;
+      /** Singular noun for the add button, e.g. "link". */
+      itemNoun: string;
     };
+
+/** A row in a linkList field's value. */
+export type LinkListItem = { url: string; label: string };
 
 export type SectionEditSchema = {
   /** Fields the inspector renders. Empty means read-only (show `note`). */
@@ -96,6 +108,30 @@ export const SECTION_EDIT: Partial<Record<SectionId, SectionEditSchema>> = {
       },
     ],
   },
+  featured: {
+    fields: [
+      {
+        key: "featuredLinks",
+        type: "linkList",
+        label: "Featured links",
+        max: 3,
+        itemNoun: "link",
+      },
+    ],
+  },
+  music: {
+    fields: [
+      {
+        key: "bandcamp",
+        type: "textarea",
+        label: "Bandcamp album or track",
+        rows: 3,
+        maxLength: 3000,
+        placeholder: "https://yourband.bandcamp.com/album/…",
+      },
+    ],
+    note: "Paste a Bandcamp album or track link and it becomes a player.",
+  },
   // Present-but-read-only: shows come from venue listings and the scrapers
   // (the shared shows table), so a band can position the section but not
   // rewrite its contents. Saying so beats a dead click.
@@ -106,5 +142,7 @@ export const SECTION_EDIT: Partial<Record<SectionId, SectionEditSchema>> = {
 };
 
 /** The subset of a section's stored values the inspector needs to prefill.
- * Keyed by field `key`. Only editable sections have an entry. */
-export type SectionValues = Record<string, string>;
+ * Keyed by field `key`. Most fields carry a string; a linkList carries a
+ * LinkListItem[], so the value type is widened to unknown and each field type
+ * reads its own slice. Only editable sections have an entry. */
+export type SectionValues = Record<string, unknown>;

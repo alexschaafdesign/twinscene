@@ -253,6 +253,84 @@ export async function updateBandContact(
   return updated;
 }
 
+// Update the band's Bandcamp player from the in-place inspector. The raw value
+// (a Bandcamp album/track URL, or a pasted <iframe> snippet) is stored in
+// socials.bandcamp — merged in, so the other socials keys (website, instagram,
+// bandcampLink) survive — and resolved into the bandcamp_embed_url/height
+// columns the player actually renders from, reusing the stored embed when the
+// raw value hasn't changed (resolveBandcampEmbed). Notifies followers as
+// "links", matching how the full upsert path classifies a socials change.
+export async function updateBandMusic(
+  bandId: number,
+  bandcamp: string,
+  actorUserId?: number,
+): Promise<Band> {
+  const [existing] = await sql<Band[]>`select * from bands where id = ${bandId} limit 1`;
+  if (!existing) throw new Error(`updateBandMusic: no band with id ${bandId}`);
+
+  const prevObj =
+    existing.socials && typeof existing.socials === "object"
+      ? (existing.socials as Record<string, unknown>)
+      : {};
+  const prevBandcamp = typeof prevObj.bandcamp === "string" ? prevObj.bandcamp : "";
+
+  const embed = await resolveBandcampEmbed(
+    bandcamp,
+    prevBandcamp,
+    existing.bandcamp_embed_url ?? "",
+    existing.bandcamp_embed_height,
+  );
+
+  const merged: Record<string, string> = {};
+  for (const [k, v] of Object.entries(prevObj)) if (typeof v === "string") merged[k] = v;
+  const t = bandcamp.trim();
+  if (t) merged.bandcamp = t;
+  else delete merged.bandcamp;
+  const next = Object.keys(merged).length ? merged : null;
+
+  const [updated] = await sql<Band[]>`
+    update bands set
+      socials = ${next ? sql.json(next) : null},
+      bandcamp_embed_url = ${embed.embedUrl || null},
+      bandcamp_embed_height = ${embed.height || null},
+      updated_at = now()
+    where id = ${bandId}
+    returning *
+  `;
+
+  if (t !== prevBandcamp.trim()) {
+    await notifyBandProfileUpdated(sql, bandId, ["links"], actorUserId);
+  }
+  return updated;
+}
+
+// Update the band's featured "linktree" links from the in-place inspector.
+// The band supplies url + label per row; the og:image is resolved server-side
+// (resolveFeaturedLinks), reusing a stored image when the URL is unchanged so
+// an unrelated edit doesn't refetch. Notifies followers as "links" only when
+// the url/label set actually changed (image churn alone doesn't count).
+export async function updateBandFeatured(
+  bandId: number,
+  links: FeaturedLinkInput[],
+  actorUserId?: number,
+): Promise<Band> {
+  const [existing] = await sql<Band[]>`select * from bands where id = ${bandId} limit 1`;
+  if (!existing) throw new Error(`updateBandFeatured: no band with id ${bandId}`);
+
+  const resolved = await resolveFeaturedLinks(links, featuredLinksOf(existing.featured_links));
+
+  const [updated] = await sql<Band[]>`
+    update bands set featured_links = ${resolved ? sql.json(resolved) : null}, updated_at = now()
+    where id = ${bandId}
+    returning *
+  `;
+
+  if (linksKey(existing.featured_links) !== linksKey(resolved)) {
+    await notifyBandProfileUpdated(sql, bandId, ["links"], actorUserId);
+  }
+  return updated;
+}
+
 // Save a band's profile section arrangement. The caller is responsible for the
 // canEditBand gate and for passing an already-normalized layout
 // (lib/bandProfileLayout.ts normalizeLayout) — this just persists it.
@@ -315,7 +393,7 @@ export async function findOrCreateBandByName(name: string): Promise<FindOrCreate
 // (Bandcamp embed resolution, featured-link og:image scraping) so submitting
 // a band here has the same effect it always visually appeared to have.
 
-type FeaturedLinkInput = { url: string; label: string };
+export type FeaturedLinkInput = { url: string; label: string };
 type FeaturedLink = { url: string; label: string; image: string };
 
 export interface BandSubmissionInput {

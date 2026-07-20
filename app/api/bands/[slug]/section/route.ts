@@ -5,6 +5,9 @@ import {
   updateBandCoreFields,
   updateBandLinks,
   updateBandContact,
+  updateBandMusic,
+  updateBandFeatured,
+  type FeaturedLinkInput,
 } from "@/lib/bands";
 import { SECTION_EDIT } from "@/lib/bandProfileFields";
 import type { SectionId } from "@/lib/bandProfileLayout";
@@ -64,9 +67,23 @@ export async function PATCH(
   }
 
   // Accept only declared keys. Text/textarea are coerced to string and clamped
-  // to maxLength; a select is forced to one of its declared option values.
-  const clean: Record<string, string> = {};
+  // to maxLength; a select is forced to one of its declared option values; a
+  // linkList becomes a trimmed {url,label}[] with empties dropped and capped
+  // at the field's max.
+  const clean: Record<string, unknown> = {};
   for (const field of schema.fields) {
+    if (field.type === "linkList") {
+      const arr = Array.isArray(values[field.key]) ? (values[field.key] as unknown[]) : [];
+      clean[field.key] = arr
+        .filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
+        .map((x) => ({
+          url: typeof x.url === "string" ? x.url.trim() : "",
+          label: typeof x.label === "string" ? x.label.trim() : "",
+        }))
+        .filter((l) => l.url)
+        .slice(0, field.max);
+      continue;
+    }
     let v = typeof values[field.key] === "string" ? (values[field.key] as string) : "";
     if (field.type === "select") {
       if (!field.options.some((o) => o.value === v)) v = field.options[0]?.value ?? "";
@@ -78,26 +95,33 @@ export async function PATCH(
 
   // Per-section write dispatch. Each case maps the cleaned keys onto an
   // existing gated updater. New editable sections add a case here.
+  const asString = (v: unknown) => (typeof v === "string" ? v : "");
   switch (section) {
     case "bio":
-      await updateBandCoreFields(band.id, { bio: clean.bio }, user.id);
+      await updateBandCoreFields(band.id, { bio: asString(clean.bio) }, user.id);
       break;
     case "links":
       await updateBandLinks(
         band.id,
         {
-          website: clean.website ?? "",
-          instagram: clean.instagram ?? "",
-          bandcampLink: clean.bandcampLink ?? "",
+          website: asString(clean.website),
+          instagram: asString(clean.instagram),
+          bandcampLink: asString(clean.bandcampLink),
         },
         user.id,
       );
       break;
     case "contact":
       await updateBandContact(band.id, {
-        contactMethod: clean.contactMethod ?? "",
-        contactEmail: clean.contactEmail ?? "",
+        contactMethod: asString(clean.contactMethod),
+        contactEmail: asString(clean.contactEmail),
       });
+      break;
+    case "music":
+      await updateBandMusic(band.id, asString(clean.bandcamp), user.id);
+      break;
+    case "featured":
+      await updateBandFeatured(band.id, clean.featuredLinks as FeaturedLinkInput[], user.id);
       break;
     default:
       return NextResponse.json(

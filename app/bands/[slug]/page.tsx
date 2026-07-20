@@ -117,10 +117,11 @@ export default async function BandProfilePage({ params }: Props) {
         </Link>
       )}
 
-      {/* Layout arranging is the in-place editor on this page (its "Edit
-          layout" button sits above the profile). /bands/<slug>/customize is
-          still reachable from that editor's toolbar as the keyboard and
-          screen-reader path, but it doesn't need a second entry point here. */}
+      {/* Content editing is in place on the profile itself — editors get a
+          per-section Edit pencil (components/EditableProfile.tsx), so there's
+          no edit entry point here. Section rearranging is set aside for now;
+          the /bands/<slug>/customize list page still performs it but isn't
+          linked. */}
 
       {/* Admin-only shortcut to this band's editors/ownership-code page —
           saves typing the /admin/bands/<slug>/editors URL by hand when a
