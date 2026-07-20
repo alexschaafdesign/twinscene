@@ -11,6 +11,7 @@ import type { ShowStatus } from "@/lib/showSaves";
 import { pressNotes } from "@/lib/press";
 import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
+import { iconProps } from "@/components/band-shared";
 
 /** Prefix a bare URL with https:// so hrefs from the sheet always resolve. */
 function ensureUrl(value: string): string {
@@ -118,17 +119,23 @@ export default function ShowsTimeline({
               // source it came from.
               const imageSrc = show.flyerUrl || venueFallbackImage(show.venue);
               const isLogo = isVenueLogo(imageSrc);
+              // A show with at least one band linked to the directory — same
+              // signal as ShowsList's "Local bands" filter.
+              const isSceneShow = show.bandSlugs.length > 0;
+              const isPressRecommended = show.starredBy.length > 0;
               return (
               <li
                 key={`${show.title}-${show.venue}-${i}`}
-                className={`rounded-md border p-4 ${
-                  show.starredBy.length > 0
+                className={`relative rounded-md border p-4 ${
+                  isPressRecommended
                     ? "border-amber-400/40 bg-amber-400/[0.06]"
-                    : "border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)]"
+                    : isSceneShow
+                      ? "border-yellow-400/30 bg-yellow-400/[0.04]"
+                      : "border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)]"
                 }`}
               >
-                <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-                  <div className="flex min-w-0 items-start gap-3">
+                <div className="flex items-start justify-between gap-x-4 gap-y-2">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
                     {imageSrc && (() => {
                       // Posters are cropped to fill; a venue logo is padded and
                       // contained so it isn't cut off.
@@ -168,6 +175,11 @@ export default function ShowsTimeline({
                         )}
                         {show.starredBy.length > 0 && (
                           <span className="ml-1.5 text-amber-400">★</span>
+                        )}
+                        {isSceneShow && (
+                          <span className="ml-2 rounded bg-yellow-400/15 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-yellow-400">
+                            Scene bands
+                          </span>
                         )}
                         {show.eventType && (
                           <span className="ml-2 rounded bg-[#E8B84B]/15 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-[#E8B84B]">
@@ -228,18 +240,21 @@ export default function ShowsTimeline({
                         returnTo={returnTo}
                       />
                     )}
-                    <div className="flex items-center gap-3">
-                      {show.id && (
-                        <Link
-                          href={editHref(show)}
-                          className="text-xs text-[#E8E0D0]/40 transition hover:text-[#E8E0D0]/80"
-                        >
-                          Edit
-                        </Link>
-                      )}
-                    </div>
                   </div>
                 </div>
+                {show.id && (
+                  <Link
+                    href={editHref(show)}
+                    aria-label="Edit show"
+                    className="absolute bottom-2 right-2 text-[#E8E0D0]/40 transition hover:text-[#E8E0D0]/80"
+                  >
+                    {/* ti-pencil (Tabler) */}
+                    <svg {...iconProps} width={15} height={15}>
+                      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+                      <path d="M13.5 6.5l4 4" />
+                    </svg>
+                  </Link>
+                )}
               </li>
               );
             })}
