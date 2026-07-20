@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { slugify } from "@/lib/venueUtils";
 
 // Shared input styling, kept in sync with SubmitForm.tsx / ShowSubmitForm.tsx.
@@ -9,6 +9,10 @@ const inputClass =
   "w-full rounded-md border border-[#E8E0D0]/20 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#E8E0D0]";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Keeps the multipart body comfortably under Vercel Functions' request-body
+// cap. Mirrors SubmitForm.tsx.
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB
 
 // Cities that get a one-tap button in the picker; anything else is "Other".
 const KNOWN_CITIES = ["Minneapolis", "St. Paul"] as const;
@@ -56,6 +60,7 @@ export default function VenueSubmitForm({
   initialParking = "",
   initialAccessibility = "",
   initialNotes = "",
+  initialImage = "",
   neighborhoodOptions = [],
   typeOptions = [],
 }: {
@@ -71,6 +76,7 @@ export default function VenueSubmitForm({
   initialParking?: string;
   initialAccessibility?: string;
   initialNotes?: string;
+  initialImage?: string;
   neighborhoodOptions?: string[];
   typeOptions?: string[];
 }) {
@@ -93,6 +99,45 @@ export default function VenueSubmitForm({
   const [notes, setNotes] = useState(initialNotes);
   const [submitterName, setSubmitterName] = useState("");
   const [submitterEmail, setSubmitterEmail] = useState("");
+
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageError, setImageError] = useState("");
+  // Correction flow: whether the user asked to remove the venue's current photo.
+  const [removeExistingImage, setRemoveExistingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Build a revocable object URL for the thumbnail preview, and revoke it
+  // whenever the selected file changes or the component unmounts.
+  const previewUrl = useMemo(
+    () => (imageFile ? URL.createObjectURL(imageFile) : null),
+    [imageFile],
+  );
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  // Only show the "current photo" block in correction mode, when there is one,
+  // and it hasn't been marked for removal.
+  const showExistingImage = isCorrect && !!initialImage && !removeExistingImage;
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setImageFile(file);
+    // Selecting a new file is an implicit removal of the existing photo, so
+    // cancelling the new file falls back to "no photo", not the original.
+    if (file) setRemoveExistingImage(true);
+    if (imageError) setImageError("");
+  }
+
+  function clearImageFile() {
+    // Preserve removeExistingImage (kept true once a file was ever chosen or
+    // the existing photo was removed) so cancelling the new file lands on
+    // "no photo" rather than restoring the original.
+    setImageFile(null);
+    // Reset the input's value so re-selecting the same file fires onChange.
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<
@@ -123,7 +168,14 @@ export default function VenueSubmitForm({
     e.preventDefault();
     const found = validate();
     setErrors(found);
-    if (Object.keys(found).length > 0) return;
+
+    let imgErr = "";
+    if (imageFile && imageFile.size > MAX_IMAGE_BYTES) {
+      imgErr = "Image too large — please use a file under 4MB";
+    }
+    setImageError(imgErr);
+
+    if (Object.keys(found).length > 0 || imgErr) return;
 
     setStatus("submitting");
     setErrorMsg("");
@@ -135,6 +187,7 @@ export default function VenueSubmitForm({
       const payload = new FormData();
       payload.set("mode", mode);
       payload.set("existingSlug", isCorrect ? initialSlug : "");
+      payload.set("venueSlug", venueSlug);
       payload.set("venueName", name.trim());
       payload.set("location", location.trim());
       payload.set("neighborhood", neighborhood.trim());
@@ -145,6 +198,14 @@ export default function VenueSubmitForm({
       payload.set("parking", parking.trim());
       payload.set("accessibility", accessibility.trim());
       payload.set("notes", notes.trim());
+      // Signals the server to blank the photo when no new one is uploaded.
+      payload.set("removeImage", removeExistingImage ? "true" : "false");
+
+      // Only send the photo if one was selected — the server leaves the
+      // existing photo alone when this field is absent.
+      if (imageFile) {
+        payload.set("photo", imageFile);
+      }
 
       const res = await fetch("/api/venues/submit", { method: "POST", body: payload });
       const data = await res.json();
@@ -341,6 +402,65 @@ export default function VenueSubmitForm({
             onChange={(e) => setContact(e.target.value)}
             className={inputClass}
           />
+        </Field>
+
+        <Field
+          label={
+            isCorrect
+              ? "Venue photo (optional — only needed if you want to update the current photo)"
+              : "Venue photo"
+          }
+          htmlFor="venuePhoto"
+          error={imageError}
+          hint="This will appear on the venue's directory card. JPG or PNG, at least 800px wide recommended."
+        >
+          <input
+            id="venuePhoto"
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className={`${inputClass} file:mr-3 file:rounded file:border-0 file:bg-[#E8E0D0]/15 file:px-3 file:py-1 file:text-sm file:text-[#E8E0D0]`}
+          />
+          {previewUrl && (
+            <div className="relative mt-3 inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt="Selected venue photo preview"
+                className="h-60 w-60 rounded-md border border-[#E8E0D0]/20 object-cover"
+              />
+              <button
+                type="button"
+                aria-label="Remove selected photo"
+                onClick={clearImageFile}
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 text-sm leading-none text-[#E8E0D0]/80 transition hover:text-[#E8E0D0]"
+              >
+                ×
+              </button>
+            </div>
+          )}
+          {showExistingImage && (
+            <div className="mt-3">
+              <p className="mb-1 text-xs text-[#E8E0D0]/60">Current photo:</p>
+              <div className="relative inline-block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={initialImage}
+                  alt="Current venue photo"
+                  className="h-60 w-60 rounded-md border border-[#E8E0D0]/20 object-cover"
+                />
+                <button
+                  type="button"
+                  aria-label="Remove current photo"
+                  onClick={() => setRemoveExistingImage(true)}
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full border border-[#E8E0D0]/20 bg-[#2A2420]/90 text-sm leading-none text-[#E8E0D0]/80 transition hover:text-[#E8E0D0]"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          )}
         </Field>
 
         <Field label="Parking" htmlFor="parking">

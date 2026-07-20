@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import type { Venue } from "@/lib/fetchVenues";
-import { VenueIcon, VenuePlaceLine } from "@/components/venue-shared";
+import { VenuePlaceLine } from "@/components/venue-shared";
+import { VenueImage } from "@/components/venue-shared-client";
 import { iconProps } from "@/components/band-shared";
 
 const LOCATION_TAGS = ["All", "Minneapolis", "St. Paul", "Other"];
@@ -42,8 +43,9 @@ function VenueCard({ venue }: { venue: Venue }) {
       href={`/venues/${venue.slug}`}
       className="animate-fade-in group flex flex-col text-left transition-opacity"
     >
-      <VenueIcon
+      <VenueImage
         venue={venue}
+        thumb
         className="rounded-sm ring-1 ring-[#E8E0D0]/10 transition group-hover:ring-[#E8E0D0]/40"
       />
       <h3 className="mt-2.5 truncate text-sm font-medium leading-snug">

@@ -120,6 +120,59 @@ export async function uploadBandThumbnail(
   return `${publicBase.replace(/\/$/, "")}/${key}`;
 }
 
+// --- Venues ------------------------------------------------------------
+// Profile photo for a venue directory listing. Keyed by slug like band
+// photos (one object per venue, overwritten in place on re-upload), reusing
+// the same generateThumbnail() pipeline bands use for their 400px grid
+// variant.
+
+/** Upload a venue photo, keyed by slug (overwrites any existing photo for
+ * that slug), and return its public URL. */
+export async function uploadVenuePhoto(
+  slug: string,
+  bytes: Uint8Array,
+  mimeType: string,
+): Promise<string> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
+  }
+  const key = `venues/${slug}.${extensionFromMime(mimeType)}`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: bytes,
+      ContentType: mimeType,
+    }),
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
+/** Upload a venue thumbnail to R2 under venues/thumb/<slug>.jpg and return
+ * its public URL. Overwrites any existing thumbnail for that slug. */
+export async function uploadVenueThumbnail(
+  slug: string,
+  thumbBytes: Uint8Array | Buffer,
+): Promise<string> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
+  }
+  const key = `venues/thumb/${slug}.jpg`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: thumbBytes,
+      ContentType: "image/jpeg",
+    }),
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
 // --- Avatars ---------------------------------------------------------------
 // Unlike band photos (keyed by slug, one object per band, overwritten in
 // place), avatars use a random filename under a per-user prefix — the user

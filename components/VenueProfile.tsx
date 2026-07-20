@@ -9,7 +9,8 @@ import type { Venue } from "@/lib/fetchVenues";
 import type { Press } from "@/lib/fetchPress";
 import type { ShowStatus } from "@/lib/showSaves";
 import ShowsTimeline from "@/components/ShowsTimeline";
-import { VenueIcon, VenuePlaceLine } from "@/components/venue-shared";
+import { VenuePlaceLine } from "@/components/venue-shared";
+import { VenueImage } from "@/components/venue-shared-client";
 
 function InfoBlock({
   label,
@@ -56,7 +57,7 @@ export default function VenueProfile({
     <div className="grid grid-cols-1 gap-8 md:grid-cols-[300px_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:gap-x-10">
       {/* Icon — sidebar, top */}
       <div className="mx-auto w-full max-w-sm md:col-start-1 md:row-start-1 md:mx-0 md:max-w-none">
-        <VenueIcon
+        <VenueImage
           venue={venue}
           className="rounded-md ring-1 ring-[#E8E0D0]/10"
         />

@@ -1,8 +1,10 @@
 // Server-safe presentational helpers shared by the venue directory grid
 // (VenueGrid.tsx) and the venue profile view (VenueProfile.tsx). Mirrors
-// band-shared.tsx's role for bands. Venues have no photo, so there's no
-// client-side image-fallback component to split out — everything here is a
-// plain function/component and can be called from server components.
+// band-shared.tsx's role for bands. The photo/fallback-initials image itself
+// (VenueImage) needs onError state, so it lives in venue-shared-client.tsx —
+// mirroring band-shared-client.tsx's BandImage split — but `initials` is kept
+// here so both that client component and any server-rendered fallback can
+// share it.
 
 import type { Venue } from "@/lib/fetchVenues";
 
@@ -47,25 +49,6 @@ export function VenuePlaceLine({
   );
 }
 
-/** Icon tile standing in for a photo — venues have no IMAGE column. */
-export function VenueIcon({
-  venue,
-  className = "",
-}: {
-  venue: Venue;
-  className?: string;
-}) {
-  return (
-    <div
-      className={`relative flex aspect-square w-full items-center justify-center overflow-hidden bg-[#3A332D] ${className}`}
-    >
-      <span className="select-none text-4xl font-medium text-[#E8E0D0]/30">
-        {initials(venue.name)}
-      </span>
-    </div>
-  );
-}
-
 /** Prefilled "correct this venue" submit URL — shown in the profile header. */
 export function venueEditHref(venue: Venue): string {
   const params = new URLSearchParams({
@@ -81,6 +64,7 @@ export function venueEditHref(venue: Venue): string {
     accessibility: venue.accessibility,
     owner: venue.owner,
     type: venue.type,
+    image: venue.photo,
   });
   return `/venues/submit?${params.toString()}`;
 }

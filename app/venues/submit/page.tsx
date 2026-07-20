@@ -50,6 +50,7 @@ export default async function VenueSubmitPage({
         initialParking={param("parking")}
         initialAccessibility={param("accessibility")}
         initialNotes={param("notes")}
+        initialImage={param("image")}
         neighborhoodOptions={neighborhoodOptions}
         typeOptions={typeOptions}
       />

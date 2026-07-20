@@ -25,6 +25,8 @@ export interface Venue {
   accessibility: string | null;
   owner: string | null;
   type: string | null;
+  photo: string | null; // full absolute URL (R2), venues/<slug>.<ext>; null if none
+  thumbnail_url: string | null; // 400px square variant of `photo`; null if no photo
   created_at: string;
   updated_at: string;
 }
@@ -49,6 +51,9 @@ export interface VenueSubmissionInput {
   accessibility: string;
   owner: string;
   type: string;
+  photoUrl?: string; // set when a new photo was just uploaded (lib/r2.ts)
+  thumbnailUrl?: string; // 400px thumbnail generated alongside a new photoUrl
+  removePhoto?: boolean;
 }
 
 type UpsertVenueResult = { venue: Venue; action: "created" | "updated" };
@@ -70,6 +75,18 @@ export async function upsertVenue(
   return sql.begin(async (tx) => {
     const [existing] = await tx<Venue[]>`select * from venues where slug = ${targetSlug} limit 1`;
 
+    // Thumbnail tracks the photo one-for-one: cleared when the photo is
+    // removed, replaced when a new photo (and its freshly generated
+    // thumbnail) comes in, otherwise left as-is. Mirrors upsertBand.
+    let photo = existing?.photo ?? null;
+    let thumbnailUrl = existing?.thumbnail_url ?? null;
+    if (input.removePhoto) {
+      photo = null;
+      thumbnailUrl = null;
+    }
+    if (input.photoUrl) photo = input.photoUrl;
+    if (input.thumbnailUrl) thumbnailUrl = input.thumbnailUrl;
+
     if (existing) {
       const [updated] = await tx<Venue[]>`
         update venues set
@@ -83,6 +100,8 @@ export async function upsertVenue(
           accessibility = ${input.accessibility || null},
           owner = ${input.owner || null},
           type = ${input.type || null},
+          photo = ${photo},
+          thumbnail_url = ${thumbnailUrl},
           updated_at = now()
         where id = ${existing.id}
         returning *
@@ -93,12 +112,12 @@ export async function upsertVenue(
     const [created] = await tx<Venue[]>`
       insert into venues (
         slug, name, city, neighborhood, capacity, contact, notes, parking,
-        accessibility, owner, type
+        accessibility, owner, type, photo, thumbnail_url
       ) values (
         ${targetSlug}, ${input.name}, ${input.city || null}, ${input.neighborhood || null},
         ${input.capacity}, ${input.contact || null}, ${input.notes || null},
         ${input.parking || null}, ${input.accessibility || null}, ${input.owner || null},
-        ${input.type || null}
+        ${input.type || null}, ${photo}, ${thumbnailUrl}
       )
       returning *
     `;

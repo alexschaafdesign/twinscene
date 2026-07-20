@@ -19,6 +19,8 @@ export type Venue = {
   accessibility: string;
   owner: string;
   type: string; // free-form (e.g. "Independent", "DIY", "First Ave", "Brewery")
+  photo: string; // full-resolution photo; "" when none
+  thumbnailUrl: string; // 400px square variant for grid/list cards; "" when none
 };
 
 export function slugify(text: string): string {

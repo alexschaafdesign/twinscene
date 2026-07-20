@@ -34,6 +34,8 @@ function toVenue(row: VenueRow): Venue {
     accessibility: row.accessibility ?? "",
     owner: row.owner ?? "",
     type: row.type ?? "",
+    photo: row.photo ?? "",
+    thumbnailUrl: row.thumbnail_url ?? "",
   };
 }
 

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { upsertVenue, type VenueSubmissionInput } from "@/lib/venues";
+import { uploadVenuePhoto, generateThumbnail, uploadVenueThumbnail } from "@/lib/r2";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,21 +33,45 @@ export async function POST(request: NextRequest) {
 
   const mode = str(form.get("mode")) === "correct" ? "correct" : "add";
   const existingSlug = str(form.get("existingSlug")) || undefined;
-
-  const input: VenueSubmissionInput = {
-    name: venueName,
-    city: str(form.get("location")).trim(),
-    neighborhood: str(form.get("neighborhood")).trim(),
-    capacity: parseCapacity(form.get("capacity")),
-    contact: str(form.get("contact")).trim(),
-    notes: str(form.get("notes")).trim(),
-    parking: str(form.get("parking")).trim(),
-    accessibility: str(form.get("accessibility")).trim(),
-    owner: str(form.get("owner")).trim(),
-    type: str(form.get("type")).trim(),
-  };
+  const venueSlug = str(form.get("venueSlug"));
 
   try {
+    // Resolve the target slug for the photo key before uploading — a
+    // correction uploads under the venue's existing slug, an add under the
+    // freshly-typed one (upsertVenue may still de-dupe it further, but a
+    // photo keyed to "the slug this submission intends" is good enough).
+    // Mirrors app/api/bands/submit/route.ts.
+    let photoUrl: string | undefined;
+    let thumbnailUrl: string | undefined;
+    const photo = form.get("photo");
+    if (photo instanceof File && photo.size > 0) {
+      const slugForPhoto = mode === "correct" && existingSlug ? existingSlug : venueSlug;
+      const bytes = new Uint8Array(await photo.arrayBuffer());
+      photoUrl = await uploadVenuePhoto(slugForPhoto, bytes, photo.type || "image/jpeg");
+      try {
+        const thumb = await generateThumbnail(bytes);
+        thumbnailUrl = await uploadVenueThumbnail(slugForPhoto, thumb);
+      } catch (err) {
+        console.error("venues/submit: thumbnail generation failed", err);
+      }
+    }
+
+    const input: VenueSubmissionInput = {
+      name: venueName,
+      city: str(form.get("location")).trim(),
+      neighborhood: str(form.get("neighborhood")).trim(),
+      capacity: parseCapacity(form.get("capacity")),
+      contact: str(form.get("contact")).trim(),
+      notes: str(form.get("notes")).trim(),
+      parking: str(form.get("parking")).trim(),
+      accessibility: str(form.get("accessibility")).trim(),
+      owner: str(form.get("owner")).trim(),
+      type: str(form.get("type")).trim(),
+      photoUrl,
+      thumbnailUrl,
+      removePhoto: str(form.get("removeImage")) === "true",
+    };
+
     const { venue, action } = await upsertVenue(input, mode, existingSlug);
     return NextResponse.json({ success: true, slug: venue.slug, action });
   } catch (err) {
