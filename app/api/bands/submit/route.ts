@@ -8,17 +8,17 @@ import { getCurrentUser, canEditBand } from "@/lib/auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Public "Add your band" / "Edit this band" submission — replaces the legacy
-// Apps Script webhook (apps-script/Code.js), which wrote into a Google Sheet
-// that nothing reads anymore now that fetchBands() reads this DB directly.
-// No secret gate, matching the old public /submit form and the Shows
-// feature's equivalent /api/shows/submit route — but `mode: "correct"` (an
+// "Add your band" / "Edit this band" submission — replaces the legacy Apps
+// Script webhook (apps-script/Code.js), which wrote into a Google Sheet that
+// nothing reads anymore now that fetchBands() reads this DB directly. Both
+// modes require login: "add" just needs any account (creating a band
+// doesn't grant standing edit rights on it — that's still the separate
+// Instagram-DM ownership-code flow, lib/bandOwnership.ts); "correct" (an
 // edit of an *existing* band, as opposed to `"add"`, which only ever inserts
-// a fresh row) is gated by canEditBand. This is the real "band self-editing"
-// write path Phase 2 authorizes: the admin PATCH route
+// a fresh row) additionally needs canEditBand. This is the real "band
+// self-editing" write path Phase 2 authorizes: the admin PATCH route
 // (app/api/admin/bands/[slug]/route.ts) was Phase 1's proof of the gate, but
-// this public form is how a band's own editors — and previously anyone at
-// all — actually edit it.
+// this public form is how a band's own editors actually edit it.
 
 function splitList(raw: FormDataEntryValue | null): string[] {
   const s = typeof raw === "string" ? raw : "";
@@ -55,27 +55,27 @@ export async function POST(request: NextRequest) {
   const bandSlug = str(form.get("bandSlug"));
 
   // "add" always inserts a fresh row (see upsertBand) — no existing band to
-  // authorize against. "correct" updates a specific band in place, so it
-  // needs the same canEditBand gate as the admin PATCH route.
+  // authorize against, just needs a logged-in user. "correct" updates a
+  // specific band in place, so it needs the same canEditBand gate as the
+  // admin PATCH route.
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ success: false, error: "Log in to submit a band." }, { status: 401 });
+  }
+
   let actorUserId: number | undefined;
   if (mode === "correct") {
     const targetBand = existingSlug ? await getBandBySlug(existingSlug) : null;
     if (!targetBand) {
       return NextResponse.json({ success: false, error: "Band not found" }, { status: 404 });
     }
-    const user = await getCurrentUser();
     if (!(await canEditBand(user, targetBand.id))) {
       return NextResponse.json(
-        {
-          success: false,
-          error: user
-            ? "You don't have edit access to this band."
-            : "Log in to edit this band.",
-        },
-        { status: user ? 403 : 401 },
+        { success: false, error: "You don't have edit access to this band." },
+        { status: 403 },
       );
     }
-    actorUserId = user?.id;
+    actorUserId = user.id;
   }
 
   const featuredLinks = parseJson<{ url: string; label: string }[]>(

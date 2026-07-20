@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import SubmitForm from "@/components/SubmitForm";
 import { fetchBands } from "@/lib/fetchBands";
+import { getBandBySlug } from "@/lib/bands";
+import { getCurrentUser, canEditBand } from "@/lib/auth";
 import { NEIGHBORHOOD_OPTIONS } from "@/lib/neighborhoods";
 
 export const metadata: Metadata = {
@@ -23,6 +26,30 @@ export default async function SubmitPage({
 
   const band = param("band");
   const name = param("name");
+
+  // Adding or correcting a band both require an account now.
+  const user = await getCurrentUser();
+  if (!user) {
+    const qs = new URLSearchParams(
+      Object.entries(sp).flatMap(([k, v]) =>
+        v === undefined ? [] : (Array.isArray(v) ? v : [v]).map((val) => [k, val]),
+      ),
+    ).toString();
+    redirect(`/login?next=${encodeURIComponent(`/submit${qs ? `?${qs}` : ""}`)}`);
+  }
+
+  if (isCorrect) {
+    const targetBand = band ? await getBandBySlug(band) : null;
+    if (!targetBand || !(await canEditBand(user, targetBand.id))) {
+      return (
+        <main className="mx-auto w-full max-w-4xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
+          <p className="text-sm text-[#F5A3A3]">
+            {targetBand ? "You don't have edit access to this band." : "Band not found."}
+          </p>
+        </main>
+      );
+    }
+  }
 
   // Unique, alphabetically sorted genres across all existing bands, used to
   // power the genre tag-input's autocomplete.

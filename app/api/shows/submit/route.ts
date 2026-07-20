@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildLineupEntries, insertManualShow } from "@/lib/shows";
 import { processShowFlyer, uploadShowFlyer } from "@/lib/r2";
+import { getCurrentUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,10 +24,14 @@ function str(raw: FormDataEntryValue | null): string {
   return typeof raw === "string" ? raw : "";
 }
 
-// Public "Add a show" submission. No secret gate — matches the old public
-// /shows/submit form, open to any site visitor. Multipart (rather than JSON)
+// "Add a show" submission — requires login. Multipart (rather than JSON)
 // since an optional flyer image rides along with the other fields.
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ success: false, error: "Log in to submit a show." }, { status: 401 });
+  }
+
   const form = await request.formData().catch(() => null);
   if (!form) {
     return NextResponse.json({ success: false, error: "Malformed submission" }, { status: 400 });
@@ -37,8 +42,6 @@ export async function POST(request: NextRequest) {
   const notes = str(form.get("notes"));
   const link = str(form.get("link"));
   const newBandName = str(form.get("newBandName"));
-  const submitterName = str(form.get("submitterName"));
-  const submitterEmail = str(form.get("submitterEmail"));
 
   if (!date || !venue) {
     return NextResponse.json(
@@ -90,7 +93,7 @@ export async function POST(request: NextRequest) {
         flyerUrl,
       },
       "public_submission",
-      { name: submitterName, email: submitterEmail },
+      { name: user.name ?? user.email, email: user.email },
     );
     return NextResponse.json({ success: true, id });
   } catch (err) {

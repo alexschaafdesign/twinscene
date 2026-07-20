@@ -15,8 +15,6 @@ const inputClass =
 const MAX_FLYER_BYTES = 4 * 1024 * 1024;
 const ALLOWED_FLYER_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export type BandOption = { slug: string; name: string };
 
 /** Prefix a bare URL with https:// so the format check accepts "example.com". */
@@ -272,8 +270,6 @@ export default function ShowSubmitForm({
   const [lineup, setLineup] = useState(initial?.lineup ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [link, setLink] = useState(initial?.link ?? "");
-  const [submitterName, setSubmitterName] = useState("");
-  const [submitterEmail, setSubmitterEmail] = useState("");
 
   const [flyerFile, setFlyerFile] = useState<File | null>(null);
   const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
@@ -394,8 +390,6 @@ export default function ShowSubmitForm({
     setVenue("");
     setNotes("");
     setLink("");
-    setSubmitterName("");
-    setSubmitterEmail("");
     setSelectedBands([]);
     removeFlyer();
     cancelNewBand();
@@ -408,10 +402,6 @@ export default function ShowSubmitForm({
     const e: Record<string, string> = {};
     if (!date.trim()) e.date = "Required";
     if (!venue.trim()) e.venue = "Required";
-    if (!submitterName.trim()) e.submitterName = "Required";
-    if (!submitterEmail.trim()) e.submitterEmail = "Required";
-    else if (!EMAIL_RE.test(submitterEmail.trim()))
-      e.submitterEmail = "Enter a valid email address";
     if (link.trim() && !isValidUrl(link.trim())) e.link = "Enter a valid URL";
 
     if (isEdit) {
@@ -447,8 +437,6 @@ export default function ShowSubmitForm({
           notes: notes.trim(),
           link: link.trim(),
           linkedBands: selectedBands.map((b) => ({ name: b.name, slug: b.slug })),
-          submitterName: submitterName.trim(),
-          submitterEmail: submitterEmail.trim(),
         };
         const res = await fetch("/api/shows/edit", {
           method: "POST",
@@ -469,8 +457,6 @@ export default function ShowSubmitForm({
           "linkedBands",
           JSON.stringify(selectedBands.map((b) => ({ name: b.name, slug: b.slug }))),
         );
-        payload.set("submitterName", submitterName.trim());
-        payload.set("submitterEmail", submitterEmail.trim());
         if (showNewBand && newBandName.trim()) {
           payload.set("newBandName", newBandName.trim());
         }
@@ -657,40 +643,6 @@ export default function ShowSubmitForm({
             )}
           </Field>
         )}
-
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field
-            label="Your name"
-            htmlFor="submitterName"
-            required
-            error={errors.submitterName}
-            hint="Not for publication"
-          >
-            <input
-              id="submitterName"
-              type="text"
-              value={submitterName}
-              onChange={(e) => setSubmitterName(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field
-            label="Your email"
-            htmlFor="submitterEmail"
-            required
-            error={errors.submitterEmail}
-            hint="For follow-up, not published"
-          >
-            <input
-              id="submitterEmail"
-              type="email"
-              value={submitterEmail}
-              onChange={(e) => setSubmitterEmail(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-        </div>
 
         {/* Band section */}
         <div>

@@ -8,8 +8,6 @@ import { slugify } from "@/lib/venueUtils";
 const inputClass =
   "w-full rounded-md border border-[#E8E0D0]/20 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/35 transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#E8E0D0]";
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 // Keeps the multipart body comfortably under Vercel Functions' request-body
 // cap. Mirrors SubmitForm.tsx.
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB
@@ -97,8 +95,6 @@ export default function VenueSubmitForm({
   const [parking, setParking] = useState(initialParking);
   const [accessibility, setAccessibility] = useState(initialAccessibility);
   const [notes, setNotes] = useState(initialNotes);
-  const [submitterName, setSubmitterName] = useState("");
-  const [submitterEmail, setSubmitterEmail] = useState("");
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageError, setImageError] = useState("");
@@ -154,10 +150,6 @@ export default function VenueSubmitForm({
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = "Required";
-    if (!submitterName.trim()) e.submitterName = "Required";
-    if (!submitterEmail.trim()) e.submitterEmail = "Required";
-    else if (!EMAIL_RE.test(submitterEmail.trim()))
-      e.submitterEmail = "Enter a valid email address";
     if (capacity.trim() && !/^\d+$/.test(capacity.trim())) {
       e.capacity = "Enter a whole number";
     }
@@ -493,39 +485,6 @@ export default function VenueSubmitForm({
           />
         </Field>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field
-            label="Your name"
-            htmlFor="submitterName"
-            required
-            error={errors.submitterName}
-            hint="Not for publication"
-          >
-            <input
-              id="submitterName"
-              type="text"
-              value={submitterName}
-              onChange={(e) => setSubmitterName(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-
-          <Field
-            label="Your email"
-            htmlFor="submitterEmail"
-            required
-            error={errors.submitterEmail}
-            hint="For follow-up, not published"
-          >
-            <input
-              id="submitterEmail"
-              type="email"
-              value={submitterEmail}
-              onChange={(e) => setSubmitterEmail(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-        </div>
 
         {status === "error" && (
           <p className="rounded-md border border-[#E5A0A0]/40 bg-[#E5A0A0]/10 px-3.5 py-2.5 text-sm text-[#E5A0A0]">

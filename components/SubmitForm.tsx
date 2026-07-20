@@ -29,8 +29,6 @@ const FIELD_SECTION: Record<string, SectionKey> = {
   bandName: "basics",
   genres: "basics",
   location: "basics",
-  submitterName: "aboutYou",
-  submitterEmail: "aboutYou",
   contactEmail: "musicLinks",
   website: "musicLinks",
   instagram: "musicLinks",
@@ -74,8 +72,6 @@ function normalizeName(name: string): string {
 
 type FormState = {
   bandName: string;
-  submitterName: string;
-  submitterEmail: string;
   genres: string;
   location: string; // city — persisted to the sheet's LOCATION column
   neighborhoods: string; // comma-joined; parsed into a list like genres
@@ -635,8 +631,6 @@ export default function SubmitForm({
 
   const [form, setForm] = useState<FormState>({
     bandName: initialName,
-    submitterName: "",
-    submitterEmail: "",
     genres: initialGenres,
     location: initialLocation,
     neighborhoods: initialNeighborhoods,
@@ -690,7 +684,7 @@ export default function SubmitForm({
   // different band — no reset effect needed.
   const [overriddenSlug, setOverriddenSlug] = useState<string | null>(null);
   // Accordion open/closed state per section. Add mode starts with Basics and
-  // About You open (they're not collapsible in add mode anyway) and the two
+  // Notes open (they're not collapsible in add mode anyway) and the two
   // enrichment sections collapsed & empty. Correct mode starts every section
   // collapsed, so fixing one field means expanding only that section.
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>(
@@ -876,11 +870,6 @@ export default function SubmitForm({
     // TEMP: all fields except Band name made optional for bulk band entry.
     // Revert this function to restore the full validation below.
     return e;
-    // Submitter name/email required for both new bands and corrections.
-    if (!form.submitterName.trim()) e.submitterName = "Required";
-    if (!form.submitterEmail.trim()) e.submitterEmail = "Required";
-    else if (!EMAIL_RE.test(form.submitterEmail.trim()))
-      e.submitterEmail = "Enter a valid email address";
     if (!form.genres.trim()) e.genres = "Required";
     if (!form.location.trim()) e.location = "Required";
     // Contact method is optional, but choosing one makes that field required.
@@ -1071,11 +1060,7 @@ export default function SubmitForm({
     genresList.length === 1 ? "" : "s"
   } · ${form.location || "No city"}`;
 
-  const aboutYouCount =
-    (form.submitterName.trim() ? 1 : 0) +
-    (form.submitterEmail.trim() ? 1 : 0) +
-    (form.notes.trim() ? 1 : 0);
-  const aboutYouChip = aboutYouCount === 0 ? "Empty" : `${aboutYouCount} added`;
+  const aboutYouChip = form.notes.trim() ? "Notes added" : "Empty";
 
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,42rem)_220px] lg:items-start">
@@ -1723,50 +1708,14 @@ export default function SubmitForm({
 
           <AccordionSection
             id="aboutYou"
-            title="About You"
-            description="So we can follow up on your submission — never shown publicly."
+            title="Notes"
+            description="Anything else we should know, or what you're correcting."
             statusChip={isCorrect ? aboutYouChip : undefined}
             open={openSections.aboutYou}
             onToggle={() => toggleSection("aboutYou")}
             collapsible={isCorrect}
           >
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field
-                label="Your name"
-                htmlFor="submitterName"
-                required
-                error={errors.submitterName}
-              >
-                <input
-                  id="submitterName"
-                  type="text"
-                  value={form.submitterName}
-                  onChange={set("submitterName")}
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field
-                label="Your email"
-                htmlFor="submitterEmail"
-                required
-                error={errors.submitterEmail}
-              >
-                <input
-                  id="submitterEmail"
-                  type="email"
-                  value={form.submitterEmail}
-                  onChange={set("submitterEmail")}
-                  className={inputClass}
-                />
-              </Field>
-            </div>
-
-            <Field
-              label="Additional notes"
-              htmlFor="notes"
-              hint="Anything else we should know, or what you're correcting."
-            >
+            <Field label="Additional notes" htmlFor="notes">
               <textarea
                 id="notes"
                 value={form.notes}

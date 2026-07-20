@@ -1,16 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { upsertVenue, type VenueSubmissionInput } from "@/lib/venues";
+import { upsertVenue, getVenueBySlug, type VenueSubmissionInput } from "@/lib/venues";
 import { uploadVenuePhoto, generateThumbnail, uploadVenueThumbnail } from "@/lib/r2";
+import { getCurrentUser, canEditVenue } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Public "Add a venue" / "Edit this venue" submission — replaces the legacy
-// Apps Script webhook (apps-script/Code.js's handleVenueSubmission_), which
-// wrote into a Google Sheet that nothing reads anymore now that
-// fetchVenues() reads this DB directly. No auth gate, matching the venue
-// directory's existing behavior (unlike bands, venues have no editor/
-// ownership model — anyone could correct a venue before this migration too).
+// "Add a venue" / "Edit this venue" submission — replaces the legacy Apps
+// Script webhook (apps-script/Code.js's handleVenueSubmission_), which wrote
+// into a Google Sheet that nothing reads anymore now that fetchVenues()
+// reads this DB directly. Both modes require login: "add" just needs any
+// account (no venue exists yet to authorize against — same as adding a band
+// or media-pro listing doesn't grant standing edit rights on its own);
+// "correct" additionally needs canEditVenue, via venue_editors (migration
+// 0035) — mirrors app/api/bands/submit/route.ts and
+// app/api/media-pros/submit/route.ts.
 
 function str(raw: FormDataEntryValue | null): string {
   return typeof raw === "string" ? raw : "";
@@ -34,6 +38,23 @@ export async function POST(request: NextRequest) {
   const mode = str(form.get("mode")) === "correct" ? "correct" : "add";
   const existingSlug = str(form.get("existingSlug")) || undefined;
   const venueSlug = str(form.get("venueSlug"));
+
+  const user = await getCurrentUser();
+  if (!user) {
+    return NextResponse.json({ success: false, error: "Log in to submit a venue." }, { status: 401 });
+  }
+  if (mode === "correct") {
+    const targetVenue = existingSlug ? await getVenueBySlug(existingSlug) : null;
+    if (!targetVenue) {
+      return NextResponse.json({ success: false, error: "Venue not found" }, { status: 404 });
+    }
+    if (!(await canEditVenue(user, targetVenue.id))) {
+      return NextResponse.json(
+        { success: false, error: "You don't have edit access to this venue." },
+        { status: 403 },
+      );
+    }
+  }
 
   try {
     // Resolve the target slug for the photo key before uploading — a

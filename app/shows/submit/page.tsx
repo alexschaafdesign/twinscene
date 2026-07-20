@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import ShowSubmitForm, {
   type BandOption,
   type ShowInitial,
 } from "@/components/ShowSubmitForm";
 import { fetchBands } from "@/lib/fetchBands";
+import { getCurrentUser } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Add a Show — Twin Scene",
@@ -20,13 +22,25 @@ export default async function ShowSubmitPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  // Adding or editing a show both require an account now — no per-show
+  // ownership model, so one gate covers both modes.
+  const sp = await searchParams;
+  const user = await getCurrentUser();
+  if (!user) {
+    const qs = new URLSearchParams(
+      Object.entries(sp).flatMap(([k, v]) =>
+        v === undefined ? [] : (Array.isArray(v) ? v : [v]).map((val) => [k, val]),
+      ),
+    ).toString();
+    redirect(`/login?next=${encodeURIComponent(`/shows/submit${qs ? `?${qs}` : ""}`)}`);
+  }
+
   const bands = await fetchBands();
   // Lean list for the client component — just what the picker needs.
   const bandOptions = bands.map((b) => ({ slug: b.slug, name: b.name }));
 
   // Edit mode: /shows/submit?edit=<id>&… with the show's fields round-tripped
   // from the shows list (see editHref in app/shows/page.tsx).
-  const sp = await searchParams;
   const editId = one(sp.edit);
   let initial: ShowInitial | undefined;
   if (editId) {
