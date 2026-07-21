@@ -10,7 +10,8 @@ import type { Press } from "@/lib/fetchPress";
 import type { ShowStatus } from "@/lib/showSaves";
 import VenueShowsSection from "@/components/VenueShowsSection";
 import { VenuePlaceLine } from "@/components/venue-shared";
-import { VenueImage } from "@/components/venue-shared-client";
+import VenueAvatar from "@/components/VenueAvatar";
+import { autoInitials } from "@/lib/venueColor";
 import { iconProps } from "@/components/band-shared";
 
 function InfoBlock({
@@ -61,8 +62,9 @@ export default function VenueProfile({
     <div className="grid grid-cols-1 gap-8 md:grid-cols-[300px_minmax(0,1fr)] md:grid-rows-[auto_1fr] md:gap-x-10">
       {/* Icon — sidebar, top */}
       <div className="mx-auto w-full max-w-sm md:col-start-1 md:row-start-1 md:mx-0 md:max-w-none">
-        <VenueImage
-          venue={venue}
+        <VenueAvatar
+          slug={venue.slug}
+          initials={venue.avatarInitials || autoInitials(venue.name)}
           className="rounded-md ring-1 ring-[#E8E0D0]/10"
         />
       </div>
