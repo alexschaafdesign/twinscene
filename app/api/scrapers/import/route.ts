@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   try {
     // A human confirming in Import Review sends no confidence/reviewReasons —
     // they've just reviewed it, so it defaults to "ok".
-    const { outcome } = await upsertScrapedShow(
+    const { outcome, id } = await upsertScrapedShow(
       {
         source,
         sourceKey,
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     // write changes the cached show reads — skip invalidation for no-op upserts
     // so a scrape run that mostly re-sees known shows doesn't churn the tag.
     if (outcome !== "skipped") revalidateShows();
-    return NextResponse.json({ success: true, outcome, skipped: outcome === "skipped" });
+    return NextResponse.json({ success: true, outcome, id, skipped: outcome === "skipped" });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Import failed";
     return NextResponse.json({ success: false, error: message }, { status: 500 });

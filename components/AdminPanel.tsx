@@ -5,6 +5,7 @@ import type { ScraperLogRow } from "@/lib/fetchScraperLog";
 import type { Band } from "@/lib/fetchBands";
 import type { NonLocalBand } from "@/lib/fetchNonLocalBands";
 import type { DismissedBand } from "@/lib/fetchDismissedBands";
+import ScraperDashboard from "@/components/ScraperDashboard";
 
 type ScraperInfo = { id: string; name: string };
 
@@ -41,26 +42,6 @@ type Digest = {
   totalNewBands: number;
 };
 
-/**
- * A human-readable one-liner for a scraper's run — "40 scraped · 2 added · 38
- * duplicates". Duplicates = shows we already had (updated + left-alone). Falls
- * back to the old "N imported" phrasing for log rows predating granular counts.
- */
-function formatResult(entry: DigestEntry): string {
-  if (entry.added == null) {
-    return `${entry.total} scraped, ${entry.autoImported} imported, ${entry.queued} queued`;
-  }
-  const duplicates = (entry.updated ?? 0) + (entry.skipped ?? 0);
-  const parts = [
-    `${entry.total} scraped`,
-    `${entry.added} added`,
-    `${duplicates} duplicate${duplicates === 1 ? "" : "s"}`,
-  ];
-  if (entry.failed) parts.push(`${entry.failed} failed`);
-  if (entry.flagged) parts.push(`${entry.flagged} flagged for review`);
-  return parts.join(", ");
-}
-
 /** Lowercase/hyphenate. Mirrors slugify() in lib/fetchBands.ts. */
 function slugify(name: string): string {
   return name
@@ -68,18 +49,6 @@ function slugify(name: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-}
-
-/** Format an ISO timestamp for display, falling back to the raw string. */
-function formatTs(ts: string): string {
-  const d = new Date(ts);
-  if (Number.isNaN(d.getTime())) return ts;
-  return d.toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 const SECTION_HEADING =
@@ -138,8 +107,14 @@ export default function AdminPanel({
     };
   }, [parsed]);
 
-  const [runStates, setRunStates] = useState<Record<string, RunState>>({});
-  const [allState, setAllState] = useState<RunState>(IDLE);
+  // Historical last-run per scraper, handed to the live dashboard so idle cards
+  // still show "Last run …" from the log.
+  const latestByScraper = useMemo(() => {
+    const map: Record<string, { ranAt: string; entry: DigestEntry } | null> =
+      {};
+    for (const s of scrapers) map[s.id] = latestFor(s.id, s.name);
+    return map;
+  }, [scrapers, latestFor]);
 
   // Bands flagged "not local" this session — kept in the list with a chip.
   const [notLocalFlagged, setNotLocalFlagged] = useState<Set<string>>(
@@ -184,53 +159,6 @@ export default function AdminPanel({
       setGraphicState({ status: "done", message: "Downloaded." });
     } catch (err) {
       setGraphicState({
-        status: "error",
-        message: err instanceof Error ? err.message : "Failed",
-      });
-    }
-  }
-
-  async function runScraper(id: string) {
-    setRunStates((s) => ({ ...s, [id]: { status: "loading", message: "" } }));
-    try {
-      const res = await fetch(`/api/scrape/${id}?${q}`);
-      const data = (await res.json()) as Digest & { error?: string };
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      const entry = data.scrapers?.[0];
-      const message = entry ? `Done — ${formatResult(entry)}` : "Done";
-      setRunStates((s) => ({ ...s, [id]: { status: "done", message } }));
-    } catch (err) {
-      setRunStates((s) => ({
-        ...s,
-        [id]: {
-          status: "error",
-          message: err instanceof Error ? err.message : "Failed",
-        },
-      }));
-    }
-  }
-
-  async function runAll() {
-    setAllState({ status: "loading", message: "" });
-    try {
-      const res = await fetch(`/api/scrape/all?${q}`);
-      const data = (await res.json()) as Digest & { error?: string };
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      const scrapedTotal = (data.scrapers ?? []).reduce(
-        (n, s) => n + (s.total ?? 0),
-        0,
-      );
-      const message =
-        data.totalAdded == null
-          ? `Done — ${data.totalAutoImported} imported, ${data.totalQueued} queued, ${data.totalNewBands} new bands`
-          : `Done — ${scrapedTotal} scraped, ${data.totalAdded} added, ${
-              (data.totalUpdated ?? 0) + (data.totalSkipped ?? 0)
-            } duplicates${data.totalFailed ? `, ${data.totalFailed} failed` : ""}${
-              data.totalFlagged ? `, ${data.totalFlagged} flagged for review` : ""
-            }, ${data.totalNewBands} new bands`;
-      setAllState({ status: "done", message });
-    } catch (err) {
-      setAllState({
         status: "error",
         message: err instanceof Error ? err.message : "Failed",
       });
@@ -369,81 +297,12 @@ export default function AdminPanel({
       <section className="mb-12">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className={SECTION_HEADING}>Scraper status</h2>
-          <button
-            type="button"
-            onClick={runAll}
-            disabled={allState.status === "loading"}
-            className={BTN_PRIMARY}
-          >
-            {allState.status === "loading" ? (
-              <Spinner label="Running all…" />
-            ) : (
-              "Run all scrapers"
-            )}
-          </button>
         </div>
-
-        {allState.status !== "idle" && allState.status !== "loading" && (
-          <p
-            className={`mb-4 text-sm ${
-              allState.status === "error" ? "text-[#E5A0A0]" : "text-[#8FD08F]"
-            }`}
-          >
-            {allState.message}
-          </p>
-        )}
-
-        <div className="space-y-3">
-          {scrapers.map((scraper) => {
-            const latest = latestFor(scraper.id, scraper.name);
-            const run = runStates[scraper.id] ?? IDLE;
-            return (
-              <div key={scraper.id} className={CARD}>
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium text-[#E8E0D0]">{scraper.name}</p>
-                    <p className="mt-1 text-xs text-[#E8E0D0]/55">
-                      Last run:{" "}
-                      {latest ? formatTs(latest.ranAt) : "Never"}
-                    </p>
-                    <p className="mt-0.5 text-xs text-[#E8E0D0]/55">
-                      Last result:{" "}
-                      {latest && !latest.entry.error
-                        ? formatResult(latest.entry)
-                        : latest?.entry.error
-                          ? `error — ${latest.entry.error}`
-                          : "—"}
-                    </p>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <button
-                      type="button"
-                      onClick={() => runScraper(scraper.id)}
-                      disabled={run.status === "loading"}
-                      className={BTN}
-                    >
-                      {run.status === "loading" ? (
-                        <Spinner label="Running…" />
-                      ) : (
-                        "Run now"
-                      )}
-                    </button>
-                    {run.status === "done" && (
-                      <p className="mt-1.5 text-xs text-[#8FD08F]">
-                        {run.message}
-                      </p>
-                    )}
-                    {run.status === "error" && (
-                      <p className="mt-1.5 text-xs text-[#E5A0A0]">
-                        {run.message}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <ScraperDashboard
+          scrapers={scrapers}
+          latestByScraper={latestByScraper}
+          secret={secret}
+        />
       </section>
 
       {/* 2. FLAGGED FOR REVIEW ────────────────────────────────────────── */}

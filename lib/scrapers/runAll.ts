@@ -15,6 +15,18 @@ import {
 } from "@/lib/scrapers/starPress";
 import { reconcileCrawlSpace, type ReconcileReport } from "@/lib/scrapers/reconcile";
 
+// A pointer to one imported show, enough for the admin dashboard to render it
+// and link straight to /shows/[id]. `id` is null only when the import request
+// itself failed (no row was written). `reasons` carries the data-quality flags
+// (why it needs review) or, for a failure, the error text.
+export type ShowRef = {
+  id: string | null;
+  title: string;
+  date: string;
+  venue: string;
+  reasons?: string[];
+};
+
 export type ScraperDigest = {
   id: string;
   name: string;
@@ -27,8 +39,29 @@ export type ScraperDigest = {
   flagged: number; // imported but data-quality-flagged (lib/scrapers/reviewFlags.ts); still public
   queued: number; // always 0 now that everything imports — kept for back-compat until Phase 3's /admin/review lands
   newBandsFound: string[]; // scraped band names that matched nothing ('none')
+  // The actual shows behind the counts, for dashboard drill-down. Optional so
+  // digests from before this change (and rejected-scraper rows) parse fine.
+  addedShows?: ShowRef[]; // brand-new rows, in scrape order
+  flaggedShows?: ShowRef[]; // imported but data-quality-flagged, with reasons
+  failedShows?: ShowRef[]; // imports that errored past their retries
   error?: string;
 };
+
+// Progress events emitted during a streamed run so the admin dashboard can
+// render live status per venue. `runScrapers`/`runAllScrapers` take an optional
+// `onEvent` sink; when absent (cron, the plain JSON endpoint) nothing streams.
+export type ScrapeProgressEvent =
+  | { type: "scrape_start"; id: string }
+  | { type: "scraped"; id: string; count: number }
+  | { type: "scrape_error"; id: string; error: string }
+  | { type: "import_start"; id: string }
+  | { type: "scraper_done"; digest: ScraperDigest }
+  | { type: "press_start" }
+  | { type: "press"; pressStars: PressStarResult[] }
+  | { type: "reconcile_start" }
+  | { type: "reconcile"; reconcile: ReconcileReport };
+
+export type ScrapeProgressSink = (event: ScrapeProgressEvent) => void;
 
 export type DigestSummary = {
   ranAt: string;
@@ -103,13 +136,16 @@ async function mapWithConcurrency<T, R>(
 export async function runAllScrapers(
   baseUrl: string,
   scrapers: Scraper[] = getAllScrapers(),
+  onEvent?: ScrapeProgressSink,
 ): Promise<DigestSummary> {
   // The full run (cron / "Run all") emails the digest. Callers can pass a
   // subset — the cron passes getCronScrapers() to skip localOnly venues.
-  const summary = await runScrapers(scrapers, { notify: true, baseUrl });
+  const summary = await runScrapers(scrapers, { notify: true, baseUrl, onEvent });
 
   try {
+    onEvent?.({ type: "press_start" });
     summary.pressStars = await runAllPressStars(baseUrl);
+    onEvent?.({ type: "press", pressStars: summary.pressStars });
   } catch (err) {
     console.error("runAllPressStars failed", err);
   }
@@ -118,7 +154,9 @@ export async function runAllScrapers(
   // it lists that we're missing. After the venue imports above so tonight's
   // freshly-scraped shows are already present to match against.
   try {
+    onEvent?.({ type: "reconcile_start" });
     summary.reconcile = await reconcileCrawlSpace(baseUrl);
+    onEvent?.({ type: "reconcile", reconcile: summary.reconcile });
   } catch (err) {
     console.error("reconcileCrawlSpace failed", err);
   }
@@ -137,10 +175,11 @@ export async function runAllScrapers(
  */
 export async function runScrapers(
   scrapers: Scraper[],
-  opts: { notify?: boolean; baseUrl: string },
+  opts: { notify?: boolean; baseUrl: string; onEvent?: ScrapeProgressSink },
 ): Promise<DigestSummary> {
   const notify = opts.notify ?? false;
   const baseUrl = opts.baseUrl;
+  const onEvent = opts.onEvent;
   // The Scraper Log tab is a separate, unmigrated sheet (run history + newly
   // discovered bands) — still logged via Apps Script.
   const submitUrl = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
@@ -150,11 +189,25 @@ export async function runScrapers(
   const bands = await fetchBands();
   const { matchShow } = createMatcher(bands);
 
-  // One failing scraper must not block the others.
-  const results = await Promise.allSettled(
+  // One failing scraper must not block the others. Emit per-venue scrape events
+  // as each settles so a streamed run can show live progress; we build the same
+  // PromiseSettledResult shape by hand so the rest of the function is unchanged.
+  const results: PromiseSettledResult<MatchedShow[]>[] = await Promise.all(
     scrapers.map(async (scraper) => {
-      const scraped = await scraper.scrape();
-      return scraped.map(matchShow);
+      onEvent?.({ type: "scrape_start", id: scraper.id });
+      try {
+        const scraped = await scraper.scrape();
+        const mapped = scraped.map(matchShow);
+        onEvent?.({ type: "scraped", id: scraper.id, count: mapped.length });
+        return { status: "fulfilled" as const, value: mapped };
+      } catch (reason) {
+        onEvent?.({
+          type: "scrape_error",
+          id: scraper.id,
+          error: reason instanceof Error ? reason.message : String(reason),
+        });
+        return { status: "rejected" as const, reason };
+      }
     }),
   );
 
@@ -185,7 +238,7 @@ export async function runScrapers(
     const result = results[i];
 
     if (result.status === "rejected") {
-      digest.push({
+      const entry: ScraperDigest = {
         id: scraper.id,
         name: scraper.name,
         total: 0,
@@ -197,11 +250,16 @@ export async function runScrapers(
         flagged: 0,
         queued: 0,
         newBandsFound: [],
+        addedShows: [],
+        flaggedShows: [],
+        failedShows: [],
         error:
           result.reason instanceof Error
             ? result.reason.message
             : String(result.reason),
-      });
+      };
+      digest.push(entry);
+      onEvent?.({ type: "scraper_done", digest: entry });
       continue;
     }
 
@@ -218,6 +276,18 @@ export async function runScrapers(
     let skipped = 0;
     let failed = 0;
     let flagged = 0;
+    // The actual shows behind the added / flagged / failed counts, for the
+    // dashboard's drill-down. A short display ref per show — not the full row.
+    const addedShows: ShowRef[] = [];
+    const flaggedShows: ShowRef[] = [];
+    const failedShows: ShowRef[] = [];
+    const refOf = (show: MatchedShow) => ({
+      title: show.title || show.headliner || show.allBands[0] || "(untitled)",
+      date: show.date ?? "",
+      venue: show.venue,
+    });
+
+    onEvent?.({ type: "import_start", id: scraper.id });
     if (shows.length > 0) {
       const outcomes = await mapWithConcurrency(
         shows,
@@ -232,14 +302,29 @@ export async function runScrapers(
               : [],
           ),
       );
-      for (const o of outcomes) {
-        if (!o.success) failed++;
-        else {
-          if (o.outcome === "created") added++;
-          else if (o.outcome === "updated") updated++;
-          else if (o.outcome === "skipped") skipped++;
-          else added++; // success without an outcome (older route) — treat as added
-          if (o.confidence && o.confidence !== "ok") flagged++;
+      // mapWithConcurrency preserves order, so outcomes[j] is shows[j]'s result.
+      for (let j = 0; j < outcomes.length; j++) {
+        const o = outcomes[j];
+        const base = refOf(shows[j]);
+        if (!o.success) {
+          failed++;
+          failedShows.push({ ...base, id: null, reasons: o.error ? [o.error] : [] });
+          continue;
+        }
+        if (o.outcome === "created") {
+          added++;
+          addedShows.push({ ...base, id: o.id ?? null });
+        } else if (o.outcome === "updated") {
+          updated++;
+        } else if (o.outcome === "skipped") {
+          skipped++;
+        } else {
+          added++; // success without an outcome (older route) — treat as added
+          addedShows.push({ ...base, id: o.id ?? null });
+        }
+        if (o.confidence && o.confidence !== "ok") {
+          flagged++;
+          flaggedShows.push({ ...base, id: o.id ?? null, reasons: o.reviewReasons ?? [] });
         }
       }
     }
@@ -257,7 +342,7 @@ export async function runScrapers(
       ),
     );
 
-    digest.push({
+    const entry: ScraperDigest = {
       id: scraper.id,
       name: scraper.name,
       total: shows.length,
@@ -269,7 +354,12 @@ export async function runScrapers(
       flagged,
       queued: 0,
       newBandsFound,
-    });
+      addedShows,
+      flaggedShows,
+      failedShows,
+    };
+    digest.push(entry);
+    onEvent?.({ type: "scraper_done", digest: entry });
   }
 
   const summary: DigestSummary = {

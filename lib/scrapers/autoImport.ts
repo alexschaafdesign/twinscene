@@ -39,6 +39,11 @@ export async function autoImportShow(
   success: boolean;
   outcome?: UpsertOutcome;
   confidence?: ReviewConfidence;
+  // The upserted show's id (absent only when the import request itself failed)
+  // + the data-quality reasons — both surfaced so the digest can link straight
+  // to a flagged show and say why it was flagged.
+  id?: string;
+  reviewReasons?: string[];
   error?: string;
 }> {
   const title = show.title || show.headliner || show.allBands[0] || "";
@@ -96,6 +101,8 @@ export async function autoImportShow(
       success: true,
       outcome: data.outcome as UpsertOutcome | undefined,
       confidence,
+      id: typeof data.id === "string" ? data.id : undefined,
+      reviewReasons,
     };
   } catch (err) {
     return {

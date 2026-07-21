@@ -174,7 +174,7 @@ export type UpsertOutcome = "created" | "updated" | "skipped";
 export async function upsertScrapedShow(
   input: ScrapedShowInput,
   actor: string,
-): Promise<{ outcome: UpsertOutcome }> {
+): Promise<{ outcome: UpsertOutcome; id: string }> {
   // Resolved outside the transaction — these are HTTP calls to Birdhaus, not
   // DB work, so they shouldn't hold a Postgres connection open. Wasted on the
   // rare row that turns out to be edited-locked below, which is fine.
@@ -185,7 +185,7 @@ export async function upsertScrapedShow(
       SELECT id, edited_at FROM shows WHERE source_key = ${input.sourceKey} FOR UPDATE
     `;
     if (existing.length > 0 && existing[0].edited_at) {
-      return { outcome: "skipped" };
+      return { outcome: "skipped", id: existing[0].id };
     }
     const wasExisting = existing.length > 0;
     const needsReview = input.confidence !== "ok";
@@ -248,7 +248,7 @@ export async function upsertScrapedShow(
     if (!wasExisting && isUpcoming(input.date)) {
       await notifyBandOnNewShow(tx, rows[0].id, linkedSlugs(lineup));
     }
-    return { outcome: wasExisting ? "updated" : "created" };
+    return { outcome: wasExisting ? "updated" : "created", id: rows[0].id };
   });
 }
 
