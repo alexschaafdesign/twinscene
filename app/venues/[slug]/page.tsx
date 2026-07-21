@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchVenues, matchVenue } from "@/lib/fetchVenues";
-import { fetchShows, fetchAllPastShows, todayInChicago } from "@/lib/fetchShows";
+import { matchVenue } from "@/lib/fetchVenues";
+import { todayInChicago } from "@/lib/fetchShows";
 import { fetchPress } from "@/lib/fetchPress";
-import { getVenueBySlug } from "@/lib/venues";
+import {
+  getCachedVenues,
+  getCachedShows,
+  getCachedAllPastShows,
+  getCachedVenueBySlug,
+} from "@/lib/cachedReads";
 import { getCurrentUser, canEditVenue } from "@/lib/auth";
 import { listShowStatuses } from "@/lib/showSaves";
 import VenueProfile from "@/components/VenueProfile";
@@ -24,7 +29,7 @@ type Props = {
 export const dynamic = "force-dynamic";
 
 async function getVenue(slug: string) {
-  const venues = await fetchVenues();
+  const venues = await getCachedVenues();
   return { venues, venue: venues.find((v) => v.slug === slug) ?? null };
 }
 
@@ -49,7 +54,7 @@ export default async function VenueProfilePage({ params }: Props) {
   const { venues, venue } = await getVenue(slug);
   if (!venue) notFound();
 
-  const [shows, pastShows] = await Promise.all([fetchShows(), fetchAllPastShows()]);
+  const [shows, pastShows] = await Promise.all([getCachedShows(), getCachedAllPastShows()]);
   const press = await fetchPress();
   const venueShows = shows.filter(
     (s) => matchVenue(venues, s.venue)?.slug === venue.slug,
@@ -64,7 +69,7 @@ export default async function VenueProfilePage({ params }: Props) {
   // fetchVenues()'s public Venue shape has no numeric id (see lib/venueUtils.ts);
   // canEditVenue needs the DB row's id, mirroring app/bands/[slug]/page.tsx's
   // bandRow lookup alongside the public `band` used for display.
-  const venueRow = await getVenueBySlug(venue.slug);
+  const venueRow = await getCachedVenueBySlug(venue.slug);
   const canEdit = venueRow ? await canEditVenue(user, venueRow.id) : false;
 
   const actions = canEdit ? (

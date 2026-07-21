@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchBands } from "@/lib/fetchBands";
-import { fetchShows, todayInChicago } from "@/lib/fetchShows";
+import { todayInChicago } from "@/lib/fetchShows";
 import { fetchPress } from "@/lib/fetchPress";
-import { getVisibleVideosBySlug } from "@/lib/videos";
-import { getBandBySlug } from "@/lib/bands";
+import {
+  getCachedBands,
+  getCachedShows,
+  getCachedBandBySlug,
+  getCachedVisibleVideosBySlug,
+} from "@/lib/cachedReads";
 import { getCurrentUser, canEditBand, isAdmin } from "@/lib/auth";
 import { isBandFollowing } from "@/lib/bandFollows";
 import { listShowStatuses } from "@/lib/showSaves";
@@ -30,7 +33,7 @@ export const dynamic = "force-dynamic";
 
 // Same "fetch all, find by slug" pattern the rest of the app uses.
 async function getBand(slug: string) {
-  const bands = await fetchBands();
+  const bands = await getCachedBands();
   return bands.find((b) => b.slug === slug) ?? null;
 }
 
@@ -62,16 +65,16 @@ export default async function BandProfilePage({ params }: Props) {
   const band = await getBand(slug);
   if (!band) notFound();
 
-  const shows = await fetchShows();
+  const shows = await getCachedShows();
   const press = await fetchPress();
   const bandShows = shows.filter((s) => s.bandSlugs.includes(slug));
-  const videos = await getVisibleVideosBySlug(slug);
+  const videos = await getCachedVisibleVideosBySlug(slug);
 
   const user = await getCurrentUser();
   // fetchBands()'s Band shape carries no numeric id (see lib/fetchBands.ts),
   // so a second lookup against the raw row is the cheapest way to get one for
   // isBandFollowing.
-  const bandRow = await getBandBySlug(slug);
+  const bandRow = await getCachedBandBySlug(slug);
   const initialFollowing = user && bandRow ? await isBandFollowing(user.id, bandRow.id) : false;
   const showStatuses = user ? await listShowStatuses(user.id, bandShows.map((s) => s.id)) : {};
   const members = bandRow ? await getBandMembers(bandRow.id) : [];

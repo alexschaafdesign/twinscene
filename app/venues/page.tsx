@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { fetchVenues } from "@/lib/fetchVenues";
+import { getCachedVenues } from "@/lib/cachedReads";
 import VenueGrid from "@/components/VenueGrid";
 
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function VenuesPage() {
-  const venues = await fetchVenues();
+  const venues = await getCachedVenues();
 
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">

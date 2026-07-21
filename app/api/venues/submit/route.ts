@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { upsertVenue, getVenueBySlug, type VenueSubmissionInput } from "@/lib/venues";
 import { uploadVenuePhoto, generateThumbnail, uploadVenueThumbnail } from "@/lib/r2";
 import { getCurrentUser, canEditVenue } from "@/lib/auth";
+import { revalidateVenues } from "@/lib/cachedReads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,6 +95,7 @@ export async function POST(request: NextRequest) {
     };
 
     const { venue, action } = await upsertVenue(input, mode, existingSlug);
+    revalidateVenues();
     return NextResponse.json({ success: true, slug: venue.slug, action });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Submission failed";

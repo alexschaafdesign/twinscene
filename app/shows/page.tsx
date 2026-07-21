@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { fetchShows, fetchPastShows, todayInChicago } from "@/lib/fetchShows";
-import { fetchVenues } from "@/lib/fetchVenues";
+import { todayInChicago } from "@/lib/fetchShows";
+import { getCachedShows, getCachedPastShows, getCachedVenues } from "@/lib/cachedReads";
 import { fetchPress } from "@/lib/fetchPress";
 import { getCurrentUser } from "@/lib/auth";
 import { listShowStatuses } from "@/lib/showSaves";
@@ -18,9 +18,9 @@ const PAST_SHOWS_DAYS = 30;
 
 export default async function ShowsPage() {
   const [shows, pastShows, venues, press, user] = await Promise.all([
-    fetchShows(),
-    fetchPastShows(PAST_SHOWS_DAYS),
-    fetchVenues(),
+    getCachedShows(),
+    getCachedPastShows(PAST_SHOWS_DAYS),
+    getCachedVenues(),
     fetchPress(),
     getCurrentUser(),
   ]);

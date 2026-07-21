@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser, canEditBand } from "@/lib/auth";
 import { getBandBySlug, updateBandProfileLayout } from "@/lib/bands";
 import { normalizeLayout } from "@/lib/bandProfileLayout";
+import { revalidateBands } from "@/lib/cachedReads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,5 +49,6 @@ export async function PATCH(
   const layout = normalizeLayout((body as { layout?: unknown } | null)?.layout);
   await updateBandProfileLayout(band.id, layout);
 
+  revalidateBands();
   return NextResponse.json({ success: true, layout });
 }

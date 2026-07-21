@@ -11,6 +11,7 @@ import {
 } from "@/lib/bands";
 import { SECTION_EDIT } from "@/lib/bandProfileFields";
 import type { SectionId } from "@/lib/bandProfileLayout";
+import { revalidateBands } from "@/lib/cachedReads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -130,5 +131,8 @@ export async function PATCH(
       );
   }
 
+  // Any section write changes what the cached band reads return; drop the tag
+  // so the profile + directory reflect it on the next view.
+  revalidateBands();
   return NextResponse.json({ success: true });
 }

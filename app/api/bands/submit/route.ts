@@ -4,6 +4,7 @@ import { addVideo, removeVideos } from "@/lib/videos";
 import { uploadBandPhoto, generateThumbnail, uploadBandThumbnail } from "@/lib/r2";
 import { buildLineupEntries, insertManualShow } from "@/lib/shows";
 import { getCurrentUser, canEditBand } from "@/lib/auth";
+import { revalidateBands, revalidateShows, revalidateVideos } from "@/lib/cachedReads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -162,6 +163,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // A band submit/correct can touch bands, their videos, and (on "add") a
+    // fresh show — drop every category it may have written.
+    revalidateBands();
+    revalidateVideos();
+    revalidateShows();
     return NextResponse.json({ success: true, slug: band.slug, action });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Submission failed";

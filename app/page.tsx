@@ -1,7 +1,5 @@
 import Link from "next/link";
-import { fetchBands } from "@/lib/fetchBands";
-import { fetchShows } from "@/lib/fetchShows";
-import { getSlugsWithVideos } from "@/lib/videos";
+import { getCachedBands, getCachedShows, getCachedSlugsWithVideos } from "@/lib/cachedReads";
 import { getCurrentUser } from "@/lib/auth";
 import { listFollowedSlugs } from "@/lib/bandFollows";
 import BandGrid from "@/components/BandGrid";
@@ -19,9 +17,9 @@ export default async function Home() {
   // fetchShows() already excludes past dates, so a band's slug showing up
   // here means it has something upcoming.
   const [bands, shows, bandsWithVideos, user] = await Promise.all([
-    fetchBands(),
-    fetchShows(),
-    getSlugsWithVideos(),
+    getCachedBands(),
+    getCachedShows(),
+    getCachedSlugsWithVideos(),
     getCurrentUser(),
   ]);
   const followedSlugs = user ? await listFollowedSlugs(user.id) : [];

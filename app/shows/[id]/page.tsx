@@ -2,8 +2,8 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { fetchShowById, todayInChicago } from "@/lib/fetchShows";
-import { fetchBandsBySlugs } from "@/lib/fetchBands";
+import { todayInChicago } from "@/lib/fetchShows";
+import { getCachedShowById, getCachedBandsBySlugs } from "@/lib/cachedReads";
 import { fetchPress } from "@/lib/fetchPress";
 import { pressNotes } from "@/lib/press";
 import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
@@ -14,7 +14,7 @@ import BackLink from "@/components/BackLink";
 
 // Shared by generateMetadata and the page body so a visit costs one
 // fetchShowById() DB hit, not two.
-const getShow = cache(fetchShowById);
+const getShow = cache(getCachedShowById);
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +89,7 @@ export default async function ShowDetailPage({
 
   const user = await getCurrentUser();
   const [bands, press, status] = await Promise.all([
-    fetchBandsBySlugs(show.bandSlugs),
+    getCachedBandsBySlugs(show.bandSlugs),
     fetchPress(),
     user ? getShowStatus(user.id, show.id) : Promise.resolve(null),
   ]);

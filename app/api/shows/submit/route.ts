@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { buildLineupEntries, insertManualShow } from "@/lib/shows";
 import { processShowFlyer, uploadShowFlyer } from "@/lib/r2";
 import { getCurrentUser } from "@/lib/auth";
+import { revalidateShows } from "@/lib/cachedReads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,6 +96,7 @@ export async function POST(request: NextRequest) {
       "public_submission",
       { name: user.name ?? user.email, email: user.email },
     );
+    revalidateShows();
     return NextResponse.json({ success: true, id });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Submission failed";

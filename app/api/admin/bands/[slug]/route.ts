@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getCurrentUser, canEditBand } from "@/lib/auth";
 import { getBandBySlug, updateBandCoreFields, toPublicBand } from "@/lib/bands";
+import { revalidateBands } from "@/lib/cachedReads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,5 +39,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     user?.id,
   );
 
+  revalidateBands();
   return NextResponse.json({ success: true, band: toPublicBand(updated) });
 }

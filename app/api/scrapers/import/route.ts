@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildLineupEntries, upsertScrapedShow } from "@/lib/shows";
+import { revalidateShows } from "@/lib/cachedReads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,7 +62,10 @@ export async function POST(request: NextRequest) {
       actor,
     );
     // `skipped` retained for back-compat with callers that only checked it;
-    // `outcome` is the richer created/updated/skipped disposition.
+    // `outcome` is the richer created/updated/skipped disposition. Only a real
+    // write changes the cached show reads — skip invalidation for no-op upserts
+    // so a scrape run that mostly re-sees known shows doesn't churn the tag.
+    if (outcome !== "skipped") revalidateShows();
     return NextResponse.json({ success: true, outcome, skipped: outcome === "skipped" });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Import failed";
