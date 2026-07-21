@@ -370,8 +370,8 @@ export default function ShowSubmitForm({
    * Name-only quick-add for a band that isn't in the directory yet, mirroring
    * the show-import "Add to directory" flow: publishes the band immediately
    * (the Apps Script honours quickAdd to skip the notification email), then
-   * links it to this show by slug. Used in edit mode, where the full
-   * add-a-band form isn't offered. Throws so the search box can surface errors.
+   * links it to this show by slug. Available in both modes from the band search
+   * box. Throws so the search box can surface errors.
    */
   async function quickAddBand(name: string): Promise<void> {
     const url = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
@@ -784,9 +784,8 @@ export default function ShowSubmitForm({
           </h2>
           <p className="mt-1 text-xs text-[#E8E0D0]/45">
             Add one or more bands from the directory. Some shows have several
-            acts.
-            {isEdit &&
-              " If a band isn't listed yet, type its name and pick “Add to directory”."}
+            acts. If a band isn&apos;t listed yet, type its name and pick “Add to
+            directory”.
           </p>
 
           <div className="mt-2">
@@ -794,9 +793,10 @@ export default function ShowSubmitForm({
               bands={bands}
               selected={selectedBands}
               onAdd={addBand}
-              // Edit mode has no full add-a-band form, so let the search
-              // quick-add a name-only band and link it in one step.
-              onQuickAdd={isEdit ? quickAddBand : undefined}
+              // Both modes let the search quick-add a name-only band to the
+              // directory and link it in one step. Add mode also keeps the full
+              // add-a-band form below for richer band details.
+              onQuickAdd={quickAddBand}
             />
           </div>
 
