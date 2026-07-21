@@ -14,10 +14,11 @@ export const dynamic = "force-dynamic";
 
 // Logged-in user claims a musician found via the /profile/musician directory
 // search. Claims are band-scoped now (Slice B), so "claiming" a musician
-// listed in multiple bands opens one band_member_claims row per band —
-// each reviewed independently by that band's owner (or an admin, for
-// ownerless bands). MusicianAlreadyLinkedError/UserAlreadyLinkedError don't
-// depend on which band, so the first one short-circuits the loop.
+// listed in multiple bands lists the account in each of those bands instantly
+// (createMemberClaim) and opens one pending edit-access request per band —
+// each decided independently by that band's owner (or an admin, for ownerless
+// bands). MusicianAlreadyLinkedError/UserAlreadyLinkedError don't depend on
+// which band, so the first one short-circuits the loop.
 export async function POST(_request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const musician = await getMusicianPageData(slug);

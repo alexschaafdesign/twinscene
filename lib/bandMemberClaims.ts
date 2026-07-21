@@ -1,13 +1,19 @@
-// Band ownership Slice B: "I'm <musician> in <band>" claims, approved by that
-// band's OWNER (isBandOwner, lib/bandOwnership.ts) with an admin as fallback
-// for ownerless bands. Replaces Slice 2's musician_claims (admin-only,
-// identity-scoped — linked a user to a musician and granted band_editors for
-// every band that musician was in). See migration 0024 for the schema.
+// Band ownership Slice B: "I'm <musician> in <band>" — self-association is
+// now INSTANT (a musician lists themselves in a band without waiting on
+// anyone), and the only thing an owner/admin still approves is EDIT ACCESS.
+//
+// createMemberClaim does the association up front: it links musicians.user_id
+// and inserts the band_members row (the public listing) immediately, then also
+// opens a pending band_member_claims row that means "requests edit access to
+// this band". decideMemberClaim's approval grants band_editors ONLY — the
+// listing already exists; a rejection denies edit access but never un-lists
+// the musician. See migration 0024 for the schema (unchanged — no new columns
+// were needed; band_member_claims just carries a narrower meaning now).
 //
 // A claim always carries a concrete musician_id: the "I'm not listed" path
 // creates a brand-new musician row (lib/musicians.ts createNewMusician) up
-// front rather than deferring that to decide-time, so the pending claim and
-// the musician it points at are created together, atomically.
+// front rather than deferring that to decide-time, so the listing and the
+// musician it points at are created together, atomically.
 
 import { sql } from "./db.ts";
 import type { User } from "./auth.ts";
@@ -72,13 +78,22 @@ export async function canApproveMemberClaim(user: User | null, bandId: number): 
   return isBandOwner(user, bandId);
 }
 
-// Opens a claim for `actingUser` on `bandId`, either against an existing
-// musician (`musicianId`) or a brand-new one created on the spot (`newName`
-// — never matched against an existing same-named musician; see
-// createNewMusician). Guards: the musician must be unlinked or already
-// linked to `actingUser` (re-requesting a different band under your own
-// musician is the Slice 2-deferred "add my musician to another band" flow);
+// Self-lists `actingUser` in `bandId` — against an existing musician
+// (`musicianId`) or a brand-new one created on the spot (`newName` — never
+// matched against an existing same-named musician; see createNewMusician).
+// The listing is INSTANT: this links musicians.user_id and inserts the
+// band_members row in the same transaction, no approval required. It also
+// opens a pending band_member_claims row = a request for EDIT ACCESS, which
+// an owner/admin can later approve (decideMemberClaim) to grant band_editors.
+//
+// Guards (unchanged): the musician must be unlinked or already linked to
+// `actingUser` (listing your own musician in another band is fine);
 // `actingUser` must not already be linked to a *different* musician.
+//
+// Because the listing is the point, a duplicate edit-access request is NOT an
+// error — the association is idempotent, so we just return the existing
+// pending claim (or the freshly inserted one) and the caller treats it as
+// success.
 export async function createMemberClaim(
   actingUser: User,
   bandId: number,
@@ -109,26 +124,42 @@ export async function createMemberClaim(
       if (userLink) {
         throw new UserAlreadyLinkedError();
       }
+      await tx`update musicians set user_id = ${actingUser.id} where id = ${musicianId}`;
     }
 
-    try {
-      const [claim] = await tx<BandMemberClaim[]>`
-        insert into band_member_claims (user_id, band_id, musician_id)
-        values (${actingUser.id}, ${bandId}, ${musicianId})
-        returning *
-      `;
-      return claim;
-    } catch (err) {
-      if (err && typeof err === "object" && "code" in err && err.code === "23505") {
-        throw new DuplicateClaimError();
-      }
-      throw err;
-    }
+    // The instant listing — idempotent, so re-listing an already-listed
+    // musician is a no-op rather than a duplicate error.
+    await tx`
+      insert into band_members (band_id, musician_id, position)
+      select ${bandId}, ${musicianId},
+             coalesce((select max(position) + 1 from band_members where band_id = ${bandId}), 0)
+      on conflict (band_id, musician_id) do nothing
+    `;
+
+    // The surviving approval surface: a pending request for edit access. A
+    // duplicate just means one's already open, so return that instead of
+    // failing (the listing above still happened either way).
+    const [claim] = await tx<BandMemberClaim[]>`
+      insert into band_member_claims (user_id, band_id, musician_id)
+      values (${actingUser.id}, ${bandId}, ${musicianId})
+      on conflict (user_id, band_id, musician_id) where status = 'pending' do nothing
+      returning *
+    `;
+    if (claim) return claim;
+
+    const [existing] = await tx<BandMemberClaim[]>`
+      select * from band_member_claims
+      where user_id = ${actingUser.id} and band_id = ${bandId}
+        and musician_id = ${musicianId} and status = 'pending'
+      limit 1
+    `;
+    return existing;
   });
 }
 
-// A logged-in user's own pending claims, for display on /profile — "Your
-// claim for <musician> in <band> is awaiting review."
+// A logged-in user's own pending edit-access requests, for display on
+// /profile — "You're listed as <musician> in <band>; edit access is awaiting
+// review." (The listing itself already exists; only edit access is pending.)
 export async function listPendingClaimsForUser(userId: number): Promise<PendingBandMemberClaim[]> {
   return sql<PendingBandMemberClaim[]>`
     select band_member_claims.*, users.email as user_email,
@@ -143,8 +174,8 @@ export async function listPendingClaimsForUser(userId: number): Promise<PendingB
   `;
 }
 
-// Pending claims for one band — the owner-facing "Pending member requests"
-// list embedded on that band's page.
+// Pending edit-access requests for one band — the owner-facing "Members
+// requesting edit access" list embedded on that band's page.
 export async function listPendingClaimsForBand(bandId: number): Promise<PendingBandMemberClaim[]> {
   return sql<PendingBandMemberClaim[]>`
     select band_member_claims.*, users.email as user_email,
@@ -195,15 +226,19 @@ export async function listAllPendingClaims(): Promise<PendingBandMemberClaim[]> 
   `;
 }
 
-// Approves or rejects a pending claim. Requires canApproveMemberClaim
-// (checked here, not just at the route, so the rule holds regardless of
-// caller — mirrors canEditMusician's re-check inside updateMusicianProfile).
-// Approval, in one transaction: links musicians.user_id if not already
-// linked (re-checked here against the race where a different claim on the
-// same musician was decided first), ensures a band_members row exists, and
-// grants band_editors role='member' via ON CONFLICT DO NOTHING — a plain
-// insert-if-absent that can never downgrade an existing 'owner' row. Returns
-// null if the claim doesn't exist or is no longer pending.
+// Approves or rejects a pending EDIT-ACCESS request. Requires
+// canApproveMemberClaim (checked here, not just at the route, so the rule
+// holds regardless of caller — mirrors canEditMusician's re-check inside
+// updateMusicianProfile). Approval grants band_editors role='member' via
+// ON CONFLICT DO NOTHING — a plain insert-if-absent that can never downgrade
+// an existing 'owner' row. Rejection denies edit access and leaves the
+// listing intact (it never un-lists the musician). Returns null if the claim
+// doesn't exist or is no longer pending.
+//
+// The musician-link + band_members inserts below are redundant for claims
+// created by the current createMemberClaim (which already listed the musician
+// up front) — they're kept idempotent so LEGACY pending claims, opened before
+// listing became instant, still fully associate on approval.
 export async function decideMemberClaim(
   claimId: number,
   decision: "approved" | "rejected",

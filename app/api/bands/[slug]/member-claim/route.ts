@@ -12,10 +12,12 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Logged-in user requests to be linked as a member of this band — either an
+// Logged-in user lists themselves as a member of this band — either an
 // existing listed musician ({ musicianId }) or a brand-new one under a name
-// they type ({ name }). Opens a 'pending' band_member_claims row for the
-// band's owner (or an admin, for ownerless bands) to review — see
+// they type ({ name }). The listing is instant (createMemberClaim links the
+// musician + inserts band_members on the spot); it also opens a 'pending'
+// band_member_claims row = a request for edit access, which the band's owner
+// (or an admin, for ownerless bands) can approve — see
 // /api/bands/[slug]/member-claims/[id].
 export async function POST(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;

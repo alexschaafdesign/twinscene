@@ -8,10 +8,11 @@ type Result = { status: "pending" | "error"; message: string };
 
 /**
  * "Are you in this band?" entry point on a band's page — claim one of the
- * listed members ("Is this you?") or request to be added under a new name.
- * Opens a band_member_claims row for that band's owner (or an admin, for
- * ownerless bands) to review (lib/bandMemberClaims.ts createMemberClaim).
- * Shown to logged-in visitors who don't already have edit access to the band.
+ * listed members ("Is this you?") or add yourself under a new name. Listing
+ * is instant (lib/bandMemberClaims.ts createMemberClaim links the musician and
+ * inserts the band_members row on the spot); it also opens a pending request
+ * for EDIT ACCESS that the band's owner (or an admin, for ownerless bands) can
+ * later approve. Shown to logged-in visitors who don't already have edit access.
  */
 export default function BandMemberClaimSection({
   bandSlug,
@@ -56,7 +57,10 @@ export default function BandMemberClaimSection({
         setResult({ status: "error", message: data.error || "Something went wrong" });
         return;
       }
-      setResult({ status: "pending", message: "Claim submitted — awaiting review from the band's owner." });
+      setResult({
+        status: "pending",
+        message: "You're now listed as a member of this band. An owner can grant you edit access.",
+      });
     } catch {
       setResult({ status: "error", message: "Something went wrong" });
     } finally {
@@ -119,7 +123,7 @@ export default function BandMemberClaimSection({
           onClick={() => setRequesting(true)}
           className="mt-2 text-sm text-[#E8E0D0]/60 underline underline-offset-2 hover:text-[#E8E0D0]"
         >
-          Not listed? Request to be added as a member
+          Not listed? Add yourself as a member
         </button>
       ) : (
         <form

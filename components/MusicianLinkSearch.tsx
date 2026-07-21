@@ -13,11 +13,12 @@ type Claimed = { name: string; slug: string; status: "pending" | "error"; messag
 // "Are you a musician?" entry point (/profile/musician). Leads with any
 // name-match suggestions ("is this you?" — never auto-linked, just a
 // shortcut into the same claim flow), then lets the user search existing
-// musicians to claim ("This is me" → reviewed by each of that musician's
-// bands' owners, one band_member_claims row per band, lib/bandMemberClaims.ts)
-// or self-serve create a brand-new musician identity if not listed. Claiming
-// grants band_editors access (per band) once approved; creating grants
-// nothing until a later band-scoped claim or an editor adds them directly.
+// musicians to claim ("This is me" → links the account to that musician and
+// lists them in each of that musician's bands instantly, plus one pending
+// edit-access request per band, lib/bandMemberClaims.ts) or self-serve create
+// a brand-new musician identity if not listed. Listing is immediate; editor
+// access (per band) still waits on an owner/admin. Creating a fresh identity
+// grants nothing until a later band-scoped claim or an editor adds them.
 export default function MusicianLinkSearch({
   musicians,
   nameMatches = [],
@@ -61,7 +62,7 @@ export default function MusicianLinkSearch({
         setClaimed({ ...musician, status: "error", message: data.error || "Something went wrong" });
         return;
       }
-      setClaimed({ ...musician, status: "pending", message: "Claim submitted — awaiting review from the band's owner." });
+      setClaimed({ ...musician, status: "pending", message: "You're now linked to this musician and listed in their bands." });
     } catch {
       setClaimed({ ...musician, status: "error", message: "Something went wrong" });
     }

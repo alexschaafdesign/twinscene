@@ -141,11 +141,11 @@ export default async function ProfilePage({
               <ul className="mt-2 flex flex-col gap-1">
                 {pendingClaims.map((c) => (
                   <li key={c.id} className="text-sm text-[#E8E0D0]/70">
-                    Your claim for <strong>{c.musician_name}</strong> in{" "}
+                    You&apos;re listed as <strong>{c.musician_name}</strong> in{" "}
                     <Link href={`/bands/${c.band_slug}`} className="underline underline-offset-2 hover:text-[#E8E0D0]">
                       {c.band_name}
-                    </Link>{" "}
-                    is awaiting review.
+                    </Link>
+                    ; edit access is awaiting review.
                   </li>
                 ))}
               </ul>
@@ -181,7 +181,7 @@ export default async function ProfilePage({
             {ownerPendingClaims.length > 0 && (
               <>
                 <h3 className="mt-4 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
-                  Pending member requests
+                  Members requesting edit access
                 </h3>
                 <BandMemberClaimsManager initialClaims={ownerPendingClaims} scope="band" />
               </>

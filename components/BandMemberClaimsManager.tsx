@@ -3,14 +3,15 @@
 import { useState } from "react";
 import type { PendingBandMemberClaim } from "@/lib/bandMemberClaims";
 
-// Approve/reject UI for pending band-member claims, shared by the admin
+// Approve/reject UI for pending EDIT-ACCESS requests, shared by the admin
 // oversight queue (app/admin/band-member-claims, decides via
 // /api/admin/band-member-claims/[id]) and a band's own owner-facing list
 // (decides via /api/bands/[slug]/member-claims/[id]) — `scope` picks which.
-// Approval on the server links musicians.user_id (if unlinked), ensures a
-// band_members row, and grants band_editors role='member', all in one
-// transaction (lib/bandMemberClaims.ts decideMemberClaim) — this component
-// just reflects the result.
+// The musician is already listed in the band (createMemberClaim did that on
+// the spot); approving here grants band_editors role='member' — i.e. edit
+// access — while rejecting just denies edit access and leaves the listing
+// intact (lib/bandMemberClaims.ts decideMemberClaim). This component just
+// reflects the result.
 //
 // `scope` is a plain string rather than a decideUrl(claim) callback because
 // every server caller here is a Server Component, and a function prop can't
@@ -54,7 +55,7 @@ export default function BandMemberClaimsManager({
   }
 
   if (claims.length === 0) {
-    return <p className="mt-6 text-sm text-[#E8E0D0]/50">No pending claims.</p>;
+    return <p className="mt-6 text-sm text-[#E8E0D0]/50">No pending edit-access requests.</p>;
   }
 
   return (
@@ -66,18 +67,18 @@ export default function BandMemberClaimsManager({
             className="flex items-center justify-between rounded-md border border-[#E8E0D0]/15 px-3.5 py-2 text-sm"
           >
             <span>
-              {c.user_email} is <strong>{c.musician_name}</strong> in{" "}
-              <strong>{c.band_name}</strong>
+              {c.user_email} (<strong>{c.musician_name}</strong> in{" "}
+              <strong>{c.band_name}</strong>) wants edit access
             </span>
             <span className="flex shrink-0 gap-3">
               <button onClick={() => decide(c, "approve")} className="hover:underline">
-                Approve
+                Grant
               </button>
               <button
                 onClick={() => decide(c, "reject")}
                 className="text-[#F5A3A3] hover:underline"
               >
-                Reject
+                Deny
               </button>
             </span>
           </li>

@@ -341,13 +341,13 @@ function Members({ members }: SectionProps) {
   );
 }
 
-/** Owner/admin-only: pending band-member requests for this band. */
+/** Owner/admin-only: listed members requesting edit access to this band. */
 function MemberClaims({ pendingMemberClaims }: SectionProps) {
   if (pendingMemberClaims.length === 0) return null;
 
   return (
     <div>
-      <SectionHeading>Pending member requests</SectionHeading>
+      <SectionHeading>Members requesting edit access</SectionHeading>
       <BandMemberClaimsManager initialClaims={pendingMemberClaims} scope="band" />
     </div>
   );
