@@ -187,10 +187,11 @@ export async function GET(
 
   const dateLabel = formatDateLabel(show.date);
   const acts = lineupActs(show.lineup);
-  // The headliner is either an explicit title or the first act on the bill.
-  const headliner = show.title || acts[0] || show.venue;
-  // Everything else on the bill, minus any act that just restates the headliner
-  // (scraped rows often set title === first lineup act).
+  // Bands lead the card: the first act headlines, the rest are the support bill.
+  // Falls back to the stored title (e.g. an editorial event name) or venue when
+  // a show has no parsed lineup.
+  const headliner = acts[0] || show.title || show.venue;
+  // Everything else on the bill, minus any act that just restates the headliner.
   const support = acts.filter((act) => act.toLowerCase() !== headliner.toLowerCase());
 
   // Scale the headliner down as it gets longer so it never overflows the width.

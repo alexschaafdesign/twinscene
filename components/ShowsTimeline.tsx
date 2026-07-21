@@ -9,6 +9,7 @@ import type { Show } from "@/lib/fetchShows";
 import type { Press } from "@/lib/fetchPress";
 import type { ShowStatus } from "@/lib/showSaves";
 import { pressNotes } from "@/lib/press";
+import { showHeading, showSubtitle } from "@/lib/showDisplay";
 import { showTimeLabel } from "@/lib/showTime";
 import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
@@ -25,7 +26,9 @@ function editHref(show: Show): string {
     edit: show.id,
     date: show.date,
     venue: show.venue,
-    title: show.title,
+    // Prefill only the editorial subtitle, not the band list, into the form's
+    // "Event title" field.
+    title: showSubtitle(show),
     lineup: show.lineup,
     notes: show.notes,
     link: show.link,
@@ -161,7 +164,7 @@ export default function ShowsTimeline({
                         <Link
                           href={`/shows/${show.id}`}
                           className="shrink-0"
-                          aria-label={show.title}
+                          aria-label={showHeading(show)}
                         >
                           {img}
                         </Link>
@@ -173,10 +176,10 @@ export default function ShowsTimeline({
                       <p className="font-medium text-[#E8E0D0]">
                         {show.id ? (
                           <Link href={`/shows/${show.id}`} className="hover:underline">
-                            {show.title}
+                            {showHeading(show)}
                           </Link>
                         ) : (
-                          show.title
+                          showHeading(show)
                         )}
                         {show.starredBy.length > 0 && (
                           <span className="ml-1.5 text-amber-400">★</span>
@@ -192,6 +195,11 @@ export default function ShowsTimeline({
                           </span>
                         )}
                       </p>
+                      {showSubtitle(show) && (
+                        <p className="mt-0.5 text-sm text-[#E8E0D0]/70">
+                          {showSubtitle(show)}
+                        </p>
+                      )}
                       {show.venue && (
                         <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
                           {show.venue}
@@ -217,11 +225,6 @@ export default function ShowsTimeline({
                               {show.ageRestriction}
                             </span>
                           )}
-                        </p>
-                      )}
-                      {show.lineup && show.lineup !== show.title && (
-                        <p className="mt-1 text-sm text-[#E8E0D0]/60">
-                          {show.lineup}
                         </p>
                       )}
                       {show.notes && (

@@ -13,9 +13,9 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { id, venue, date, title, lineup, notes, link, musicTime, doorsTime, genres, ageRestriction, secret } = body;
-  if (!id || !date || !venue || !title) {
+  if (!id || !date || !venue) {
     return NextResponse.json(
-      { success: false, error: "Missing id, date, venue, or title" },
+      { success: false, error: "Missing id, date, or venue" },
       { status: 400 },
     );
   }
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   // selector whose name isn't in that text (e.g. one just quick-added to the
   // directory) would otherwise be silently dropped — append any such linked
   // band as its own entry so the link actually persists.
-  const lineupEntries = buildLineupEntries(lineup || title, linkedBands);
+  const lineupEntries = buildLineupEntries(lineup || "", linkedBands);
   const present = new Set(lineupEntries.map((e) => e.name.trim().toLowerCase()));
   for (const b of linkedBands) {
     const key = b.name.trim().toLowerCase();
@@ -38,6 +38,19 @@ export async function POST(request: NextRequest) {
       present.add(key);
     }
   }
+
+  // `title` is now the optional editorial event name (subtitle). The stored
+  // title falls back to the band list, then the venue, so title-only readers
+  // (feeds, profiles) always have a label and the marquee stays bands-forward.
+  const lineupString = lineupEntries.map((e) => e.name).join(", ");
+  const eventTitle = typeof title === "string" ? title.trim() : "";
+  if (lineupEntries.length === 0 && !eventTitle) {
+    return NextResponse.json(
+      { success: false, error: "Add at least one band or an event title." },
+      { status: 400 },
+    );
+  }
+  const finalTitle = eventTitle || lineupString || venue;
 
   const isAdmin = !!process.env.SCRAPE_SECRET && secret === process.env.SCRAPE_SECRET;
 
@@ -51,7 +64,7 @@ export async function POST(request: NextRequest) {
       id,
       {
         venue,
-        title,
+        title: finalTitle,
         date,
         lineup: lineupEntries,
         notes: notes ?? "",

@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
   const notes = str(form.get("notes"));
   const link = str(form.get("link"));
   const newBandName = str(form.get("newBandName")).trim();
+  // Optional editorial event name ("New Band Night"), shown as a subtitle. The
+  // marquee is the lineup; when no event name is given, title falls back to the
+  // band list so title-only readers (feeds, profiles) still have a label.
+  const eventTitle = str(form.get("title")).trim();
 
   if (!date || !venue) {
     return NextResponse.json(
@@ -98,8 +102,8 @@ export async function POST(request: NextRequest) {
     }
 
     const names = linkedBands.map((b) => b.name);
-    const title = names[0] || venue;
     const lineup = names.join(", ");
+    const title = eventTitle || lineup || venue;
 
     let flyerUrl: string | undefined;
     if (flyerFile) {

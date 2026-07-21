@@ -432,6 +432,7 @@ export default function ShowSubmitForm({
     setDate("");
     setVenueSelect("");
     setNewVenue("");
+    setTitle("");
     setNotes("");
     setLink("");
     setSelectedBands([]);
@@ -450,9 +451,11 @@ export default function ShowSubmitForm({
     if (link.trim() && !isValidUrl(link.trim())) e.link = "Enter a valid URL";
 
     if (isEdit) {
-      // The listing renders the title, and bands may be free-text (e.g.
-      // scraped shows), so require a title rather than a directory band.
-      if (!title.trim()) e.title = "Required";
+      // The marquee is the lineup; a show just needs *something* to show — at
+      // least one linked band, a typed lineup, or an event title.
+      if (selectedBands.length === 0 && !lineup.trim() && !title.trim()) {
+        e.bands = "Add at least one band, a lineup, or an event title.";
+      }
     } else {
       const hasNewBand = showNewBand && !!newBandName.trim();
       if (selectedBands.length === 0 && !hasNewBand) {
@@ -505,6 +508,7 @@ export default function ShowSubmitForm({
         const payload = new FormData();
         payload.set("date", date.trim());
         payload.set("venue", venueName);
+        payload.set("title", title.trim());
         payload.set("notes", notes.trim());
         payload.set("link", link.trim());
         payload.set(
@@ -639,28 +643,28 @@ export default function ShowSubmitForm({
           </Field>
         </div>
 
+        <Field
+          label="Event title"
+          htmlFor="title"
+          error={errors.title}
+          hint="Optional — a name for the night, shown as a subtitle (e.g. “New Band Night”). Leave blank to just list the bands playing."
+        >
+          <input
+            id="title"
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. New Band Night"
+            className={inputClass}
+          />
+        </Field>
+
         {isEdit && (
           <>
             <Field
-              label="Title"
-              htmlFor="title"
-              required
-              error={errors.title}
-              hint="The show's headline as it appears in the list."
-            >
-              <input
-                id="title"
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className={inputClass}
-              />
-            </Field>
-
-            <Field
               label="Lineup"
               htmlFor="lineup"
-              hint="Full lineup, comma-separated. Leave blank if it matches the title."
+              hint="Everyone playing, comma-separated — this is the show's marquee. Link the ones in our directory below; acts that aren't (e.g. touring/scraped bands) can just be typed here and stay as text."
             >
               <input
                 id="lineup"

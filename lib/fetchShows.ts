@@ -14,8 +14,8 @@ export type Show = {
   id: string; // stable per-row id used to target edits
   date: string; // "YYYY-MM-DD"
   venue: string;
-  title: string; // marquee / headliner — the show's display title
-  lineup: string; // full lineup, e.g. "shugE, Average Joey, Ditch Pigeon"
+  title: string; // optional editorial event name (subtitle), falling back to the lineup/venue — see lib/showDisplay.ts. The bands-forward heading is the lineup.
+  lineup: string; // full lineup, e.g. "shugE, Average Joey, Ditch Pigeon" — the show's marquee/heading
   bandSlugs: string[]; // directory slugs this show links to (0..n)
   lineupEntries: LineupEntry[]; // raw name+bandSlug pairs, in order — for the show page, which renders each lineup name alongside its matched band's photo/bio (bandSlugs above is just the flattened slug list)
   eventType: string; // non-band listing label (e.g. "Private Event"), "" for shows

@@ -6,6 +6,7 @@ import { todayInChicago } from "@/lib/fetchShows";
 import { getCachedShowById, getCachedBandsBySlugs } from "@/lib/cachedReads";
 import { fetchPress } from "@/lib/fetchPress";
 import { pressNotes } from "@/lib/press";
+import { showHeading, showSubtitle } from "@/lib/showDisplay";
 import { showTimeLabel } from "@/lib/showTime";
 import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
@@ -45,7 +46,9 @@ function editHref(show: {
     edit: show.id,
     date: show.date,
     venue: show.venue,
-    title: show.title,
+    // Prefill only the editorial subtitle into the form's "Event title" field,
+    // not the band list.
+    title: showSubtitle(show),
     lineup: show.lineup,
     notes: show.notes,
     link: show.link,
@@ -82,7 +85,7 @@ export async function generateMetadata({
   if (!show) return {};
   const description = [show.venue, show.lineup || undefined].filter(Boolean).join(" · ");
   return {
-    title: `${show.title} — Twin Scene`,
+    title: `${showHeading(show)} — Twin Scene`,
     description: description || undefined,
   };
 }
@@ -119,7 +122,7 @@ export default async function ShowDetailPage({
           // eslint-disable-next-line @next/next/no-img-element -- external flyer art / local venue logo
           <img
             src={imageSrc}
-            alt={`${show.title} ${isLogo ? "venue" : "flyer"}`}
+            alt={`${showHeading(show)} ${isLogo ? "venue" : "flyer"}`}
             className={`aspect-square w-full rounded-md border border-[#E8E0D0]/15 sm:w-64 ${
               isLogo ? "bg-[rgba(232,224,208,0.06)] object-contain p-3" : "object-cover"
             }`}
@@ -128,13 +131,16 @@ export default async function ShowDetailPage({
 
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-medium text-[#E8E0D0]">
-            {show.title}
+            {showHeading(show)}
             {show.eventType && (
               <span className="ml-2 rounded bg-[#E8B84B]/15 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-[#E8B84B]">
                 {show.eventType}
               </span>
             )}
           </h1>
+          {showSubtitle(show) && (
+            <p className="mt-1 text-base text-[#E8E0D0]/75">{showSubtitle(show)}</p>
+          )}
           <p className="mt-1 text-sm text-[#E8E0D0]/70">
             {formatDateLabel(show.date)}
             {show.venue && <> · {show.venue}</>}
