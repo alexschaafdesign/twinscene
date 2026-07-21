@@ -23,6 +23,7 @@ import { scrapeHookAndLadder } from "./hookandladder";
 import { scrapeFlyingV } from "./flyingv";
 import { scrapeUndergroundMusic } from "./undergroundmusic";
 import { scrapeParkway } from "./parkway";
+import { scrapeDakota } from "./dakota";
 
 export type { ScrapedShow };
 
@@ -124,6 +125,11 @@ export const SCRAPERS: Record<string, Scraper> = {
     id: "parkway",
     name: "The Parkway Theater",
     scrape: scrapeParkway,
+  },
+  dakota: {
+    id: "dakota",
+    name: "The Dakota",
+    scrape: scrapeDakota,
   },
 };
 
