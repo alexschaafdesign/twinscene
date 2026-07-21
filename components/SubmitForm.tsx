@@ -871,6 +871,37 @@ export default function SubmitForm({
     });
   }
 
+  // Drag-and-drop reorder for existing videos — a pointer-friendly companion
+  // to the move buttons above, not a replacement: those stay for keyboard and
+  // screen-reader use, and for touch (native HTML5 drag doesn't fire on touch
+  // devices at all, so the buttons are the only way to reorder there).
+  const draggedVideoIndex = useRef<number | null>(null);
+  const [dragOverVideoIndex, setDragOverVideoIndex] = useState<number | null>(null);
+
+  function handleVideoDragStart(index: number) {
+    draggedVideoIndex.current = index;
+  }
+  function handleVideoDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault();
+    if (dragOverVideoIndex !== index) setDragOverVideoIndex(index);
+  }
+  function handleVideoDrop(index: number) {
+    const from = draggedVideoIndex.current;
+    draggedVideoIndex.current = null;
+    setDragOverVideoIndex(null);
+    if (from === null || from === index) return;
+    setExistingVideos((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(index, 0, moved);
+      return next;
+    });
+  }
+  function handleVideoDragEnd() {
+    draggedVideoIndex.current = null;
+    setDragOverVideoIndex(null);
+  }
+
   // Duplicate detection (add mode only): flag when the typed name matches a band
   // already in the directory, by normalized name or resulting slug. Best-effort
   // — the user can override it (see the warning below the Band name field).
@@ -1488,11 +1519,23 @@ export default function SubmitForm({
                     return (
                       <div
                         key={video.id}
-                        className={`flex items-center justify-between gap-3 rounded-md bg-ink/5 px-3.5 py-2.5 ${
+                        onDragOver={(e) => handleVideoDragOver(e, i)}
+                        onDrop={() => handleVideoDrop(i)}
+                        className={`flex items-center justify-between gap-3 rounded-md bg-ink/5 px-3.5 py-2.5 transition ${
                           hidden ? "opacity-50" : ""
-                        }`}
+                        } ${dragOverVideoIndex === i ? "ring-2 ring-accent/60" : ""}`}
                       >
-                        <div className="min-w-0">
+                        <div
+                          draggable
+                          onDragStart={() => handleVideoDragStart(i)}
+                          onDragEnd={handleVideoDragEnd}
+                          aria-hidden="true"
+                          title="Drag to reorder"
+                          className="hidden shrink-0 cursor-grab select-none text-ink/30 hover:text-ink/60 active:cursor-grabbing sm:block"
+                        >
+                          ⠿
+                        </div>
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <p className="truncate text-sm text-ink">{video.title}</p>
                             <span className="shrink-0 rounded-full border border-ink/15 bg-ink/5 px-1.5 py-0.5 text-[10px] font-medium text-ink/45">
