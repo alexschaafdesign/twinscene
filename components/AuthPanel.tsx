@@ -5,12 +5,12 @@ import LoginForm from "@/components/LoginForm";
 import PasswordAuthForm from "@/components/PasswordAuthForm";
 
 /** The /login sign-in surface: a segmented toggle between the two auth methods,
- * both of which end in the same session. "Email link" is the original
- * passwordless magic link (LoginForm); "Password" is email + password
- * (PasswordAuthForm). Magic link stays the default — it's the lowest-friction
- * path and needs no account setup. */
+ * both of which end in the same session. "Password" is email + password
+ * (PasswordAuthForm) and is the default; "Email link" is the original
+ * passwordless magic link (LoginForm), one tab click away for anyone who
+ * prefers it. */
 export default function AuthPanel({ next, isDev = false }: { next?: string; isDev?: boolean }) {
-  const [method, setMethod] = useState<"link" | "password">("link");
+  const [method, setMethod] = useState<"link" | "password">("password");
 
   return (
     <div className="mt-6">

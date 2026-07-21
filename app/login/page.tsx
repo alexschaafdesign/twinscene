@@ -18,7 +18,7 @@ export default async function LoginPage({
     <main className="mx-auto flex w-full max-w-sm flex-col px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <h1 className="text-xl font-medium">Sign in or create your account</h1>
       <p className="mt-2 text-sm text-[#E8E0D0]/60">
-        Use a one-time email link — no password needed — or sign in with a password.
+        Sign in with your email and password, or switch to a one-time email link — no password needed.
       </p>
       {sp.error === "1" && (
         <p className="mt-3 text-sm text-[#F5A3A3]">

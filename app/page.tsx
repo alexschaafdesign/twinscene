@@ -23,7 +23,6 @@ export default async function Home() {
     getCurrentUser(),
   ]);
   const followedSlugs = user ? await listFollowedSlugs(user.id) : [];
-  const isDev = process.env.NODE_ENV !== "production";
   const bandsWithUpcomingShows = [
     ...new Set(shows.flatMap((s) => s.bandSlugs)),
   ];
@@ -37,13 +36,11 @@ export default async function Home() {
           now lives in the shared header. */}
       <h1 className="sr-only">Twin Scene — the Twin Cities band directory</h1>
 
-      {/* Two-up row: the beta explainer (left) sits beside a sign-in card
-          (right) so logged-out visitors have an obvious, one-step way in.
-          Handles its own collapse — once the beta notice is dismissed (or
-          there's no sign-in card because the visitor is logged in), it
-          renders nothing rather than leaving an empty, margined gap above
-          the band grid. */}
-      <HomeIntroRow loggedIn={!!user} isDev={isDev} />
+      {/* The dismissible beta explainer. Collapses to nothing once dismissed
+          rather than leaving an empty, margined gap above the band grid.
+          (Sign-in for logged-out visitors now lives in the header's
+          "Sign up / log in" button — see components/AccountMenu.tsx.) */}
+      <HomeIntroRow />
 
       {/* Primary CTA. Handed to BandGrid so it can sit beside the search bar
           (keeps the band grid higher up the page). */}

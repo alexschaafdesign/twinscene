@@ -115,9 +115,9 @@ export default function AccountMenu({
         {tagline}
         <Link
           href={`/login?next=${encodeURIComponent(pathname)}`}
-          className="justify-self-end rounded-md border border-[#E8E0D0]/25 px-3.5 py-1.5 text-xs text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]"
+          className="flex h-10 items-center justify-self-end whitespace-nowrap rounded-md bg-[#E8E0D0] px-4 text-sm font-semibold text-[#2A2420] shadow-sm shadow-black/20 transition hover:bg-white"
         >
-          Sign in
+          Sign up / log in
         </Link>
       </div>
     );
