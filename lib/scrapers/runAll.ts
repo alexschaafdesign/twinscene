@@ -13,7 +13,7 @@ import {
   runAllPressStars,
   type PressStarResult,
 } from "@/lib/scrapers/starPress";
-import { reconcileCrawlSpace, type ReconcileReport } from "@/lib/scrapers/reconcile";
+import { reconcileAllCompleteLists, type ReconcileReport } from "@/lib/scrapers/reconcile";
 
 // A pointer to one imported show, enough for the admin dashboard to render it
 // and link straight to /shows/[id]. `id` is null only when the import request
@@ -59,7 +59,7 @@ export type ScrapeProgressEvent =
   | { type: "press_start" }
   | { type: "press"; pressStars: PressStarResult[] }
   | { type: "reconcile_start" }
-  | { type: "reconcile"; reconcile: ReconcileReport };
+  | { type: "reconcile"; reconcile: ReconcileReport[] };
 
 export type ScrapeProgressSink = (event: ScrapeProgressEvent) => void;
 
@@ -79,9 +79,10 @@ export type DigestSummary = {
   // runAllScrapers, so it's absent from a single-venue "Run now". Not folded
   // into the emailed digest above; visible via this JSON response.
   pressStars?: PressStarResult[];
-  // Crawl Space's complete-list reconcile: genre/age suggestions applied to
-  // shows we have + a count of ones we're missing. Also runAllScrapers-only.
-  reconcile?: ReconcileReport;
+  // Complete-list reconcile per registered source (Crawl Space, Racket): genre/
+  // age suggestions applied to shows we have + a count of ones we're missing.
+  // Also runAllScrapers-only.
+  reconcile?: ReconcileReport[];
 };
 
 // Cap how many imports are in flight at once and retry a few times on
@@ -150,15 +151,15 @@ export async function runAllScrapers(
     console.error("runAllPressStars failed", err);
   }
 
-  // Apply Crawl Space's genre/age suggestions to shows we have, and record what
-  // it lists that we're missing. After the venue imports above so tonight's
+  // Apply each source's genre/age suggestions to shows we have, and record
+  // what they list that we're missing. After the venue imports above so
   // freshly-scraped shows are already present to match against.
   try {
     onEvent?.({ type: "reconcile_start" });
-    summary.reconcile = await reconcileCrawlSpace(baseUrl);
+    summary.reconcile = await reconcileAllCompleteLists(baseUrl);
     onEvent?.({ type: "reconcile", reconcile: summary.reconcile });
   } catch (err) {
-    console.error("reconcileCrawlSpace failed", err);
+    console.error("reconcileAllCompleteLists failed", err);
   }
 
   return summary;

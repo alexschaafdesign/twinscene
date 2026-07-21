@@ -5,7 +5,10 @@ import type { ScraperLogRow } from "@/lib/fetchScraperLog";
 import type { Band } from "@/lib/fetchBands";
 import type { NonLocalBand } from "@/lib/fetchNonLocalBands";
 import type { DismissedBand } from "@/lib/fetchDismissedBands";
+import type { PressStarResult } from "@/lib/scrapers/starPress";
+import type { ReconcileReport } from "@/lib/scrapers/reconcile";
 import ScraperDashboard from "@/components/ScraperDashboard";
+import PressDashboard from "@/components/PressDashboard";
 
 type ScraperInfo = { id: string; name: string };
 
@@ -40,6 +43,10 @@ type Digest = {
   totalFlagged?: number;
   totalQueued: number;
   totalNewBands: number;
+  // Present only on a full "Run all scrapers" pass (runAllScrapers), absent
+  // from a single-venue "Run now" — see lib/scrapers/runAll.ts.
+  pressStars?: PressStarResult[];
+  reconcile?: ReconcileReport[];
 };
 
 /** Lowercase/hyphenate. Mirrors slugify() in lib/fetchBands.ts. */
@@ -61,6 +68,8 @@ type ManualVenue = { name: string; slug: string; city: string };
 
 export default function AdminPanel({
   scrapers,
+  pressOutlets,
+  reconcileOutletIds,
   log,
   bands,
   nonLocalBands,
@@ -70,6 +79,8 @@ export default function AdminPanel({
   logConfigured,
 }: {
   scrapers: ScraperInfo[];
+  pressOutlets: ScraperInfo[];
+  reconcileOutletIds: string[];
   log: ScraperLogRow[];
   bands: Band[];
   nonLocalBands: NonLocalBand[];
@@ -114,6 +125,28 @@ export default function AdminPanel({
     for (const s of scrapers) map[s.id] = latestFor(s.id, s.name);
     return map;
   }, [scrapers, latestFor]);
+
+  // Most recent press-star result (+ reconcile report, when that outlet has
+  // one) per outlet. Only a full "Run all scrapers" pass logs these, so a
+  // press outlet's "last run" reflects the last full run, not a single-outlet
+  // one (those aren't logged to the sheet — see the [id] route's comment).
+  const latestByOutlet = useMemo(() => {
+    const map: Record<
+      string,
+      { ranAt: string; press: PressStarResult; reconcile?: ReconcileReport } | null
+    > = {};
+    for (const outlet of pressOutlets) {
+      map[outlet.id] = null;
+      for (const { row, digest } of parsed) {
+        const press = digest?.pressStars?.find((p) => p.id === outlet.id);
+        if (!press) continue;
+        const reconcile = digest?.reconcile?.find((r) => r.source === outlet.id);
+        map[outlet.id] = { ranAt: digest?.ranAt || row.timestamp, press, reconcile };
+        break;
+      }
+    }
+    return map;
+  }, [pressOutlets, parsed]);
 
   // Bands flagged "not local" this session — kept in the list with a chip.
   const [notLocalFlagged, setNotLocalFlagged] = useState<Set<string>>(
@@ -211,6 +244,21 @@ export default function AdminPanel({
         <ScraperDashboard
           scrapers={scrapers}
           latestByScraper={latestByScraper}
+          secret={secret}
+        />
+      </section>
+
+      {/* 1b. PRESS OUTLETS ──────────────────────────────────────────────
+          Press-tab sources (lib/scrapers/pressScrapers.ts) star picks
+          against shows we already have rather than importing new ones —
+          Crawl Space's post additionally drives the reconcile pass at
+          /admin/reconcile. */}
+      <section className="mb-12">
+        <h2 className={`${SECTION_HEADING} mb-4`}>Press outlets</h2>
+        <PressDashboard
+          outlets={pressOutlets}
+          latestByOutlet={latestByOutlet}
+          reconcileOutletIds={reconcileOutletIds}
           secret={secret}
         />
       </section>

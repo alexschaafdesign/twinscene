@@ -351,7 +351,7 @@ export default function ScraperDashboard({
   const [finalPhase, setFinalPhase] = useState<FinalPhase>(null);
   const [summary, setSummary] = useState<DigestSummary | null>(null);
   const [press, setPress] = useState<PressStarResult[] | null>(null);
-  const [reconcile, setReconcile] = useState<ReconcileReport | null>(null);
+  const [reconcile, setReconcile] = useState<ReconcileReport[] | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [runningOne, setRunningOne] = useState<string | null>(null);
 
@@ -599,7 +599,7 @@ export default function ScraperDashboard({
                     : `Running — ${doneCount} of ${total} venues done`
                 : summary
                   ? `Finished — ${live.added} added, ${live.flagged} to review`
-                  : `${total} venues · scrapes every source, imports, then press picks + Crawl Space reconcile`}
+                  : `${total} venues · scrapes every source, imports, then press picks + complete-list reconcile`}
             </p>
           </div>
           <button
@@ -841,7 +841,7 @@ export default function ScraperDashboard({
         </details>
       )}
 
-      {/* Finale: press picks + Crawl Space reconcile */}
+      {/* Finale: press picks + complete-list reconcile */}
       {(press || reconcile || finalPhase === "press" || finalPhase === "reconcile") && (
         <div className={`${CARD} mt-6`}>
           <p className="mb-3 text-sm font-medium text-[#E8E0D0]">
@@ -874,16 +874,19 @@ export default function ScraperDashboard({
             </div>
             <div>
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#E8E0D0]/45">
-                Crawl Space reconcile
+                Complete-list reconcile
               </p>
               {reconcile ? (
-                <ul className="space-y-1 text-sm text-[#E8E0D0]/70">
-                  <li>{reconcile.total} entries parsed</li>
-                  <li>{reconcile.matched} matched our shows</li>
-                  <li>{reconcile.applied} genre/age suggestions applied</li>
-                  <li className={reconcile.unmatched ? "" : "text-[#E8E0D0]/45"}>
-                    {reconcile.unmatched} listed that we&apos;re missing
-                  </li>
+                <ul className="space-y-2 text-sm text-[#E8E0D0]/70">
+                  {reconcile.map((r) => (
+                    <li key={r.source}>
+                      <span className="text-[#E8E0D0]">{r.name}</span>: {r.matched} matched,{" "}
+                      {r.applied} applied,{" "}
+                      <span className={r.unmatched ? "" : "text-[#E8E0D0]/45"}>
+                        {r.unmatched} missing
+                      </span>
+                    </li>
+                  ))}
                 </ul>
               ) : (
                 <p className="text-sm text-[#E8E0D0]/45">

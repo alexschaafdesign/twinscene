@@ -1,4 +1,6 @@
 import { SCRAPERS } from "@/lib/scrapers";
+import { PRESS_SCRAPERS } from "@/lib/scrapers/pressScrapers";
+import { COMPLETE_LIST_SOURCES } from "@/lib/scrapers/reconcile";
 import { fetchBands, type Band } from "@/lib/fetchBands";
 import { fetchVenues } from "@/lib/fetchVenues";
 import {
@@ -58,10 +60,14 @@ export default async function AdminPage() {
     id: s.id,
     name: s.name,
   }));
+  const pressOutlets = PRESS_SCRAPERS.map((p) => ({ id: p.id, name: p.name }));
+  const reconcileOutletIds = COMPLETE_LIST_SOURCES.map((s) => s.id);
 
   return (
     <AdminPanel
       scrapers={scrapers}
+      pressOutlets={pressOutlets}
+      reconcileOutletIds={reconcileOutletIds}
       log={log}
       bands={bands}
       nonLocalBands={nonLocalBands}

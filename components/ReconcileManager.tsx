@@ -27,21 +27,35 @@ function GenreChips({ genres, age }: { genres: string[]; age: string | null }) {
   );
 }
 
+/** Compact "Jul 22" — only worth showing for sources whose list spans more
+ * than one night (Racket's week), but harmless to show for a same-day one
+ * (Crawl Space) too. */
+function formatDate(date: string | null): string | null {
+  if (!date) return null;
+  const d = new Date(date + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 function bandsLabel(entry: ReconcileEntry): string {
   const bands = entry.allBands.join(", ");
-  return entry.musicTime ? `${bands} · ${entry.musicTime}` : bands;
+  const date = formatDate(entry.date);
+  const parts = [date, bands, entry.musicTime].filter(Boolean);
+  return parts.join(" · ");
 }
 
 // Missing-show entries, keyed by their spot in the array (entries have no
-// stable id of their own — they're re-parsed fresh off the Substack post on
+// stable id of their own — they're re-parsed fresh off the source post on
 // every page load, not stored anywhere).
 type UnmatchedRow = ReconcileEntry & { _key: string };
 type MatchedRow = ReconcileEntry & { _key: string };
 
 export default function ReconcileManager({
+  source,
   initialUnmatched,
   initialMatched,
 }: {
+  source: { id: string; name: string };
   initialUnmatched: ReconcileEntry[];
   initialMatched: ReconcileEntry[];
 }) {
@@ -76,6 +90,7 @@ export default function ReconcileManager({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            source: source.id,
             venue: row.venue,
             date: row.date,
             headliner: row.headliner,
@@ -142,7 +157,7 @@ export default function ReconcileManager({
         </h2>
         {unmatched.length === 0 ? (
           <p className="mt-2 text-sm text-[#E8E0D0]/45">
-            Nothing — we have everything Crawl Space listed tonight.
+            Nothing — we have everything {source.name} listed.
           </p>
         ) : (
           <ul className="mt-3 space-y-3">
@@ -195,14 +210,15 @@ export default function ReconcileManager({
         )}
       </section>
 
-      {/* Matched — genre/age suggestions the daily run fills in; apply now to
-          skip waiting for the cron. */}
+      {/* Matched — genre/age suggestions the daily run fills in, when the
+          source provides any (sources without genre/age, e.g. Racket, will
+          never show an "Apply now" button here). */}
       <section className="mt-8">
         <h2 className="text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/50">
           Matched — genre/age suggestions ({matched.length})
         </h2>
         {matched.length === 0 ? (
-          <p className="mt-2 text-sm text-[#E8E0D0]/45">No matches tonight.</p>
+          <p className="mt-2 text-sm text-[#E8E0D0]/45">No matches.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {matched.map((e) => {

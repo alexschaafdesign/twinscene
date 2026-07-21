@@ -3,13 +3,13 @@ import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { fetchBands } from "@/lib/fetchBands";
 import { createMatcher } from "@/lib/bandMatcher";
 import { autoImportShow } from "@/lib/scrapers/autoImport";
-import { CRAWLSPACE_PRESS_ID } from "@/lib/scrapers/crawlspace";
+import { COMPLETE_LIST_SOURCES } from "@/lib/scrapers/reconcile";
 import type { ScrapedShow } from "@/lib/scrapers/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Admin-only: import one "missing from our list" Crawl Space entry as a real
+// Admin-only: import one "missing from our list" reconcile entry as a real
 // show, via the same band-matching + autoImportShow path a venue scrape uses
 // (lib/scrapers/runAll.ts). Reachable only from /admin/reconcile.
 export async function POST(request: NextRequest) {
@@ -19,13 +19,19 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => null);
-  const { venue, date, headliner, allBands, musicTime, ageRestriction, genres, sourceUrl } =
+  const { source, venue, date, headliner, allBands, musicTime, ageRestriction, genres, sourceUrl } =
     body ?? {};
   if (!venue || !date || !Array.isArray(allBands) || allBands.length === 0) {
     return NextResponse.json(
       { success: false, error: "Missing venue, date, or allBands" },
       { status: 400 },
     );
+  }
+  // The imported show's source_key is scoped to whichever outlet's entry this
+  // is, same as a venue scraper — validate against the registry rather than
+  // trusting an arbitrary client-supplied id.
+  if (!COMPLETE_LIST_SOURCES.some((s) => s.id === source)) {
+    return NextResponse.json({ success: false, error: "Unknown source" }, { status: 400 });
   }
 
   const show: ScrapedShow = {
@@ -49,7 +55,7 @@ export async function POST(request: NextRequest) {
   const { matchShow } = createMatcher(bands);
   const matched = matchShow(show);
 
-  const result = await autoImportShow(matched, CRAWLSPACE_PRESS_ID, request.nextUrl.origin);
+  const result = await autoImportShow(matched, source, request.nextUrl.origin);
   if (!result.success) {
     return NextResponse.json({ success: false, error: result.error || "Import failed" }, { status: 500 });
   }

@@ -58,6 +58,25 @@ async function starOutlet(
   return { id: outlet.id, name: outlet.name, picks: picks.length, starred, unmatched, errors };
 }
 
+/** Run one outlet's star pass on demand (the admin dashboard's per-outlet
+ * "Run now", mirroring the per-venue /api/scrape/[venue] path). Returns null
+ * only when `outletId` isn't a registered outlet. */
+export async function runOnePressStar(
+  outletId: string,
+  baseUrl: string,
+): Promise<PressStarResult | null> {
+  const outlet = PRESS_SCRAPERS.find((o) => o.id === outletId);
+  if (!outlet) return null;
+
+  const shows = await fetchShows();
+  try {
+    const picks = await outlet.scrape();
+    return await starOutlet(outlet, picks, shows, baseUrl);
+  } catch {
+    return { id: outlet.id, name: outlet.name, picks: 0, starred: 0, unmatched: 0, errors: 1 };
+  }
+}
+
 export async function runAllPressStars(baseUrl: string): Promise<PressStarResult[]> {
   // Fetched once, shared across every outlet's matching.
   const shows = await fetchShows();
