@@ -6,7 +6,7 @@ import { todayInChicago } from "@/lib/fetchShows";
 import { getCachedShowById, getCachedBandsBySlugs } from "@/lib/cachedReads";
 import { fetchPress } from "@/lib/fetchPress";
 import { pressNotes } from "@/lib/press";
-import { showHeading, showSubtitle } from "@/lib/showDisplay";
+import { showHeading, showSubtitle, splitSimilarTo } from "@/lib/showDisplay";
 import { showTimeLabel } from "@/lib/showTime";
 import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
@@ -166,6 +166,24 @@ export default async function ShowDetailPage({
             </p>
           )}
 
+          {show.similarTo && (
+            <div className="mt-3">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-[#E8E0D0]/45">
+                For fans of
+              </p>
+              <p className="mt-1 flex flex-wrap items-center gap-1.5">
+                {splitSimilarTo(show.similarTo).map((name) => (
+                  <span
+                    key={name}
+                    className="rounded-full border border-[#E8B84B]/35 px-2 py-0.5 text-xs text-[#E8B84B]/90"
+                  >
+                    {name}
+                  </span>
+                ))}
+              </p>
+            </div>
+          )}
+
           {notes.map((note) => (
             <p key={note.id} className="mt-2 text-sm text-amber-400/80">
               ★{" "}
@@ -218,19 +236,11 @@ export default async function ShowDetailPage({
         </div>
       </div>
 
-      {(show.description || show.similarTo) && (
+      {show.description && (
         <div className="mt-8 max-w-2xl">
-          {show.description && (
-            <p className="whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/75">
-              {show.description}
-            </p>
-          )}
-          {show.similarTo && (
-            <p className={`text-sm text-[#E8E0D0]/60 ${show.description ? "mt-3" : ""}`}>
-              <span className="font-medium text-[#E8E0D0]/80">For fans of:</span>{" "}
-              {show.similarTo}
-            </p>
-          )}
+          <p className="whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/75">
+            {show.description}
+          </p>
         </div>
       )}
 

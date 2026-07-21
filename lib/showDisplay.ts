@@ -32,3 +32,13 @@ export function showSubtitle(show: TitleParts): string {
   if (acts.includes(t)) return "";
   return title;
 }
+
+/** Split a "for fans of" pull-quote (show.similarTo) into individual chip
+ * labels — same separator handling as the scrapers' band-name splitters, so
+ * "A, B & C" or "A, B, and C" render as three chips instead of one string. */
+export function splitSimilarTo(similarTo: string): string[] {
+  return similarTo
+    .split(/\s*,\s*&\s+|\s*,\s*and\s+|\s*&\s+|\s*,\s*|\s+and\s+/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
