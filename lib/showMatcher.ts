@@ -38,9 +38,14 @@ export function findShowMatch(pick: ScrapedShow, shows: Show[]): Show | null {
   let best: Show | null = null;
   let bestScore = 0;
   for (const show of sameNight) {
+    // Score against the title and each individual lineup name, not the whole
+    // joined lineup string — a themed-night title (e.g. "Conspiracy Series")
+    // leading the lineup would otherwise bloat the string and tank the
+    // edit-distance ratio even when the headliner is an exact entry in it.
+    const candidates = [show.title, ...show.lineupEntries.map((e) => e.name)];
     const score = Math.max(
-      similarity(normalizedHeadliner, normalizeText(show.title)),
-      similarity(normalizedHeadliner, normalizeText(show.lineup)),
+      0,
+      ...candidates.map((c) => similarity(normalizedHeadliner, normalizeText(c))),
     );
     if (score > bestScore) {
       bestScore = score;
