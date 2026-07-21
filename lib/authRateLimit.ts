@@ -9,7 +9,17 @@
 //   - per-IP     → stops one source spraying links at many addresses
 // Either tripping rejects the request, so neither alone is a bypass.
 
+import type { NextRequest } from "next/server";
 import { sql } from "./db.ts";
+
+// Best-effort client IP for rate-limit bucketing. Vercel sets x-forwarded-for;
+// take the first hop (the original client). Falls back to a shared "unknown"
+// bucket if absent — a missing IP shouldn't disable the limiter, so unknowns
+// share one window. Shared by every auth endpoint that limits per IP.
+export function clientIp(request: NextRequest): string {
+  const fwd = request.headers.get("x-forwarded-for");
+  return fwd?.split(",")[0]?.trim() || "unknown";
+}
 
 // Window helper: floor now() to a fixed `windowSeconds` bucket so we can use
 // windows other than the one-minute date_trunc the api_clients limiter uses

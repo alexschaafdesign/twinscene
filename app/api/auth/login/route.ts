@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { requestLoginLink } from "@/lib/auth";
-import { allowAuthRequest } from "@/lib/authRateLimit";
+import { allowAuthRequest, clientIp } from "@/lib/authRateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,14 +11,6 @@ export const dynamic = "force-dynamic";
 // Both are generous enough that a real person signing in never trips them.
 const PER_EMAIL_RULE = { limit: 4, windowSeconds: 15 * 60 } as const;
 const PER_IP_RULE = { limit: 20, windowSeconds: 60 * 60 } as const;
-
-// Best-effort client IP. Vercel sets x-forwarded-for; take the first hop (the
-// original client) and fall back to a shared bucket if it's ever absent — a
-// missing IP shouldn't disable the limiter, so unknowns share one window.
-function clientIp(request: NextRequest): string {
-  const fwd = request.headers.get("x-forwarded-for");
-  return fwd?.split(",")[0]?.trim() || "unknown";
-}
 
 // Magic-link login, step 1: takes an email, creates a single-use login
 // token, and emails the sign-in link (or logs it to the console in dev —

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import ProfileEditForm from "@/components/ProfileEditForm";
+import PasswordSettings from "@/components/PasswordSettings";
 
 export const metadata: Metadata = {
   title: "Edit profile — Twin Scene",
@@ -32,6 +33,7 @@ export default async function ProfileEditPage() {
           show_attended_shows: user.show_attended_shows,
         }}
       />
+      <PasswordSettings hasPassword={user.has_password} />
     </main>
   );
 }

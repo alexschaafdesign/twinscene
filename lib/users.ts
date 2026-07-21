@@ -11,6 +11,19 @@ import type { User } from "./auth.ts";
 // the user row (see lib/auth.ts upsertUserByEmail).
 type QueryExecutor = postgres.Sql | postgres.TransactionSql;
 
+/** Shapes a raw `users` row (from `select *` / `returning *`) into the public
+ * `User` the rest of the app passes around: strips the sensitive argon2id
+ * `password_hash` column entirely and replaces it with a derived
+ * `has_password` boolean. Password auth (migration 0038) added password_hash
+ * to the table, so every place that reads a whole user row must run it through
+ * here before the object can reach an API response or a client component — the
+ * raw hash must never leave the server's auth paths. Runtime key-strip with a
+ * cast because `returning *` rows aren't statically typed with the column. */
+export function scrubUser(row: object): User {
+  const { password_hash, ...rest } = row as Record<string, unknown>;
+  return { ...rest, has_password: password_hash != null } as unknown as User;
+}
+
 // 3-30 chars total, must start with a letter/number, rest is
 // letters/digits/underscore/hyphen. Case-insensitive (the `i` flag) — casing
 // is preserved as typed, but validated the same either way; uniqueness is
@@ -34,6 +47,9 @@ const RESERVED_USERNAMES = new Set([
   "logout",
   "signin",
   "signup",
+  "forgot",
+  "reset",
+  "verify",
   "profile",
   "settings",
   "account",
@@ -148,7 +164,7 @@ export async function assignDefaultUsername(
         update users set username = ${candidate} where id = ${userId} returning *
       `;
       if (!user) throw new Error(`lib/users: no user with id ${userId}`);
-      return user;
+      return scrubUser(user);
     } catch (err) {
       // 23505 = unique violation on lower(username): taken, try the next suffix.
       if (err && typeof err === "object" && "code" in err && err.code === "23505") continue;
@@ -161,7 +177,7 @@ export async function assignDefaultUsername(
     update users set username = ${`user-${userId}`} where id = ${userId} returning *
   `;
   if (!user) throw new Error(`lib/users: no user with id ${userId}`);
-  return user;
+  return scrubUser(user);
 }
 
 export interface ProfileUpdate {
@@ -217,7 +233,7 @@ export async function updateProfile(userId: number, update: ProfileUpdate): Prom
   if (Object.keys(fields).length === 0) {
     const [user] = await sql<User[]>`select * from users where id = ${userId}`;
     if (!user) throw new Error(`lib/users: no user with id ${userId}`);
-    return user;
+    return scrubUser(user);
   }
 
   try {
@@ -225,7 +241,7 @@ export async function updateProfile(userId: number, update: ProfileUpdate): Prom
       update users set ${sql(fields)} where id = ${userId} returning *
     `;
     if (!user) throw new Error(`lib/users: no user with id ${userId}`);
-    return user;
+    return scrubUser(user);
   } catch (err) {
     if (err && typeof err === "object" && "code" in err && err.code === "23505") {
       throw new UsernameTakenError();
@@ -251,7 +267,7 @@ export async function setStatus(userId: number, raw: string | null): Promise<Use
     returning *
   `;
   if (!user) throw new Error(`lib/users: no user with id ${userId}`);
-  return user;
+  return scrubUser(user);
 }
 
 export interface PublicProfileUser {
@@ -295,5 +311,5 @@ export async function setAvatar(userId: number, imageUrl: string): Promise<User>
     update users set image_url = ${imageUrl} where id = ${userId} returning *
   `;
   if (!user) throw new Error(`lib/users: no user with id ${userId}`);
-  return user;
+  return scrubUser(user);
 }

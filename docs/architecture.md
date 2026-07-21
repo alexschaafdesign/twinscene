@@ -28,7 +28,7 @@ Notifications, statuses, feed
 Admin
 * One unified is_admin dashboard (app/admin/*, shared AdminNav in app/admin/layout.tsx) covering bands, shows, review, claims, band-member-claims, activity, and users. SCRAPE_SECRET no longer gates any PAGE — the is_admin-gated pages read it server-side and hand it to their client panels so those panels' calls to the still-SCRAPE_SECRET-gated show/scrape APIs authenticate.
 Decisions / deferred
-* Login method: magic-link only (chose this over passwords — passwords roughly double the auth surface and add reset + rate-limiting flows for the one thing magic links already prove: email ownership). Long sessions solve repeat-login friction. Google sign-in is the likeliest future add if wanted.
+* Login method: magic link (default) + email/password (added migration 0038). Magic link stays the low-friction default and proves email ownership by itself. Passwords were added despite the extra surface (verify + reset + lockout flows) because some users want them; both methods land on the identical session, so the session/authorization layers didn't change. argon2id via @node-rs/argon2; password_hash never leaves the server (scrubUser). Verification gates password login only (magic-link users are implicitly verified). Google sign-in is still the likeliest future add.
 * Cross-site "one login" (Twin Scene / Crawlspace / Birdhaus): deferred. Cost hinges on domain structure — subdomains of twinscene.org → a .twinscene.org cookie works with near-zero code; separate domains → a redirect/token SSO flow (strongest argument for Clerk/Auth0). Twin Scene + Crawlspace already share the DB (identity data is shared; only the cookie separates them); Birdhaus has its own DB.
 * ⚠️ Secret rotation pending: R2 keys + SCRAPE_SECRET were printed into a chat transcript during a direnv fix (not a git leak). Rotate when convenient; the Vercel OIDC token was self-expiring, ignore.
 * Leaderboard (future, "most shows this year"): data already exists — count show_saves where status='went', filtered by year. Respect profile_public (private users excluded). No new schema needed.
@@ -39,15 +39,27 @@ Schema (raw SQL, shared Postgres, owned by Twin Scene)
 users        (id bigint pk, email unique, name, username, bio, image_url,
               profile_public boolean not null default true,
               is_admin boolean not null default false, created_at,
-              last_seen_at, status, status_at)
+              last_seen_at, status, status_at,
+              password_hash, email_verified_at)   -- both added 0038
               -- unique index on lower(username); email NEVER exposed publicly
               -- last_seen_at stamped ~hourly from getCurrentUser (0025)
               -- status/status_at = the profile status line (0027), clear together
+              -- password_hash = argon2id, null = no password login; NEVER
+              --   selected into a public User (scrubUser strips it → has_password)
+              -- email_verified_at gates PASSWORD login only; backfilled to
+              --   created_at for pre-0038 users (magic link already proved it)
 band_editors (user_id→users, band_id→bands, role default 'editor', pk(user_id,band_id))
               -- role 'editor' | 'owner'; 'owner' (via redeemed code) may also
               --   approve that band's member claims
 sessions     (id text pk = opaque cookie token, user_id→users, expires_at, created_at)  -- ~90d
-login_tokens (token pk = HASH, email, expires_at, created_at)  -- single-use, ~15min
+login_tokens (token pk = HASH, email, type default 'login', expires_at, created_at)
+              -- single-use, ~15min. type 'login'|'verify'|'reset' (0038) — one
+              --   token mechanism for magic link, email verify, password reset;
+              --   consumption is type-scoped so links can't cross purposes
+login_attempts
+             (id bigserial pk, email, ip, succeeded bool, attempted_at)  -- 0038
+              -- failure-based lockout for password login/signup, per (email,ip);
+              --   DB-backed (no shared RAM across lambdas). index (email,ip,attempted_at)
 band_claims  (id pk, user_id→users, band_id→bands, status default 'pending',
               created_at, decided_at, decided_by→users)  -- + partial unique idx: 1 pending/user/band
 saved_bands  (user_id→users, band_id→bands, created_at, pk(user_id,band_id))
@@ -78,7 +90,7 @@ notifications
               --   band_update/show_changed coalesce only while read_at is null.
               -- Twin-Scene-owned; Crawlspace neither reads nor writes it.
 Auth mechanism (hand-rolled — chosen over Auth.js/Clerk)
-sessions + HTTP-only, Secure, SameSite=Lax cookie holding an opaque token; magic-link login (login_tokens, hashed, single-use). Chosen because it depends only on standard web primitives + your Postgres — won't fight the customized Next 16 build, keeps identity native to the DB. Auth.js couples to Next internals and wants a pg adapter (you use postgres.js); Clerk is the fallback if cross-site login across all three domains becomes a priority.
+sessions + HTTP-only, Secure, SameSite=Lax cookie holding an opaque token; magic-link login (login_tokens, hashed, single-use) plus email/password (argon2id, 0038) — both mint the same session. Chosen because it depends only on standard web primitives + your Postgres — won't fight the customized Next 16 build, keeps identity native to the DB. Auth.js couples to Next internals and wants a pg adapter (you use postgres.js); Clerk is the fallback if cross-site login across all three domains becomes a priority.
 Database safety (learned the hard way — see docs/auth-and-db.md)
 * Neon. Twin Scene + Crawlspace share one DB (dev branch ep-cool-poetry-...); Birdhaus has its own (ep-calm-bonus-...). Prod host ep-small-cell-atttlq50-....
 * All three repos: .envrc uses dotenv_if_exists .env.local so direnv watches the file → the shell can't go stale (this was the root cause of the early "everything hit prod" confusion). .env.local points at the DEV branch.
@@ -94,7 +106,7 @@ Guardrails
 * Avatars/uploads: re-encode via sharp (strips EXIF), cap size, server-controlled key, images only.
 * Username uniqueness enforced by BOTH app check and the unique index (catch the unique-violation race → friendly "taken" error); reserved-word list covers existing + future routes.
 * Hash magic-link tokens; single-use, ~15 min.
-* Passwords, if ever added: argon2id/bcrypt, never plaintext.
+* Passwords (0038): argon2id (@node-rs/argon2), never plaintext; password_hash stripped from every public User (scrubUser). Generic, timing-equalized errors on the login path (no user-enumeration); failure lockout per (email,ip); reset/verify reuse the hashed single-use login-token machinery (type-scoped).
 * Customized Next 16 — check node_modules/next/dist/docs/ before relying on framework-coupled behavior.
 Deploy playbook (proven across 0016–0028)
 1. Confirm dev via whichdb.mjs; commit the intended files only.
