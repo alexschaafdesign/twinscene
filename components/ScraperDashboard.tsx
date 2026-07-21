@@ -10,7 +10,7 @@ import type {
 import type { PressStarResult } from "@/lib/scrapers/starPress";
 import type { ReconcileReport } from "@/lib/scrapers/reconcile";
 
-type ScraperInfo = { id: string; name: string; image?: string };
+type ScraperInfo = { id: string; name: string };
 
 // The subset of a digest we read for a venue's historical "last run" line.
 // Log rows predating granular counts only have some fields, so all optional.
@@ -108,21 +108,6 @@ const PHASE_LABEL: Record<Phase, string> = {
   done: "Done",
   error: "Error",
 };
-
-/** Two-letter venue initials for the image-less tile fallback. */
-function venueInitials(name: string): string {
-  const words = name.replace(/^the\s+/i, "").split(/\s+/).filter(Boolean);
-  return ((words[0]?.[0] ?? "") + (words[1]?.[0] ?? "")).toUpperCase();
-}
-
-/** A stable, muted gradient derived from the venue name — the tile backdrop
- * when there's no photo (and the fallback behind a broken image URL). */
-function gradientFor(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
-  const hue = h % 360;
-  return `linear-gradient(135deg, hsl(${hue}, 38%, 30%), hsl(${(hue + 40) % 360}, 42%, 20%))`;
-}
 
 /** A small count chip. Colored (with a translucent wash) or muted by default. */
 function Chip({ label, color }: { label: string; color?: string }) {
@@ -737,42 +722,33 @@ export default function ScraperDashboard({
             body = <span className="text-[#E8E0D0]/45">Never run</span>;
           }
 
+          // Left-edge accent so the grid is scannable at a glance: green =
+          // added shows, amber = needs review / in progress, red = a problem.
+          let accent: string | undefined;
+          if (v?.phase === "error") accent = RED;
+          else if (v?.phase === "scraping" || v?.phase === "importing")
+            accent = AMBER;
+          else if (d) {
+            if (d.failed > 0) accent = RED;
+            else if (d.flagged > 0) accent = AMBER;
+            else if (d.added > 0) accent = GREEN;
+          }
+
           return (
             <div
               key={scraper.id}
-              className="flex flex-col overflow-hidden rounded-lg border border-[rgba(232,224,208,0.15)] bg-[rgba(232,224,208,0.02)] transition hover:border-[rgba(232,224,208,0.32)]"
+              className="flex flex-col rounded-lg border border-[rgba(232,224,208,0.15)] border-l-[3px] border-l-[rgba(232,224,208,0.12)] bg-[rgba(232,224,208,0.02)] transition hover:border-[rgba(232,224,208,0.3)]"
+              style={accent ? { borderLeftColor: accent } : undefined}
             >
-              {/* Image header (gradient fallback shows through broken/absent images) */}
-              <div
-                className="relative h-24 w-full overflow-hidden"
-                style={{ background: gradientFor(scraper.name) }}
-              >
-                {scraper.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={scraper.image}
-                    alt=""
-                    loading="lazy"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-2xl font-semibold text-[#E8E0D0]/55">
-                    {venueInitials(scraper.name)}
-                  </div>
-                )}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#2A2420] via-[#2A2420]/25 to-transparent" />
-                {showLive && v && (
-                  <div className="absolute right-2 top-2">
+              <div className="flex flex-1 flex-col gap-2.5 p-3.5">
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 truncate font-medium text-[#E8E0D0]">
+                    {scraper.name}
+                  </p>
+                  {showLive && v && (
                     <StatusPill phase={v.phase} digest={v.digest} />
-                  </div>
-                )}
-                <p className="absolute inset-x-3 bottom-2 truncate text-sm font-semibold text-[#E8E0D0] [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">
-                  {scraper.name}
-                </p>
-              </div>
-
-              {/* Body */}
-              <div className="flex flex-1 flex-col gap-3 p-3">
+                  )}
+                </div>
                 <div className="min-h-[2.25rem] text-xs">{body}</div>
                 <button
                   type="button"

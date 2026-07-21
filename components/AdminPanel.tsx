@@ -7,7 +7,7 @@ import type { NonLocalBand } from "@/lib/fetchNonLocalBands";
 import type { DismissedBand } from "@/lib/fetchDismissedBands";
 import ScraperDashboard from "@/components/ScraperDashboard";
 
-type ScraperInfo = { id: string; name: string; image?: string };
+type ScraperInfo = { id: string; name: string };
 
 // Shape of the digest JSON stored in each log row's RAW_JSON column
 // (produced by lib/scrapers/runAll.ts).
