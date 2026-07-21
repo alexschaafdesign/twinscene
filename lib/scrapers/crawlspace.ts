@@ -73,10 +73,16 @@ async function loadPost(): Promise<CrawlPost | null> {
 }
 
 /** The <ul> immediately after the first <h_> heading matching `re`, or an empty
- * selection when that section isn't present. */
+ * selection when that section isn't present. Skips any heading that also reads
+ * as a "picks" intro (e.g. "crawlspace picks for top shows tonight…") — that
+ * section's wording overlaps our forgiving `re` patterns but isn't either
+ * target section, so a bare `re.test` would lock onto its (single-item) list. */
 function sectionList($: cheerio.CheerioAPI, re: RegExp) {
   const heading = $("h1,h2,h3,h4,h5,h6")
-    .filter((_, el) => re.test($(el).text()))
+    .filter((_, el) => {
+      const text = $(el).text();
+      return re.test(text) && !/picks/i.test(text);
+    })
     .first();
   return heading.nextAll("ul").first();
 }
