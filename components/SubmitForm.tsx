@@ -107,7 +107,9 @@ const emptyVideo = (): VideoInput => ({ url: "", label: "" });
 
 // A video already on the band (scraper-matched or previously hand-entered),
 // seeded from the correction round-trip. Only exists in "correct" mode.
-type ExistingVideo = { id: number; url: string; title: string };
+// `source` distinguishes the UnderCurrentMPLS backfill from a hand-entered
+// submission — see the `status` → `source` collapse in editHref (BandProfile.tsx).
+type ExistingVideo = { id: number; url: string; title: string; source: "manual" | "scraper" };
 
 /** Parse the correction round-trip JSON (see editHref in BandProfile.tsx). */
 function parseInitialVideos(raw: string): ExistingVideo[] {
@@ -116,12 +118,14 @@ function parseInitialVideos(raw: string): ExistingVideo[] {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .filter(
-        (v): v is { id: unknown; url: unknown; title: unknown } => !!v && typeof v === "object",
+        (v): v is { id: unknown; url: unknown; title: unknown; source: unknown } =>
+          !!v && typeof v === "object",
       )
       .map((v) => ({
         id: typeof v.id === "number" ? v.id : NaN,
         url: typeof v.url === "string" ? v.url : "",
         title: typeof v.title === "string" ? v.title : "",
+        source: (v.source === "manual" ? "manual" : "scraper") as "manual" | "scraper",
       }))
       .filter((v) => Number.isInteger(v.id) && v.url);
   } catch {
@@ -1446,7 +1450,12 @@ export default function SubmitForm({
                       className="flex items-center justify-between gap-3 rounded-md bg-ink/5 px-3.5 py-2.5"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm text-ink">{video.title}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm text-ink">{video.title}</p>
+                          <span className="shrink-0 rounded-full border border-ink/15 bg-ink/5 px-1.5 py-0.5 text-[10px] font-medium text-ink/45">
+                            {video.source === "manual" ? "Added by the band" : "Found by UnderCurrentMPLS"}
+                          </span>
+                        </div>
                         <p className="truncate text-xs text-ink/50">{video.url}</p>
                       </div>
                       <button

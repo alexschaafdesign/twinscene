@@ -70,8 +70,17 @@ export function editHref(band: Band, videos: VideoRow[] = []): string {
     featuredLinks: JSON.stringify(
       band.featuredLinks.map((l) => ({ url: l.url, label: l.label })),
     ),
+    // Collapse the status enum to a simple scraper/manual split — that's all
+    // the edit form needs to label provenance ('review' never reaches here;
+    // getAllVideosForBand includes it, but only 'auto'/'created'/'manual' are
+    // meaningfully distinct to a submitter).
     videos: JSON.stringify(
-      videos.map((v) => ({ id: v.id, url: v.video_url, title: v.video_title })),
+      videos.map((v) => ({
+        id: v.id,
+        url: v.video_url,
+        title: v.video_title,
+        source: v.status === "manual" ? "manual" : "scraper",
+      })),
     ),
   });
   return `/submit?${params.toString()}`;
@@ -169,25 +178,17 @@ function FeaturedLinks({ band }: SectionProps) {
   );
 }
 
-/** Band's YouTube videos — scraper-matched (UnderCurrentMPLS backfill) and/or
- * hand-entered via the edit form. Each renders as a responsive embed with its
- * title as a caption. */
+/** Band's YouTube videos — scraper-matched (UnderCurrentMPLS backfill,
+ * status 'auto') and/or hand-entered via the edit form (status 'manual').
+ * Each renders as a responsive embed with its title as a caption, plus a
+ * small per-video credit line so the two sources aren't conflated — a
+ * manually-added video isn't from UnderCurrentMPLS. */
 function BandVideos({ videos }: SectionProps) {
   if (videos.length === 0) return null;
 
   return (
     <div>
-      <SectionHeading>
-        Videos from{" "}
-        <a
-          href="https://www.youtube.com/@UnderCurrentMPLS"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline decoration-[#E8E0D0]/30 underline-offset-2 transition hover:text-[#E8E0D0]/85"
-        >
-          UnderCurrentMPLS
-        </a>
-      </SectionHeading>
+      <SectionHeading>Videos</SectionHeading>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {videos.map((video) => {
           const videoId = parseYoutubeId(video.video_url);
@@ -205,6 +206,23 @@ function BandVideos({ videos }: SectionProps) {
                 />
               </div>
               <p className="mt-1.5 truncate text-xs text-[#E8E0D0]/70">{video.video_title}</p>
+              <p className="mt-0.5 text-[11px] text-[#E8E0D0]/40">
+                {video.status === "manual" ? (
+                  "Added by the band"
+                ) : (
+                  <>
+                    Found by{" "}
+                    <a
+                      href="https://www.youtube.com/@UnderCurrentMPLS"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline decoration-[#E8E0D0]/25 underline-offset-2 transition hover:text-[#E8E0D0]/70"
+                    >
+                      UnderCurrentMPLS
+                    </a>
+                  </>
+                )}
+              </p>
             </div>
           );
         })}
