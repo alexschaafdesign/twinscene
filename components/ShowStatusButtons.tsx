@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { ShowStatus } from "@/lib/showSaves";
 
 const baseBtn = "rounded-md border px-2.5 py-1 text-xs font-medium transition disabled:opacity-50";
 const inactiveBtn = `${baseBtn} border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/50 hover:text-[#E8E0D0]`;
 const activeBtn = `${baseBtn} border-[#8FD693]/50 bg-[#8FD693]/10 text-[#8FD693]`;
+const shareBtn = `${baseBtn} border-[#8FD693]/50 bg-[#8FD693]/10 text-[#8FD693] hover:bg-[#8FD693]/20`;
 
 /**
  * Attendance controls for one show — "Interested"/"Going" toggles for an
@@ -41,6 +42,50 @@ export function ShowStatusButtons({
 }) {
   const [status, setStatus] = useState<ShowStatus | null>(initialStatus);
   const [pending, setPending] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  // Whether this device can share an image file via the native share sheet —
+  // true on mobile Safari/Chrome, false on desktop. Probed after mount so SSR
+  // and first client render agree (both start false). Gates the "Share to
+  // Stories" button so it only appears where the hand-off to Instagram works.
+  const [canShareFiles, setCanShareFiles] = useState(false);
+
+  useEffect(() => {
+    try {
+      const probe = new File([""], "probe.png", { type: "image/png" });
+      setCanShareFiles(Boolean(navigator.canShare?.({ files: [probe] })));
+    } catch {
+      setCanShareFiles(false);
+    }
+  }, []);
+
+  async function shareToStories() {
+    setSharing(true);
+    try {
+      // The card image carries the "Interested" chip via ?status=.
+      const res = await fetch(`/api/og/show/${showId}?status=interested`);
+      if (!res.ok) throw new Error(`card render failed (${res.status})`);
+      const blob = await res.blob();
+      const file = new File([blob], "twin-scene-show.png", { type: blob.type || "image/png" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] });
+      } else {
+        // Fallback: hand them the image to post manually.
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "twin-scene-show.png";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      // AbortError = user dismissed the share sheet; not worth surfacing.
+      if (!(err instanceof DOMException && err.name === "AbortError")) {
+        console.error("ShowStatusButtons: share failed", err);
+      }
+    } finally {
+      setSharing(false);
+    }
+  }
 
   if (!loggedIn) {
     return (
@@ -115,6 +160,16 @@ export function ShowStatusButtons({
           className={status === "going" ? activeBtn : inactiveBtn}
         >
           Going
+        </button>
+      )}
+      {status === "interested" && canShareFiles && (
+        <button
+          type="button"
+          onClick={shareToStories}
+          disabled={sharing}
+          className={shareBtn}
+        >
+          {sharing ? "Preparing…" : "Share to Stories"}
         </button>
       )}
     </div>
