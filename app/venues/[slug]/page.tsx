@@ -72,7 +72,28 @@ export default async function VenueProfilePage({ params }: Props) {
   const venueRow = await getCachedVenueBySlug(venue.slug);
   const canEdit = venueRow ? await canEditVenue(user, venueRow.id) : false;
 
-  const actions = canEdit ? (
+  // Admins can jump straight to the Add-a-show form with this venue preselected
+  // (the form reads ?venue=<name> — see app/shows/submit/page.tsx).
+  const addShowLink = user?.is_admin ? (
+    <Link
+      href={`/shows/submit?venue=${encodeURIComponent(venue.name)}`}
+      className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
+    >
+      {/* ti-calendar-plus (Tabler) */}
+      <svg {...iconProps} width={15} height={15}>
+        <path d="M11.5 21h-5.5a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v5" />
+        <path d="M16 3v4" />
+        <path d="M8 3v4" />
+        <path d="M4 11h16" />
+        <path d="M16 19h6" />
+        <path d="M19 16v6" />
+      </svg>
+      <span className="md:hidden">Add show</span>
+      <span className="hidden md:inline">Add a show here</span>
+    </Link>
+  ) : null;
+
+  const editOrClaim = canEdit ? (
     <Link
       href={venueEditHref(venue)}
       className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
@@ -88,6 +109,13 @@ export default async function VenueProfilePage({ params }: Props) {
     </Link>
   ) : (
     <ClaimVenueButton slug={venue.slug} loggedIn={!!user} />
+  );
+
+  const actions = (
+    <>
+      {addShowLink}
+      {editOrClaim}
+    </>
   );
 
   return (

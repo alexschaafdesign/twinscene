@@ -511,6 +511,10 @@ export default function ShowSubmitForm({
         payload.set("title", title.trim());
         payload.set("notes", notes.trim());
         payload.set("link", link.trim());
+        payload.set("musicTime", musicTime);
+        payload.set("doorsTime", doorsTime);
+        payload.set("genres", genres.trim());
+        payload.set("ageRestriction", ageRestriction.trim());
         payload.set(
           "linkedBands",
           JSON.stringify(selectedBands.map((b) => ({ name: b.name, slug: b.slug }))),
@@ -820,8 +824,8 @@ export default function ShowSubmitForm({
           />
         </Field>
 
-        {isEdit && (
-          <>
+        {/* Structured details a scraped show carries — available on add too. */}
+        <>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field
                 label="Show time"
@@ -852,7 +856,11 @@ export default function ShowSubmitForm({
               <Field
                 label="Genre(s)"
                 htmlFor="genres"
-                hint="Comma-separated. Suggested from listings; edit freely."
+                hint={
+                  isEdit
+                    ? "Comma-separated. Suggested from listings; edit freely."
+                    : "Comma-separated. Optional."
+                }
               >
                 <input
                   id="genres"
@@ -876,7 +884,6 @@ export default function ShowSubmitForm({
               </Field>
             </div>
           </>
-        )}
 
         <Field label="Notes" htmlFor="notes">
           <input

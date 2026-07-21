@@ -121,6 +121,12 @@ export async function POST(request: NextRequest) {
         notes: notes || "",
         link: link || "",
         flyerUrl,
+        // Optional structured details, same set a scraped show carries. Times
+        // arrive as 24-hour "HH:MM" from the form's <input type="time">.
+        musicTime: str(form.get("musicTime")),
+        doorsTime: str(form.get("doorsTime")),
+        genres: splitList(form.get("genres")),
+        ageRestriction: str(form.get("ageRestriction")).trim(),
       },
       "public_submission",
       { name: user.name ?? user.email, email: user.email },

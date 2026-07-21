@@ -260,6 +260,13 @@ export type ManualShowInput = {
   notes: string;
   link: string;
   flyerUrl?: string;
+  // Structured details a scraped show carries, now collectable on the manual
+  // add form too. 24-hour "HH:MM" clock strings (""/null clears); genres a list;
+  // ageRestriction a freeform label. Absent/empty -> null/[] columns.
+  musicTime?: string | null;
+  doorsTime?: string | null;
+  genres?: string[];
+  ageRestriction?: string | null;
 };
 
 /** Insert a new manually-submitted show. Mirrors handleShowSubmission_. */
@@ -273,10 +280,15 @@ export async function insertManualShow(
 
   return sql.begin(async (tx) => {
     const rows = await tx`
-      INSERT INTO shows (source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url)
+      INSERT INTO shows (
+        source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url,
+        music_time, doors_time, genres, age_restriction
+      )
       VALUES (
         'manual', ${sourceKey}, ${input.venue}, ${input.title}, ${input.date},
-        ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}, ${input.flyerUrl || null}
+        ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}, ${input.flyerUrl || null},
+        ${sqlTimeOrNull(input.musicTime)}, ${sqlTimeOrNull(input.doorsTime)},
+        ${tx.json(normalizeGenres(input.genres))}, ${normalizeAge(input.ageRestriction)}
       )
       RETURNING id
     `;
