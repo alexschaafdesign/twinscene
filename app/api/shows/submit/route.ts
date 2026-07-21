@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildLineupEntries, insertManualShow } from "@/lib/shows";
-import { findOrCreateBandByName } from "@/lib/bands";
+import { upsertBand, type BandSubmissionInput } from "@/lib/bands";
 import { processShowFlyer, uploadShowFlyer } from "@/lib/r2";
 import { getCurrentUser } from "@/lib/auth";
-import { revalidateShows } from "@/lib/cachedReads";
+import { revalidateBands, revalidateShows } from "@/lib/cachedReads";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +15,13 @@ const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/g
 
 function str(raw: FormDataEntryValue | null): string {
   return typeof raw === "string" ? raw : "";
+}
+
+function splitList(raw: FormDataEntryValue | null): string[] {
+  return str(raw)
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
 }
 
 // "Add a show" submission — requires login. Multipart (rather than JSON)
@@ -64,12 +71,30 @@ export async function POST(request: NextRequest) {
 
   try {
     // A band typed into the "This band isn't listed yet" form is added to the
-    // canonical `bands` table here (name-only, de-duped by name) so its lineup
-    // slug resolves to a real directory row instead of dangling. Done before
-    // the lineup is built so the show links the slug the DB actually assigned.
+    // canonical `bands` table here (with the details the form collected) so its
+    // lineup slug resolves to a real directory row instead of dangling. Same
+    // add path /api/bands/submit uses (upsertBand). Done before the lineup is
+    // built so the show links the slug the DB actually assigned.
+    let bandCreated = false;
     if (newBandName) {
-      const { band } = await findOrCreateBandByName(newBandName);
+      const input: BandSubmissionInput = {
+        name: newBandName,
+        genres: splitList(form.get("newBandGenres")),
+        city: str(form.get("newBandLocation")).trim(),
+        neighborhoods: [],
+        members: [],
+        contactEmail: str(form.get("newBandContactEmail")).trim(),
+        contactMethod: "",
+        website: "",
+        instagram: str(form.get("newBandInstagram")).trim(),
+        bandcamp: "",
+        bandcampLink: "",
+        bio: "",
+        featuredLinks: [],
+      };
+      const { band } = await upsertBand(input, "add");
       linkedBands.push({ name: band.name, slug: band.slug });
+      bandCreated = true;
     }
 
     const names = linkedBands.map((b) => b.name);
@@ -97,6 +122,7 @@ export async function POST(request: NextRequest) {
       { name: user.name ?? user.email, email: user.email },
     );
     revalidateShows();
+    if (bandCreated) revalidateBands();
     return NextResponse.json({ success: true, id });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Submission failed";

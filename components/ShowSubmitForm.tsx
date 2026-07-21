@@ -509,6 +509,10 @@ export default function ShowSubmitForm({
         );
         if (showNewBand && newBandName.trim()) {
           payload.set("newBandName", newBandName.trim());
+          payload.set("newBandGenres", newBandGenres.trim());
+          payload.set("newBandLocation", newBandLocation.trim());
+          payload.set("newBandContactEmail", newBandContactEmail.trim());
+          payload.set("newBandInstagram", newBandInstagram.trim());
         }
         if (flyerFile) payload.set("flyer", flyerFile);
 
