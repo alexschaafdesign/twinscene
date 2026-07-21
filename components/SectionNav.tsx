@@ -67,15 +67,17 @@ export default function SectionNav() {
                 {i === 1 && (
                   <span aria-hidden="true" className="mb-3 h-4 w-px shrink-0 bg-[#E8E0D0]/20" />
                 )}
-                {isCurrent ? (
-                  <span aria-current="page" className={`${tabClass} ${activeClass}`}>
-                    {label}
-                  </span>
-                ) : (
-                  <Link href={href} className={`${tabClass} ${inactiveClass}`}>
-                    {label}
-                  </Link>
-                )}
+                {/* Always a link — even the current section stays clickable so
+                    it navigates back to that section's main list (e.g. Venues
+                    from a specific venue page). It just carries the active
+                    styling + aria-current when you're already in the section. */}
+                <Link
+                  href={href}
+                  aria-current={isCurrent ? "page" : undefined}
+                  className={`${tabClass} ${isCurrent ? activeClass : inactiveClass}`}
+                >
+                  {label}
+                </Link>
               </li>
             );
           })}
