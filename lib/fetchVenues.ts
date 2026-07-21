@@ -25,6 +25,7 @@ function toVenue(row: VenueRow): Venue {
   return {
     name: row.name,
     slug: row.slug,
+    address: row.address ?? "",
     city: row.city ?? "",
     neighborhood: row.neighborhood ?? "",
     capacity: row.capacity,

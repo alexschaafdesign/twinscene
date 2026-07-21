@@ -69,6 +69,7 @@ export default async function VenueSubmitPage({
         mode={isCorrect ? "correct" : "add"}
         initialSlug={param("venue")}
         initialName={param("name")}
+        initialAddress={param("address")}
         initialLocation={param("location")}
         initialNeighborhood={param("neighborhood")}
         initialCapacity={param("capacity")}

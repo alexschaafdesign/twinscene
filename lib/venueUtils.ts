@@ -10,6 +10,7 @@
 export type Venue = {
   name: string;
   slug: string;
+  address: string; // street address; "" when none
   city: string;
   neighborhood: string; // single value, unlike Band.neighborhoods
   capacity: number | null;

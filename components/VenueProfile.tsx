@@ -122,6 +122,7 @@ export default function VenueProfile({
           now: those fields were originally written for touring bands and
           don't fit the more general audience the page serves now. */}
       <div className="space-y-5 md:col-start-1 md:row-start-2">
+        <InfoBlock label="Address" value={venue.address} />
         <InfoBlock label="Contact" value={venue.contact} />
         <InfoBlock label="Accessibility" value={venue.accessibility} />
       </div>

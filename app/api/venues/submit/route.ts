@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
 
     const input: VenueSubmissionInput = {
       name: venueName,
+      address: str(form.get("address")).trim(),
       city: str(form.get("location")).trim(),
       neighborhood: str(form.get("neighborhood")).trim(),
       capacity: parseCapacity(form.get("capacity")),

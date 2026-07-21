@@ -49,6 +49,7 @@ export default function VenueSubmitForm({
   mode = "add",
   initialSlug = "",
   initialName = "",
+  initialAddress = "",
   initialLocation = "",
   initialNeighborhood = "",
   initialCapacity = "",
@@ -65,6 +66,7 @@ export default function VenueSubmitForm({
   mode?: Mode;
   initialSlug?: string;
   initialName?: string;
+  initialAddress?: string;
   initialLocation?: string;
   initialNeighborhood?: string;
   initialCapacity?: string;
@@ -81,6 +83,7 @@ export default function VenueSubmitForm({
   const isCorrect = mode === "correct";
 
   const [name, setName] = useState(initialName);
+  const [address, setAddress] = useState(initialAddress);
   const [location, setLocation] = useState(initialLocation);
   const [cityIsOther, setCityIsOther] = useState(
     () =>
@@ -88,6 +91,9 @@ export default function VenueSubmitForm({
       !KNOWN_CITIES.includes(initialLocation as (typeof KNOWN_CITIES)[number]),
   );
   const [neighborhood, setNeighborhood] = useState(initialNeighborhood);
+  // "Detect neighborhood from address" state.
+  const [detecting, setDetecting] = useState(false);
+  const [detectMsg, setDetectMsg] = useState("");
   const [capacity, setCapacity] = useState(initialCapacity);
   const [contact, setContact] = useState(initialContact);
   const [type, setType] = useState(initialType);
@@ -156,6 +162,49 @@ export default function VenueSubmitForm({
     return e;
   }
 
+  /** Look the neighborhood up from the address via the Census geocoder +
+   * bundled Minneapolis/St. Paul boundaries, and fill the field. Also fills
+   * City when the match tells us which city and City is still empty. */
+  async function detectNeighborhood() {
+    if (detecting) return;
+    if (!address.trim()) {
+      setDetectMsg("Enter an address first.");
+      return;
+    }
+    setDetecting(true);
+    setDetectMsg("");
+    try {
+      const res = await fetch("/api/venues/detect-neighborhood", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: address.trim(), city: location.trim() }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Couldn't detect the neighborhood.");
+      }
+      if (data.neighborhood) {
+        setNeighborhood(data.neighborhood);
+        // Fill City from the match only if the user hasn't set one.
+        if (data.city && !location.trim()) {
+          setCityIsOther(
+            !KNOWN_CITIES.includes(data.city as (typeof KNOWN_CITIES)[number]),
+          );
+          setLocation(data.city);
+        }
+        setDetectMsg(`Found: ${data.neighborhood}`);
+      } else {
+        setDetectMsg(data.reason || "No neighborhood found for that address.");
+      }
+    } catch (err) {
+      setDetectMsg(
+        err instanceof Error ? err.message : "Couldn't detect the neighborhood.",
+      );
+    } finally {
+      setDetecting(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const found = validate();
@@ -181,6 +230,7 @@ export default function VenueSubmitForm({
       payload.set("existingSlug", isCorrect ? initialSlug : "");
       payload.set("venueSlug", venueSlug);
       payload.set("venueName", name.trim());
+      payload.set("address", address.trim());
       payload.set("location", location.trim());
       payload.set("neighborhood", neighborhood.trim());
       payload.set("capacity", capacity.trim());
@@ -263,6 +313,17 @@ export default function VenueSubmitForm({
           />
         </Field>
 
+        <Field label="Address" htmlFor="address" hint="Street address, e.g. 701 1st Ave N">
+          <input
+            id="address"
+            type="text"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="e.g. 701 1st Ave N"
+            className={inputClass}
+          />
+        </Field>
+
         <Field label="City" htmlFor="location">
           <div className="flex flex-wrap gap-2">
             {KNOWN_CITIES.map((c) => {
@@ -334,6 +395,19 @@ export default function VenueSubmitForm({
                 <option key={n} value={n} />
               ))}
             </datalist>
+            <div className="mt-1.5 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={detectNeighborhood}
+                disabled={detecting || !address.trim()}
+                className="text-xs text-[#E8E0D0]/70 underline underline-offset-2 transition hover:text-[#E8E0D0] disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline"
+              >
+                {detecting ? "Detecting…" : "Detect from address"}
+              </button>
+              {detectMsg && (
+                <span className="text-xs text-[#E8E0D0]/50">{detectMsg}</span>
+              )}
+            </div>
           </Field>
 
           <Field

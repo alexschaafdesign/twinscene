@@ -16,6 +16,7 @@ export interface Venue {
   id: number;
   slug: string;
   name: string;
+  address: string | null; // street address, e.g. "416 N 1st Ave"
   city: string | null;
   neighborhood: string | null;
   capacity: number | null;
@@ -42,6 +43,7 @@ export async function getVenueBySlug(slug: string): Promise<Venue | null> {
 
 export interface VenueSubmissionInput {
   name: string;
+  address: string;
   city: string;
   neighborhood: string;
   capacity: number | null;
@@ -91,6 +93,7 @@ export async function upsertVenue(
       const [updated] = await tx<Venue[]>`
         update venues set
           name = ${input.name},
+          address = ${input.address || null},
           city = ${input.city || null},
           neighborhood = ${input.neighborhood || null},
           capacity = ${input.capacity},
@@ -111,10 +114,10 @@ export async function upsertVenue(
 
     const [created] = await tx<Venue[]>`
       insert into venues (
-        slug, name, city, neighborhood, capacity, contact, notes, parking,
+        slug, name, address, city, neighborhood, capacity, contact, notes, parking,
         accessibility, owner, type, photo, thumbnail_url
       ) values (
-        ${targetSlug}, ${input.name}, ${input.city || null}, ${input.neighborhood || null},
+        ${targetSlug}, ${input.name}, ${input.address || null}, ${input.city || null}, ${input.neighborhood || null},
         ${input.capacity}, ${input.contact || null}, ${input.notes || null},
         ${input.parking || null}, ${input.accessibility || null}, ${input.owner || null},
         ${input.type || null}, ${photo}, ${thumbnailUrl}

@@ -55,6 +55,7 @@ export function venueEditHref(venue: Venue): string {
     correct: "true",
     venue: venue.slug,
     name: venue.name,
+    address: venue.address,
     location: venue.city,
     neighborhood: venue.neighborhood,
     capacity: venue.capacity != null ? String(venue.capacity) : "",
