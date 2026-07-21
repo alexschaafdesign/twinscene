@@ -38,4 +38,12 @@ export type ScrapedShow = {
   press?: string | null;
   blurb?: string | null;
   pressPostUrl?: string | null;
+  // Long-form event description, when the source provides one (e.g. Dice's
+  // per-event description). Optional so scrapers without one are unaffected;
+  // shows up as free text on the show page (shows.description, 0046).
+  description?: string | null;
+  // A "for fans of" / "recommended if you like" pull-quote, split out of
+  // `description` when the source embeds one inline (lib/scrapers/similarTo.ts)
+  // so it can be surfaced as its own line (shows.similar_to, 0046).
+  similarTo?: string | null;
 };

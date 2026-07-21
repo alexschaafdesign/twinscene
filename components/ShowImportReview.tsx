@@ -23,6 +23,8 @@ export type ImportShow = {
   doorsTime: string | null;
   genres: string[]; // genre suggestions from the source (0040)
   ageRestriction: string | null;
+  description: string | null; // long-form event description, when the source has one (0046)
+  similarTo: string | null; // "for fans of" pull-quote split out of description (0046)
   link: string;
   flyerUrl: string | null;
   suggested: SuggestedMatch[];
@@ -325,6 +327,8 @@ function ShowCard({
           doorsTime: show.doorsTime,
           genres: show.genres,
           ageRestriction: show.ageRestriction,
+          description: show.description,
+          similarTo: show.similarTo,
         }),
       });
       const data = await res.json();

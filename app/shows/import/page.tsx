@@ -150,6 +150,8 @@ export default async function ImportShowsPage() {
         doorsTime: show.doorsTime,
         genres: show.genres ?? [],
         ageRestriction: show.ageRestriction ?? null,
+        description: show.description ?? null,
+        similarTo: show.similarTo ?? null,
         link: show.ticketUrl ?? "",
         flyerUrl: show.flyerUrl,
         suggested,

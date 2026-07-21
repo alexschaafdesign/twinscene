@@ -89,6 +89,8 @@ export async function autoImportShow(
         doorsTime: show.doorsTime,
         genres: show.genres ?? [],
         ageRestriction: show.ageRestriction ?? null,
+        description: show.description ?? null,
+        similarTo: show.similarTo ?? null,
         confidence,
         reviewReasons,
       }),

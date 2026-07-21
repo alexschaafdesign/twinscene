@@ -32,6 +32,7 @@
 
 import type { ScrapedShow } from "./types";
 import { protectKnownNames } from "./knownActNames";
+import { extractSimilarTo } from "./similarTo";
 
 const VENUE = "Icehouse";
 const BASE_URL = "https://icehouse.turntabletickets.com";
@@ -48,6 +49,11 @@ const FLAT_TICKET_PRICE_RE = /^\$(\d+(?:\.\d+)?)\s*tickets?\b/i;
 // Some listings just say "$15 (+fees & taxes)" or "$10 Cover" — a single price
 // with no adv/door/ticket label at all. Used only if nothing more specific matched.
 const BARE_PRICE_RE = /^\$(\d+(?:\.\d+)?)\b/;
+// Amenity/age-restriction lines mixed into the description alongside doors/
+// showtime/pricing — logistics, not bio prose, so dropped rather than kept as
+// the show's description (same reasoning as filtering those other lines).
+const AGE_ONLY_RE = /^(all ages|\d{1,2}\+)$/i;
+const AMENITY_RE = /^full food (?:and|&) beverage/i;
 
 type Performance = {
   id: number;
@@ -130,6 +136,9 @@ function parsePerformance(perf: Performance): ScrapedShow {
   let advancePrice: number | null = null;
   let dosPrice: number | null = null;
   let barePrice: number | null = null;
+  // Lines that don't match any logistics pattern below — the show's actual
+  // bio prose, when the venue writes one (0046).
+  const bioLines: string[] = [];
 
   for (const line of extractLines(perf.show.description)) {
     let m: RegExpExecArray | null;
@@ -163,12 +172,16 @@ function parsePerformance(perf: Performance): ScrapedShow {
       barePrice = parseFloat(m[1]);
       continue;
     }
+    if (AGE_ONLY_RE.test(line) || AMENITY_RE.test(line)) continue;
+
+    bioLines.push(line);
   }
 
   if (advancePrice === null && dosPrice === null && barePrice !== null) {
     advancePrice = barePrice;
   }
 
+  const { description, similarTo } = extractSimilarTo(bioLines.join("\n\n"));
   const showUrl = `${BASE_URL}/shows/${perf.show_id}/?date=${date}`;
 
   return {
@@ -184,6 +197,8 @@ function parsePerformance(perf: Performance): ScrapedShow {
     advancePrice,
     dosPrice,
     sourceUrl: showUrl,
+    description,
+    similarTo,
   };
 }
 

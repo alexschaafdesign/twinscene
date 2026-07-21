@@ -7,6 +7,7 @@
 // (see cloudland.ts) and reuse the shared key below with a venue-name filter.
 
 import type { ScrapedShow } from "./types";
+import { extractSimilarTo } from "./similarTo";
 
 // The key the Squarespace ⇢ Dice event-list widget embeds ship with. It isn't
 // venue-scoped — it queries any venue by name — so venues without an on-page
@@ -32,6 +33,11 @@ export type DiceEvent = {
   lineup?: { details?: string; time?: string }[];
   ticket_types?: { price?: { face_value?: number } }[];
   venues?: { name?: string }[];
+  // raw_description is the venue-authored body text; `description` is the
+  // same text with "Presented by …"/age-limit boilerplate appended by Dice —
+  // prefer raw_description so that boilerplate doesn't leak onto the show page.
+  raw_description?: string | null;
+  description?: string | null;
 };
 
 /** UTC ISO instant → "YYYY-MM-DD" calendar date in the venue's timezone. */
@@ -140,6 +146,7 @@ function mapDiceEvent(
   const isLinkout = e.type === "linkout";
   const ticketUrl =
     (isLinkout && e.external_url ? e.external_url : e.url) ?? null;
+  const { description, similarTo } = extractSimilarTo(e.raw_description ?? e.description);
 
   return {
     venue: e.venues?.[0]?.name?.trim() || fallbackVenue,
@@ -154,6 +161,8 @@ function mapDiceEvent(
     advancePrice: faceValueDollars(e.ticket_types),
     dosPrice: null,
     sourceUrl,
+    description,
+    similarTo,
   };
 }
 

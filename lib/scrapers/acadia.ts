@@ -58,6 +58,7 @@
 
 import type { ScrapedShow } from "./types";
 import { protectKnownNames } from "./knownActNames";
+import { extractSimilarTo } from "./similarTo";
 
 const VENUE = "Acadia Cafe";
 const EVENTS_URL = "https://www.acadiacafe.com/events";
@@ -216,6 +217,8 @@ function parseEvent(event: CalendarEvent): ScrapedShow | null {
     [headliner, ...supporting] = allBands;
   }
 
+  const { description, similarTo } = extractSimilarTo(event.description);
+
   return {
     venue: VENUE,
     date,
@@ -230,6 +233,8 @@ function parseEvent(event: CalendarEvent): ScrapedShow | null {
     dosPrice: null,
     sourceUrl: EVENTS_URL,
     tag,
+    description,
+    similarTo,
   };
 }
 

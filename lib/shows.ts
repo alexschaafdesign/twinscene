@@ -148,6 +148,10 @@ export type ScrapedShowInput = {
   // omitted/empty when it doesn't provide them.
   genres?: string[];
   ageRestriction?: string | null;
+  // Long-form description + "for fans of" pull-quote (0046). Omitted/null for
+  // sources that don't carry one.
+  description?: string | null;
+  similarTo?: string | null;
   confidence: string; // reviewFlags.ts ReviewConfidence: "ok" | "flag" | "broken"
   reviewReasons: string[];
 };
@@ -210,12 +214,13 @@ export async function upsertScrapedShow(
     const rows = await tx`
       INSERT INTO shows (
         source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url, event_type,
-        music_time, doors_time, genres, age_restriction, needs_review, confidence, review_reasons
+        music_time, doors_time, genres, age_restriction, description, similar_to,
+        needs_review, confidence, review_reasons
       ) VALUES (
         ${input.source}, ${input.sourceKey}, ${input.venue}, ${input.title}, ${input.date},
         ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}, ${input.flyerUrl || null},
         ${input.eventType || null}, ${musicTime}, ${doorsTime},
-        ${tx.json(genres)}, ${ageRestriction},
+        ${tx.json(genres)}, ${ageRestriction}, ${input.description || null}, ${input.similarTo || null},
         ${needsReview}, ${input.confidence}, ${tx.json(input.reviewReasons)}
       )
       ON CONFLICT (source_key) DO UPDATE SET
@@ -230,6 +235,8 @@ export async function upsertScrapedShow(
         event_type = EXCLUDED.event_type,
         music_time = EXCLUDED.music_time,
         doors_time = EXCLUDED.doors_time,
+        description = EXCLUDED.description,
+        similar_to = EXCLUDED.similar_to,
         -- Only overwrite genre/age when this scrape actually carries them, so a
         -- venue re-scrape (most give neither) can't wipe a Crawl Space
         -- suggestion applied out-of-band via reconcile.ts.

@@ -218,6 +218,22 @@ export default async function ShowDetailPage({
         </div>
       </div>
 
+      {(show.description || show.similarTo) && (
+        <div className="mt-8 max-w-2xl">
+          {show.description && (
+            <p className="whitespace-pre-line text-sm leading-relaxed text-[#E8E0D0]/75">
+              {show.description}
+            </p>
+          )}
+          {show.similarTo && (
+            <p className={`text-sm text-[#E8E0D0]/60 ${show.description ? "mt-3" : ""}`}>
+              <span className="font-medium text-[#E8E0D0]/80">For fans of:</span>{" "}
+              {show.similarTo}
+            </p>
+          )}
+        </div>
+      )}
+
       {show.lineupEntries.length > 0 && (
         <div className="mt-10">
           <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
