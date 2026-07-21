@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ScraperLogRow } from "@/lib/fetchScraperLog";
 import type { Band } from "@/lib/fetchBands";
 import type { NonLocalBand } from "@/lib/fetchNonLocalBands";
 import type { DismissedBand } from "@/lib/fetchDismissedBands";
 import ScraperDashboard from "@/components/ScraperDashboard";
 
-type ScraperInfo = { id: string; name: string };
+type ScraperInfo = { id: string; name: string; image?: string };
 
 // Shape of the digest JSON stored in each log row's RAW_JSON column
 // (produced by lib/scrapers/runAll.ts).
@@ -56,11 +56,6 @@ const SECTION_HEADING =
 const CARD = "rounded-md border border-[rgba(232,224,208,0.15)] p-4";
 const BTN =
   "rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-sm text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10 disabled:cursor-not-allowed disabled:opacity-40";
-const BTN_PRIMARY =
-  "rounded-md bg-[#E8E0D0] px-3 py-1.5 text-sm font-medium text-[#2A2420] transition hover:bg-[#E8E0D0]/90 disabled:cursor-not-allowed disabled:opacity-40";
-
-type RunState = { status: "idle" | "loading" | "done" | "error"; message: string };
-const IDLE: RunState = { status: "idle", message: "" };
 
 export default function AdminPanel({
   scrapers,
@@ -126,45 +121,6 @@ export default function AdminPanel({
   const submitUrl = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
   const q = `secret=${encodeURIComponent(secret)}`;
 
-  const [graphicState, setGraphicState] = useState<RunState>(IDLE);
-  const [graphicPreviewUrl, setGraphicPreviewUrl] = useState<string | null>(null);
-
-  // Revoke the previous blob URL whenever a new preview replaces it or the
-  // panel unmounts, so we don't leak object URLs across regenerations.
-  useEffect(() => {
-    return () => {
-      if (graphicPreviewUrl) URL.revokeObjectURL(graphicPreviewUrl);
-    };
-  }, [graphicPreviewUrl]);
-
-  async function downloadTodayGraphic() {
-    setGraphicState({ status: "loading", message: "" });
-    try {
-      const res = await fetch("/api/og/today");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const showDate = res.headers.get("X-Show-Date") || "today";
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-
-      setGraphicPreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return url;
-      });
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `twinscene-shows-${showDate}.png`;
-      a.click();
-
-      setGraphicState({ status: "done", message: "Downloaded." });
-    } catch (err) {
-      setGraphicState({
-        status: "error",
-        message: err instanceof Error ? err.message : "Failed",
-      });
-    }
-  }
-
   // Flag a band as not local: keep it in the list with a "Not local" chip and
   // log it in the background. A failed POST is fine — the chip still sticks.
   function flagNotLocal(name: string) {
@@ -224,7 +180,7 @@ export default function AdminPanel({
   const newBands = trulyNew.filter((n) => !dismissed.has(n));
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
+    <main className="mx-auto w-full max-w-5xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
       <header className="mb-10 flex flex-wrap items-center justify-between gap-3 border-b border-[#E8E0D0]/20 pb-6">
         <div>
           <h1 className="text-2xl font-medium tracking-tight">Twin Scene Admin</h1>
@@ -242,56 +198,6 @@ export default function AdminPanel({
           &ldquo;Run now&rdquo; still works.
         </p>
       )}
-
-      {/* 0. SHOW GRAPHICS ─────────────────────────────────────────────── */}
-      <section className="mb-12">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className={SECTION_HEADING}>Show graphics</h2>
-        </div>
-        <div className={CARD}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="font-medium text-[#E8E0D0]">Today&apos;s show graphic</p>
-              <p className="mt-1 text-xs text-[#E8E0D0]/55">
-                Generates the story-format PNG for tomorrow&apos;s date (it&apos;s
-                labeled &ldquo;TODAY&rdquo; since it&apos;s meant to be posted
-                the day of).
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={downloadTodayGraphic}
-              disabled={graphicState.status === "loading"}
-              className={BTN_PRIMARY}
-            >
-              {graphicState.status === "loading" ? (
-                <Spinner label="Generating…" />
-              ) : (
-                "Download today's show graphic"
-              )}
-            </button>
-          </div>
-
-          {graphicState.status !== "idle" && graphicState.status !== "loading" && (
-            <p
-              className={`mt-3 text-sm ${
-                graphicState.status === "error" ? "text-[#E5A0A0]" : "text-[#8FD08F]"
-              }`}
-            >
-              {graphicState.message}
-            </p>
-          )}
-
-          {graphicPreviewUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={graphicPreviewUrl}
-              alt="Preview of today's show graphic"
-              className="mt-4 w-40 rounded-md border border-[#E8E0D0]/15"
-            />
-          )}
-        </div>
-      </section>
 
       {/* 1. SCRAPER STATUS ────────────────────────────────────────────── */}
       <section className="mb-12">
@@ -409,18 +315,5 @@ export default function AdminPanel({
         )}
       </section>
     </main>
-  );
-}
-
-/** Small inline spinner + label for loading buttons. */
-function Spinner({ label }: { label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        aria-hidden
-        className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent"
-      />
-      {label}
-    </span>
   );
 }

@@ -10,7 +10,7 @@ import type {
 import type { PressStarResult } from "@/lib/scrapers/starPress";
 import type { ReconcileReport } from "@/lib/scrapers/reconcile";
 
-type ScraperInfo = { id: string; name: string };
+type ScraperInfo = { id: string; name: string; image?: string };
 
 // The subset of a digest we read for a venue's historical "last run" line.
 // Log rows predating granular counts only have some fields, so all optional.
@@ -108,6 +108,39 @@ const PHASE_LABEL: Record<Phase, string> = {
   done: "Done",
   error: "Error",
 };
+
+/** Two-letter venue initials for the image-less tile fallback. */
+function venueInitials(name: string): string {
+  const words = name.replace(/^the\s+/i, "").split(/\s+/).filter(Boolean);
+  return ((words[0]?.[0] ?? "") + (words[1]?.[0] ?? "")).toUpperCase();
+}
+
+/** A stable, muted gradient derived from the venue name — the tile backdrop
+ * when there's no photo (and the fallback behind a broken image URL). */
+function gradientFor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  return `linear-gradient(135deg, hsl(${hue}, 38%, 30%), hsl(${(hue + 40) % 360}, 42%, 20%))`;
+}
+
+/** A small count chip. Colored (with a translucent wash) or muted by default. */
+function Chip({ label, color }: { label: string; color?: string }) {
+  if (!color)
+    return (
+      <span className="rounded bg-[rgba(232,224,208,0.08)] px-1.5 py-0.5 text-[11px] font-medium text-[#E8E0D0]/60">
+        {label}
+      </span>
+    );
+  return (
+    <span
+      className="rounded px-1.5 py-0.5 text-[11px] font-medium"
+      style={{ color, backgroundColor: `${color}1f` }}
+    >
+      {label}
+    </span>
+  );
+}
 
 /** A colored status chip for a venue's live phase. */
 function StatusPill({ phase, digest }: { phase: Phase; digest?: ScraperDigest }) {
@@ -642,78 +675,113 @@ export default function ScraperDashboard({
         )}
       </div>
 
-      {/* Per-venue live grid */}
-      <div className="space-y-3">
+      {/* Per-venue live grid of visual tiles */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {scrapers.map((scraper) => {
           const v = venues[scraper.id];
           const hist = latestByScraper[scraper.id];
           const showLive = v && v.phase !== "pending";
           const busyThis = runningOne === scraper.id;
+          const d = v?.digest;
 
-          let resultLine: React.ReactNode;
+          // Body content: chips once done, otherwise a live/idle status line.
+          let body: React.ReactNode;
           if (v?.phase === "pending" && running) {
-            resultLine = (
-              <span className="text-[#E8E0D0]/45">Waiting to start…</span>
-            );
+            body = <span className="text-[#E8E0D0]/45">Waiting to start…</span>;
           } else if (v?.phase === "scraping") {
-            resultLine = <span className="text-[#E8E0D0]/55">Scraping…</span>;
+            body = <span className="text-[#E8E0D0]/60">Scraping…</span>;
           } else if (v?.phase === "scraped") {
-            resultLine = (
-              <span className="text-[#E8E0D0]/55">
-                {v.scrapedCount ?? 0} found — queued for import…
+            body = (
+              <span className="text-[#E8E0D0]/60">
+                {v.scrapedCount ?? 0} found — queued…
               </span>
             );
           } else if (v?.phase === "importing") {
-            resultLine = (
-              <span className="text-[#E8E0D0]/55">
+            body = (
+              <span className="text-[#E8E0D0]/60">
                 {v.scrapedCount ?? 0} found — importing…
               </span>
             );
-          } else if (v?.digest) {
-            resultLine = (
-              <span className="text-[#E8E0D0]/70">{formatResult(v.digest)}</span>
-            );
           } else if (v?.phase === "error") {
-            resultLine = (
-              <span style={{ color: RED }}>error — {v.error}</span>
+            body = (
+              <span className="line-clamp-2" style={{ color: RED }}>
+                error — {v.error}
+              </span>
+            );
+          } else if (d) {
+            const dup = (d.updated ?? 0) + (d.skipped ?? 0);
+            const quiet =
+              d.added === 0 && dup === 0 && d.flagged === 0 && d.failed === 0;
+            body = (
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[#E8E0D0]/40">{d.total} scraped</span>
+                {d.added > 0 && <Chip label={`+${d.added}`} color={GREEN} />}
+                {dup > 0 && <Chip label={`${dup} dup`} />}
+                {d.flagged > 0 && (
+                  <Chip label={`${d.flagged} review`} color={AMBER} />
+                )}
+                {d.failed > 0 && <Chip label={`${d.failed} fail`} color={RED} />}
+                {d.newBandsFound.length > 0 && (
+                  <Chip label={`${d.newBandsFound.length} new bands`} />
+                )}
+                {quiet && <span className="text-[#E8E0D0]/45">No changes</span>}
+              </div>
             );
           } else if (hist) {
-            resultLine = (
-              <span className="text-[#E8E0D0]/55">
+            body = (
+              <span className="line-clamp-2 text-[#E8E0D0]/50">
                 Last run {formatTs(hist.ranAt)} · {formatResult(hist.entry)}
               </span>
             );
           } else {
-            resultLine = <span className="text-[#E8E0D0]/45">Never run</span>;
+            body = <span className="text-[#E8E0D0]/45">Never run</span>;
           }
 
-          const d = v?.digest;
-          const hasDetail =
-            d &&
-            ((d.flaggedShows?.length ?? 0) > 0 ||
-              (d.failedShows?.length ?? 0) > 0 ||
-              (d.addedShows?.length ?? 0) > 0);
-
           return (
-            <div key={scraper.id} className={CARD}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2.5">
-                    <p className="font-medium text-[#E8E0D0]">{scraper.name}</p>
-                    {showLive && v && (
-                      <StatusPill phase={v.phase} digest={v.digest} />
-                    )}
+            <div
+              key={scraper.id}
+              className="flex flex-col overflow-hidden rounded-lg border border-[rgba(232,224,208,0.15)] bg-[rgba(232,224,208,0.02)] transition hover:border-[rgba(232,224,208,0.32)]"
+            >
+              {/* Image header (gradient fallback shows through broken/absent images) */}
+              <div
+                className="relative h-24 w-full overflow-hidden"
+                style={{ background: gradientFor(scraper.name) }}
+              >
+                {scraper.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={scraper.image}
+                    alt=""
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-2xl font-semibold text-[#E8E0D0]/55">
+                    {venueInitials(scraper.name)}
                   </div>
-                  <p className="mt-1.5 text-xs">{resultLine}</p>
-                </div>
+                )}
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#2A2420] via-[#2A2420]/25 to-transparent" />
+                {showLive && v && (
+                  <div className="absolute right-2 top-2">
+                    <StatusPill phase={v.phase} digest={v.digest} />
+                  </div>
+                )}
+                <p className="absolute inset-x-3 bottom-2 truncate text-sm font-semibold text-[#E8E0D0] [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">
+                  {scraper.name}
+                </p>
+              </div>
+
+              {/* Body */}
+              <div className="flex flex-1 flex-col gap-3 p-3">
+                <div className="min-h-[2.25rem] text-xs">{body}</div>
                 <button
                   type="button"
                   onClick={() => runOne(scraper.id)}
                   disabled={running || busyThis}
-                  className={BTN}
+                  className={`${BTN} mt-auto w-full`}
                 >
                   {busyThis ? (
-                    <span className="inline-flex items-center gap-1.5">
+                    <span className="inline-flex items-center justify-center gap-1.5">
                       <span
                         aria-hidden
                         className="h-3 w-3 animate-spin rounded-full border border-current border-t-transparent"
@@ -725,76 +793,6 @@ export default function ScraperDashboard({
                   )}
                 </button>
               </div>
-
-              {hasDetail && d && (
-                <details className="mt-3 border-t border-[rgba(232,224,208,0.10)] pt-3">
-                  <summary className="cursor-pointer text-xs text-[#E8E0D0]/55 hover:text-[#E8E0D0]">
-                    {[
-                      (d.addedShows?.length ?? 0) > 0 &&
-                        `${d.addedShows!.length} added`,
-                      (d.flaggedShows?.length ?? 0) > 0 &&
-                        `${d.flaggedShows!.length} to review`,
-                      (d.failedShows?.length ?? 0) > 0 &&
-                        `${d.failedShows!.length} failed`,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}{" "}
-                    — show details
-                  </summary>
-                  <div className="mt-3 space-y-4">
-                    {(d.flaggedShows?.length ?? 0) > 0 && (
-                      <div>
-                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#E8E0D0]/45">
-                          Flagged for review
-                        </p>
-                        <ShowList
-                          shows={d.flaggedShows ?? []}
-                          emptyHint=""
-                          tone={AMBER}
-                          actions={["review", "delete"]}
-                          resolved={resolved}
-                          rowState={rowState}
-                          onAct={actOnShow}
-                          onSetRow={setRow}
-                        />
-                      </div>
-                    )}
-                    {(d.failedShows?.length ?? 0) > 0 && (
-                      <div>
-                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#E8E0D0]/45">
-                          Failed to import
-                        </p>
-                        <ShowList
-                          shows={d.failedShows ?? []}
-                          emptyHint=""
-                          tone={RED}
-                          resolved={resolved}
-                          rowState={rowState}
-                          onAct={actOnShow}
-                          onSetRow={setRow}
-                        />
-                      </div>
-                    )}
-                    {(d.addedShows?.length ?? 0) > 0 && (
-                      <div>
-                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#E8E0D0]/45">
-                          Newly added
-                        </p>
-                        <ShowList
-                          shows={d.addedShows ?? []}
-                          emptyHint=""
-                          tone={GREEN}
-                          actions={["delete"]}
-                          resolved={resolved}
-                          rowState={rowState}
-                          onAct={actOnShow}
-                          onSetRow={setRow}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </details>
-              )}
             </div>
           );
         })}
@@ -844,6 +842,27 @@ export default function ScraperDashboard({
             </div>
           )}
         </div>
+      )}
+
+      {/* Newly added across all venues — collapsed by default */}
+      {attention.added.length > 0 && (
+        <details className={`${CARD} mt-6`}>
+          <summary className="cursor-pointer text-sm font-medium text-[#E8E0D0]">
+            Newly added ({attention.added.filter((s) => !(s.id && resolved[s.id])).length})
+          </summary>
+          <div className="mt-3">
+            <ShowList
+              shows={attention.added}
+              emptyHint=""
+              tone={GREEN}
+              actions={["delete"]}
+              resolved={resolved}
+              rowState={rowState}
+              onAct={actOnShow}
+              onSetRow={setRow}
+            />
+          </div>
+        </details>
       )}
 
       {/* Finale: press picks + Crawl Space reconcile */}

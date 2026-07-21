@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 // list every destination unconditionally.
 const LINKS: { href: string; label: string }[] = [
   { href: "/admin", label: "Scrapers" },
+  { href: "/admin/graphics", label: "Graphics" },
   { href: "/shows/import", label: "Import" },
   { href: "/admin/shows", label: "Shows" },
   { href: "/admin/review", label: "Review" },

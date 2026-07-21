@@ -1,5 +1,6 @@
 import { SCRAPERS } from "@/lib/scrapers";
 import { fetchBands, type Band } from "@/lib/fetchBands";
+import { fetchVenues, matchVenue, type Venue } from "@/lib/fetchVenues";
 import {
   fetchScraperLog,
   SCRAPER_LOG_CONFIGURED,
@@ -31,23 +32,32 @@ export default async function AdminPage() {
   // is is_admin-gated, so only admins ever receive it.
   const secret = process.env.SCRAPE_SECRET ?? "";
 
-  const [log, bands, nonLocalBands, dismissedBands]: [
+  const [log, bands, nonLocalBands, dismissedBands, venues]: [
     ScraperLogRow[],
     Band[],
     NonLocalBand[],
     DismissedBand[],
+    Venue[],
   ] = await Promise.all([
     fetchScraperLog(),
     fetchBands(),
     fetchNonLocalBands(),
     fetchDismissedBands(),
+    fetchVenues(),
   ]);
 
   // Only pass serializable data to the client (scrape functions can't cross).
-  const scrapers = Object.values(SCRAPERS).map((s) => ({
-    id: s.id,
-    name: s.name,
-  }));
+  // Attach each scraper's venue photo (matched by the venue name the scraper
+  // writes) so the dashboard can render it as a visual tile; "" when unmatched
+  // or the venue has no image.
+  const scrapers = Object.values(SCRAPERS).map((s) => {
+    const venue = matchVenue(venues, s.name);
+    return {
+      id: s.id,
+      name: s.name,
+      image: venue?.thumbnailUrl || venue?.photo || "",
+    };
+  });
 
   return (
     <AdminPanel
