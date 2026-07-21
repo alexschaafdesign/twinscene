@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import type { Venue } from "@/lib/fetchVenues";
 import { VenuePlaceLine } from "@/components/venue-shared";
-import { VenueImage } from "@/components/venue-shared-client";
+import VenueAvatar from "@/components/VenueAvatar";
+import { autoInitials } from "@/lib/venueColor";
 import { iconProps } from "@/components/band-shared";
 
 const LOCATION_TAGS = ["All", "Minneapolis", "St. Paul", "Other"];
@@ -43,13 +44,13 @@ function VenueCard({ venue }: { venue: Venue }) {
       href={`/venues/${venue.slug}`}
       className="animate-fade-in group flex flex-col text-left transition-opacity"
     >
-      <VenueImage
-        venue={venue}
-        thumb
+      <VenueAvatar
+        slug={venue.slug}
+        initials={venue.avatarInitials || autoInitials(venue.name)}
         className="rounded-sm ring-1 ring-[#E8E0D0]/10 transition group-hover:ring-[#E8E0D0]/40"
       />
       <h3 className="mt-2.5 truncate text-sm font-medium leading-snug">
-        {venue.name}
+        {venue.shortName || venue.name}
       </h3>
       <VenuePlaceLine venue={venue} className="mt-1 text-xs" />
       {(venue.type || venue.capacity != null) && (

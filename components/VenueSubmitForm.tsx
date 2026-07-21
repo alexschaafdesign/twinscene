@@ -69,6 +69,8 @@ export default function VenueSubmitForm({
   initialAccessibility = "",
   initialNotes = "",
   initialImage = "",
+  initialShortName = "",
+  initialAvatarInitials = "",
   neighborhoodOptions = [],
   typeOptions = [],
 }: {
@@ -88,6 +90,8 @@ export default function VenueSubmitForm({
   initialAccessibility?: string;
   initialNotes?: string;
   initialImage?: string;
+  initialShortName?: string;
+  initialAvatarInitials?: string;
   neighborhoodOptions?: string[];
   typeOptions?: string[];
 }) {
@@ -114,6 +118,8 @@ export default function VenueSubmitForm({
   const [parking, setParking] = useState(initialParking);
   const [accessibility, setAccessibility] = useState(initialAccessibility);
   const [notes, setNotes] = useState(initialNotes);
+  const [shortName, setShortName] = useState(initialShortName);
+  const [avatarInitials, setAvatarInitials] = useState(initialAvatarInitials);
 
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageError, setImageError] = useState("");
@@ -261,6 +267,8 @@ export default function VenueSubmitForm({
       payload.set("parking", parking.trim());
       payload.set("accessibility", accessibility.trim());
       payload.set("notes", notes.trim());
+      payload.set("shortName", shortName.trim());
+      payload.set("avatarInitials", avatarInitials.trim());
       // Signals the server to blank the photo when no new one is uploaded.
       payload.set("removeImage", removeExistingImage ? "true" : "false");
 
@@ -333,6 +341,39 @@ export default function VenueSubmitForm({
             className={inputClass}
           />
         </Field>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            label="Short name"
+            htmlFor="shortName"
+            hint='Shown on directory cards, e.g. "The Cedar" for "Cedar Cultural Center". Falls back to the venue name if blank.'
+          >
+            <input
+              id="shortName"
+              type="text"
+              value={shortName}
+              onChange={(e) => setShortName(e.target.value)}
+              placeholder={name || "e.g. The Cedar"}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field
+            label="Avatar label"
+            htmlFor="avatarInitials"
+            hint='Shown on the avatar — usually 2-3 letters like "TC", but a short word like "Caydence" fits too. Auto-derived from the name if blank.'
+          >
+            <input
+              id="avatarInitials"
+              type="text"
+              maxLength={20}
+              value={avatarInitials}
+              onChange={(e) => setAvatarInitials(e.target.value)}
+              placeholder="e.g. TC"
+              className={inputClass}
+            />
+          </Field>
+        </div>
 
         <Field
           label="Address"

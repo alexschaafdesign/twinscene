@@ -82,6 +82,8 @@ export default async function VenueSubmitPage({
         initialAccessibility={param("accessibility")}
         initialNotes={param("notes")}
         initialImage={param("image")}
+        initialShortName={param("shortName")}
+        initialAvatarInitials={param("avatarInitials")}
         neighborhoodOptions={neighborhoodOptions}
         typeOptions={typeOptions}
       />

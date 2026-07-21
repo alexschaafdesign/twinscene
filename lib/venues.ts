@@ -30,6 +30,8 @@ export interface Venue {
   type: string | null;
   photo: string | null; // full absolute URL (R2), venues/<slug>.<ext>; null if none
   thumbnail_url: string | null; // 400px square variant of `photo`; null if no photo
+  short_name: string | null; // display name for grid cards, e.g. "The Cedar"; falls back to `name`
+  avatar_initials: string | null; // usually 2-3 letters for VenueAvatar, but a short word fits too; falls back to an auto-derive from `name`
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +62,8 @@ export interface VenueSubmissionInput {
   photoUrl?: string; // set when a new photo was just uploaded (lib/r2.ts)
   thumbnailUrl?: string; // 400px thumbnail generated alongside a new photoUrl
   removePhoto?: boolean;
+  shortName: string;
+  avatarInitials: string;
 }
 
 type UpsertVenueResult = { venue: Venue; action: "created" | "updated" };
@@ -114,6 +118,8 @@ export async function upsertVenue(
           type = ${input.type || null},
           photo = ${photo},
           thumbnail_url = ${thumbnailUrl},
+          short_name = ${input.shortName || null},
+          avatar_initials = ${input.avatarInitials || null},
           updated_at = now()
         where id = ${existing.id}
         returning *
@@ -124,12 +130,12 @@ export async function upsertVenue(
     const [created] = await tx<Venue[]>`
       insert into venues (
         slug, name, address, address_private, manual_scrape, city, neighborhood, capacity, contact, notes, parking,
-        accessibility, owner, type, photo, thumbnail_url
+        accessibility, owner, type, photo, thumbnail_url, short_name, avatar_initials
       ) values (
         ${targetSlug}, ${input.name}, ${address}, ${input.addressPrivate}, ${input.manualScrape}, ${input.city || null}, ${input.neighborhood || null},
         ${input.capacity}, ${input.contact || null}, ${input.notes || null},
         ${input.parking || null}, ${input.accessibility || null}, ${input.owner || null},
-        ${input.type || null}, ${photo}, ${thumbnailUrl}
+        ${input.type || null}, ${photo}, ${thumbnailUrl}, ${input.shortName || null}, ${input.avatarInitials || null}
       )
       returning *
     `;

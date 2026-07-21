@@ -68,6 +68,8 @@ export function venueEditHref(venue: Venue): string {
     owner: venue.owner,
     type: venue.type,
     image: venue.photo,
+    shortName: venue.shortName,
+    avatarInitials: venue.avatarInitials,
   });
   return `/venues/submit?${params.toString()}`;
 }

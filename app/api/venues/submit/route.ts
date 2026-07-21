@@ -92,6 +92,8 @@ export async function POST(request: NextRequest) {
       accessibility: str(form.get("accessibility")).trim(),
       owner: str(form.get("owner")).trim(),
       type: str(form.get("type")).trim(),
+      shortName: str(form.get("shortName")).trim(),
+      avatarInitials: str(form.get("avatarInitials")).trim(),
       photoUrl,
       thumbnailUrl,
       removePhoto: str(form.get("removeImage")) === "true",

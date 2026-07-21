@@ -24,6 +24,8 @@ export type Venue = {
   type: string; // free-form (e.g. "Independent", "DIY", "First Ave", "Brewery")
   photo: string; // full-resolution photo; "" when none
   thumbnailUrl: string; // 400px square variant for grid/list cards; "" when none
+  shortName: string; // display name for grid cards; "" falls back to `name`
+  avatarInitials: string; // manually-set VenueAvatar label (usually initials, but a short word fits too); "" falls back to an auto-derive from `name`
 };
 
 export function slugify(text: string): string {

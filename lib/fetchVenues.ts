@@ -39,6 +39,8 @@ function toVenue(row: VenueRow): Venue {
     type: row.type ?? "",
     photo: row.photo ?? "",
     thumbnailUrl: row.thumbnail_url ?? "",
+    shortName: row.short_name ?? "",
+    avatarInitials: row.avatar_initials ?? "",
   };
 }
 
