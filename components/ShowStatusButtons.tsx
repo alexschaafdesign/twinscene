@@ -52,7 +52,13 @@ export function ShowStatusButtons({
   useEffect(() => {
     try {
       const probe = new File([""], "probe.png", { type: "image/png" });
-      setCanShareFiles(Boolean(navigator.canShare?.({ files: [probe] })));
+      const canShare = Boolean(navigator.canShare?.({ files: [probe] }));
+      // Desktop Chrome also reports canShare(files)=true, so additionally
+      // require a mobile signal: the UA-CH `mobile` flag when present, else a
+      // coarse pointer (touch as the primary input). Keeps the button phone-only.
+      const uaData = (navigator as Navigator & { userAgentData?: { mobile?: boolean } }).userAgentData;
+      const isMobile = uaData?.mobile ?? window.matchMedia?.("(pointer: coarse)").matches ?? false;
+      setCanShareFiles(canShare && isMobile);
     } catch {
       setCanShareFiles(false);
     }
