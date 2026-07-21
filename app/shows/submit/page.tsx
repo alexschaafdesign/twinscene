@@ -5,6 +5,7 @@ import ShowSubmitForm, {
   type ShowInitial,
 } from "@/components/ShowSubmitForm";
 import { fetchBands } from "@/lib/fetchBands";
+import { fetchVenues } from "@/lib/fetchVenues";
 import { getCurrentUser } from "@/lib/auth";
 import { parseDisplayTime } from "@/lib/showTime";
 
@@ -36,9 +37,19 @@ export default async function ShowSubmitPage({
     redirect(`/login?next=${encodeURIComponent(`/shows/submit${qs ? `?${qs}` : ""}`)}`);
   }
 
-  const bands = await fetchBands();
+  const [bands, venues] = await Promise.all([fetchBands(), fetchVenues()]);
   // Lean list for the client component — just what the picker needs.
   const bandOptions = bands.map((b) => ({ slug: b.slug, name: b.name }));
+  // Venue names for the dropdown, alphabetized case-insensitively and ignoring a
+  // leading "The " so "The Cedar" files under C, "The Birdhaus" under B, etc.
+  const venueSortKey = (name: string) => name.replace(/^the\s+/i, "");
+  const venueNames = venues
+    .map((v) => v.name)
+    .sort((a, b) =>
+      venueSortKey(a).localeCompare(venueSortKey(b), undefined, {
+        sensitivity: "base",
+      }),
+    );
 
   // Edit mode: /shows/submit?edit=<id>&… with the show's fields round-tripped
   // from the shows list (see editHref in app/shows/page.tsx).
@@ -73,6 +84,7 @@ export default async function ShowSubmitPage({
     <main className="mx-auto w-full max-w-2xl px-5 py-6 sm:px-8 sm:py-8">
       <ShowSubmitForm
         bands={bandOptions}
+        venues={venueNames}
         mode={initial ? "edit" : "add"}
         initial={initial}
       />

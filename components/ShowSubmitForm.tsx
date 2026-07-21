@@ -17,6 +17,10 @@ const ALLOWED_FLYER_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "i
 
 export type BandOption = { slug: string; name: string };
 
+// Sentinel value for the venue <select>'s "add a new venue" entry. Not a real
+// venue name, so it can't collide with one.
+const OTHER_VENUE = "__other__";
+
 /** Prefix a bare URL with https:// so the format check accepts "example.com". */
 function ensureUrl(value: string): string {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
@@ -257,17 +261,34 @@ export type ShowInitial = {
 
 export default function ShowSubmitForm({
   bands,
+  venues,
   mode = "add",
   initial,
 }: {
   bands: BandOption[];
+  venues: string[];
   mode?: "add" | "edit";
   initial?: ShowInitial;
 }) {
   const isEdit = mode === "edit";
 
+  // The venue dropdown is the canonical `venues` list. If we're editing a show
+  // whose stored venue predates the directory (or was free-typed by a scraper),
+  // keep it as an option so editing doesn't silently drop it.
+  const initialVenue = initial?.venue ?? "";
+  const venueOptions =
+    initialVenue && !venues.includes(initialVenue)
+      ? [initialVenue, ...venues]
+      : venues;
+
   const [date, setDate] = useState(initial?.date ?? "");
-  const [venue, setVenue] = useState(initial?.venue ?? "");
+  // The venue <select>'s current value: an existing venue name, or OTHER_VENUE
+  // when adding one. `newVenue` holds the typed name in that case. The effective
+  // venue string used for submission is derived from the two.
+  const [venueSelect, setVenueSelect] = useState(initial?.venue ?? "");
+  const [newVenue, setNewVenue] = useState("");
+  const addingNewVenue = venueSelect === OTHER_VENUE;
+  const venue = addingNewVenue ? newVenue.trim() : venueSelect;
   // Title/lineup are edited directly (edit mode only); in add mode the Apps
   // Script derives them from the selected bands.
   const [title, setTitle] = useState(initial?.title ?? "");
@@ -385,6 +406,29 @@ export default function ShowSubmitForm({
     addBand({ slug, name: trimmed });
   }
 
+  /**
+   * Add a not-yet-listed venue to the directory (the "Other" option), then
+   * return the name to stamp on the show. Posts to the same /api/venues/submit
+   * "add" flow the venue form uses — login-only, and it upserts by slug, so a
+   * name that already exists is de-duped rather than duplicated. Throws so
+   * handleSubmit can surface the error and abort before writing the show.
+   */
+  async function createVenue(name: string): Promise<string> {
+    const trimmed = name.trim();
+    if (!trimmed) throw new Error("Enter a venue name.");
+    const payload = new FormData();
+    payload.set("mode", "add");
+    payload.set("existingSlug", "");
+    payload.set("venueSlug", slugify(trimmed));
+    payload.set("venueName", trimmed);
+    const res = await fetch("/api/venues/submit", { method: "POST", body: payload });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      throw new Error(data?.error || "Couldn't add that venue.");
+    }
+    return trimmed;
+  }
+
   function cancelNewBand() {
     setShowNewBand(false);
     setNewBandName("");
@@ -396,7 +440,8 @@ export default function ShowSubmitForm({
 
   function resetForm() {
     setDate("");
-    setVenue("");
+    setVenueSelect("");
+    setNewVenue("");
     setNotes("");
     setLink("");
     setSelectedBands([]);
@@ -436,11 +481,15 @@ export default function ShowSubmitForm({
     setErrorMsg("");
 
     try {
+      // When "Other" is chosen, create the venue in the directory first, then
+      // use its name on the show. Any failure aborts before the show is written.
+      const venueName = addingNewVenue ? await createVenue(newVenue) : venue;
+
       if (isEdit) {
         const body = {
           id: initial?.id ?? "",
           date: date.trim(),
-          venue: venue.trim(),
+          venue: venueName,
           title: title.trim(),
           lineup: lineup.trim(),
           notes: notes.trim(),
@@ -463,7 +512,7 @@ export default function ShowSubmitForm({
       } else {
         const payload = new FormData();
         payload.set("date", date.trim());
-        payload.set("venue", venue.trim());
+        payload.set("venue", venueName);
         payload.set("notes", notes.trim());
         payload.set("link", link.trim());
         payload.set(
@@ -557,14 +606,31 @@ export default function ShowSubmitForm({
           </Field>
 
           <Field label="Venue" htmlFor="venue" required error={errors.venue}>
-            <input
+            <select
               id="venue"
-              type="text"
-              value={venue}
-              onChange={(e) => setVenue(e.target.value)}
-              placeholder="e.g. 7th St Entry"
-              className={inputClass}
-            />
+              value={venueSelect}
+              onChange={(e) => setVenueSelect(e.target.value)}
+              className={`${inputClass} [color-scheme:dark]`}
+            >
+              <option value="">Select a venue…</option>
+              {venueOptions.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+              <option value={OTHER_VENUE}>Other (add a new venue)…</option>
+            </select>
+            {addingNewVenue && (
+              <input
+                id="newVenue"
+                type="text"
+                value={newVenue}
+                onChange={(e) => setNewVenue(e.target.value)}
+                placeholder="New venue name — we'll add it to the directory"
+                className={`${inputClass} mt-2`}
+                autoFocus
+              />
+            )}
           </Field>
         </div>
 
