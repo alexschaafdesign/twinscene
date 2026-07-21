@@ -46,27 +46,33 @@ function formatDateLabel(date: string): string {
 }
 
 /**
- * Best-effort start time out of the free-text `notes` field. Scraped shows
- * consistently compose notes as "Doors H:MM AM/PM / Music H:MM AM/PM · ..."
- * (see lib/scrapers/autoImport.ts), so this is reliable for those; manual
- * submissions have no guaranteed format and just won't match, which is fine —
- * they sort after timed shows instead of erroring.
+ * Best-effort start time for sorting/label. Prefers the structured
+ * music_time/doors_time (Show.musicTime/doorsTime, "7:00pm"; migration 0039),
+ * falling back to the old free-text `notes` format ("Music H:MM AM/PM …") for
+ * rows scraped before those columns existed and not yet re-scraped. Manual
+ * submissions with neither just don't match — they sort after timed shows.
  */
-function parseShowTime(notes: string): { minutes: number; label: string } | null {
-  const match =
-    /Music\s+(\d{1,2}):(\d{2})\s*([AP]M)/i.exec(notes) ??
-    /Doors\s+(\d{1,2}):(\d{2})\s*([AP]M)/i.exec(notes);
+function parseShowTime(show: {
+  musicTime: string;
+  doorsTime: string;
+  notes: string;
+}): { minutes: number; label: string } | null {
+  const structured = show.musicTime || show.doorsTime; // "7:00pm"
+  const match = structured
+    ? /(\d{1,2}):(\d{2})\s*([ap])m/i.exec(structured)
+    : /Music\s+(\d{1,2}):(\d{2})\s*([AP])M/i.exec(show.notes) ??
+      /Doors\s+(\d{1,2}):(\d{2})\s*([AP])M/i.exec(show.notes);
   if (!match) return null;
 
   let hour = Number(match[1]);
   const minute = Number(match[2]);
-  const meridiem = match[3].toUpperCase();
-  if (meridiem === "PM" && hour !== 12) hour += 12;
-  if (meridiem === "AM" && hour === 12) hour = 0;
+  const meridiem = match[3].toUpperCase(); // "A" | "P"
+  if (meridiem === "P" && hour !== 12) hour += 12;
+  if (meridiem === "A" && hour === 12) hour = 0;
 
   return {
     minutes: hour * 60 + minute,
-    label: `${match[1]}:${match[2]} ${meridiem}`,
+    label: `${match[1]}:${match[2]} ${meridiem}M`,
   };
 }
 
@@ -133,8 +139,8 @@ export async function GET() {
   const showsToday = allShows.filter((show) => show.date === showDate);
 
   const sorted = [...showsToday].sort((a, b) => {
-    const aTime = parseShowTime(a.notes)?.minutes ?? Infinity;
-    const bTime = parseShowTime(b.notes)?.minutes ?? Infinity;
+    const aTime = parseShowTime(a)?.minutes ?? Infinity;
+    const bTime = parseShowTime(b)?.minutes ?? Infinity;
     if (aTime !== bTime) return aTime - bTime;
     return a.venue.localeCompare(b.venue);
   });
@@ -308,7 +314,7 @@ export async function GET() {
                   whiteSpace: "nowrap",
                 }}
               >
-                {parseShowTime(show.notes)?.label ?? "TBA"}
+                {parseShowTime(show)?.label ?? "TBA"}
               </div>
             </div>
           </div>

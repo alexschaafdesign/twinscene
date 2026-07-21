@@ -28,23 +28,17 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** Logistics-only NOTES default (lineup lives in its own field now). */
+/** Free-text NOTES default — prices only. Doors/music times now ride through
+ * as structured musicTime/doorsTime (shows.music_time/doors_time, 0039), not
+ * baked into this string. Kept in sync with autoImport.ts's composeNotes. */
 function composeNotes(show: {
-  doorsTime: string | null;
-  musicTime: string | null;
   advancePrice: number | null;
   dosPrice: number | null;
 }): string {
-  const parts: string[] = [];
-  const times: string[] = [];
-  if (show.doorsTime) times.push(`Doors ${show.doorsTime}`);
-  if (show.musicTime) times.push(`Music ${show.musicTime}`);
-  if (times.length) parts.push(times.join(" / "));
   const prices: string[] = [];
   if (show.advancePrice != null) prices.push(`$${show.advancePrice} adv`);
   if (show.dosPrice != null) prices.push(`$${show.dosPrice} dos`);
-  if (prices.length) parts.push(prices.join(" / "));
-  return parts.join(" · ");
+  return prices.join(" / ");
 }
 
 export default async function ImportShowsPage() {
@@ -152,6 +146,8 @@ export default async function ImportShowsPage() {
         lineup: show.allBands.join(", "),
         tag: show.tag ?? null,
         notes: composeNotes(show),
+        musicTime: show.musicTime,
+        doorsTime: show.doorsTime,
         link: show.ticketUrl ?? "",
         flyerUrl: show.flyerUrl,
         suggested,

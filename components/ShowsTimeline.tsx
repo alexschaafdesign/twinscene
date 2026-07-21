@@ -9,6 +9,7 @@ import type { Show } from "@/lib/fetchShows";
 import type { Press } from "@/lib/fetchPress";
 import type { ShowStatus } from "@/lib/showSaves";
 import { pressNotes } from "@/lib/press";
+import { showTimeLabel } from "@/lib/showTime";
 import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 import { iconProps } from "@/components/band-shared";
@@ -28,6 +29,8 @@ function editHref(show: Show): string {
     lineup: show.lineup,
     notes: show.notes,
     link: show.link,
+    musicTime: show.musicTime,
+    doorsTime: show.doorsTime,
     bandSlugs: show.bandSlugs.join(","),
   });
   return `/shows/submit?${params.toString()}`;
@@ -190,6 +193,11 @@ export default function ShowsTimeline({
                       {show.venue && (
                         <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
                           {show.venue}
+                        </p>
+                      )}
+                      {showTimeLabel(show) && (
+                        <p className="mt-0.5 text-sm text-[#E8E0D0]/60">
+                          {showTimeLabel(show)}
                         </p>
                       )}
                       {show.lineup && show.lineup !== show.title && (

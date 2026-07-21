@@ -6,6 +6,7 @@ import { todayInChicago } from "@/lib/fetchShows";
 import { getCachedShowById, getCachedBandsBySlugs } from "@/lib/cachedReads";
 import { fetchPress } from "@/lib/fetchPress";
 import { pressNotes } from "@/lib/press";
+import { showTimeLabel } from "@/lib/showTime";
 import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getShowStatus } from "@/lib/showSaves";
@@ -34,6 +35,8 @@ function editHref(show: {
   lineup: string;
   notes: string;
   link: string;
+  musicTime: string;
+  doorsTime: string;
   bandSlugs: string[];
 }): string {
   const params = new URLSearchParams({
@@ -44,6 +47,8 @@ function editHref(show: {
     lineup: show.lineup,
     notes: show.notes,
     link: show.link,
+    musicTime: show.musicTime,
+    doorsTime: show.doorsTime,
     bandSlugs: show.bandSlugs.join(","),
   });
   return `/shows/submit?${params.toString()}`;
@@ -130,6 +135,9 @@ export default async function ShowDetailPage({
             {formatDateLabel(show.date)}
             {show.venue && <> · {show.venue}</>}
           </p>
+          {showTimeLabel(show) && (
+            <p className="mt-1 text-sm text-[#E8E0D0]/60">{showTimeLabel(show)}</p>
+          )}
 
           {notes.map((note) => (
             <p key={note.id} className="mt-2 text-sm text-amber-400/80">

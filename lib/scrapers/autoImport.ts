@@ -19,18 +19,15 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-/** Logistics-only NOTES (doors/music times, prices), matching the import page. */
+/** Free-text NOTES for logistics that have no structured column yet — just
+ * prices now. Doors/music times moved to the shows.music_time/doors_time
+ * columns (migration 0039); they ride through as musicTime/doorsTime below,
+ * not baked into this string. Kept in sync with the import page's composeNotes. */
 function composeNotes(show: MatchedShow): string {
-  const parts: string[] = [];
-  const times: string[] = [];
-  if (show.doorsTime) times.push(`Doors ${show.doorsTime}`);
-  if (show.musicTime) times.push(`Music ${show.musicTime}`);
-  if (times.length) parts.push(times.join(" / "));
   const prices: string[] = [];
   if (show.advancePrice != null) prices.push(`$${show.advancePrice} adv`);
   if (show.dosPrice != null) prices.push(`$${show.dosPrice} dos`);
-  if (prices.length) parts.push(prices.join(" / "));
-  return parts.join(" · ");
+  return prices.join(" / ");
 }
 
 export async function autoImportShow(
@@ -83,6 +80,8 @@ export async function autoImportShow(
         link: show.ticketUrl ?? "",
         flyerUrl: show.flyerUrl ?? "",
         eventType: show.tag ?? "",
+        musicTime: show.musicTime,
+        doorsTime: show.doorsTime,
         confidence,
         reviewReasons,
       }),

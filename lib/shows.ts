@@ -17,6 +17,7 @@ import type postgres from "postgres";
 import { sql } from "@/lib/db";
 import { todayInChicago } from "@/lib/fetchShows";
 import { notifyBandOnNewShow, notifyShowChanged } from "@/lib/notifications";
+import { parseDisplayTime, sqlTimeOrNull } from "@/lib/showTime";
 
 type TransactionSql = postgres.TransactionSql;
 
@@ -137,6 +138,11 @@ export type ScrapedShowInput = {
   link: string;
   flyerUrl: string;
   eventType: string; // non-band listing label (e.g. "Private Event"); "" for shows
+  // Display time strings from the scraper ("7:00pm"), stored as venue-local
+  // `time` values (music_time/doors_time). "" / null when the source gives no
+  // time. Unparseable strings drop to null rather than erroring the import.
+  musicTime?: string | null;
+  doorsTime?: string | null;
   confidence: string; // reviewFlags.ts ReviewConfidence: "ok" | "flag" | "broken"
   reviewReasons: string[];
 };
@@ -178,6 +184,8 @@ export async function upsertScrapedShow(
     }
     const wasExisting = existing.length > 0;
     const needsReview = input.confidence !== "ok";
+    const musicTime = parseDisplayTime(input.musicTime);
+    const doorsTime = parseDisplayTime(input.doorsTime);
 
     // Once a human has reviewed a row (reviewed_at set, Phase 3's "looks good"),
     // a re-scrape must not resurrect flags they already cleared — leave
@@ -185,11 +193,12 @@ export async function upsertScrapedShow(
     const rows = await tx`
       INSERT INTO shows (
         source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url, event_type,
-        needs_review, confidence, review_reasons
+        music_time, doors_time, needs_review, confidence, review_reasons
       ) VALUES (
         ${input.source}, ${input.sourceKey}, ${input.venue}, ${input.title}, ${input.date},
         ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}, ${input.flyerUrl || null},
-        ${input.eventType || null}, ${needsReview}, ${input.confidence}, ${tx.json(input.reviewReasons)}
+        ${input.eventType || null}, ${musicTime}, ${doorsTime},
+        ${needsReview}, ${input.confidence}, ${tx.json(input.reviewReasons)}
       )
       ON CONFLICT (source_key) DO UPDATE SET
         source = EXCLUDED.source,
@@ -201,6 +210,8 @@ export async function upsertScrapedShow(
         notes = EXCLUDED.notes,
         flyer_url = EXCLUDED.flyer_url,
         event_type = EXCLUDED.event_type,
+        music_time = EXCLUDED.music_time,
+        doors_time = EXCLUDED.doors_time,
         needs_review = CASE WHEN shows.reviewed_at IS NULL THEN EXCLUDED.needs_review ELSE shows.needs_review END,
         confidence = CASE WHEN shows.reviewed_at IS NULL THEN EXCLUDED.confidence ELSE shows.confidence END,
         review_reasons = CASE WHEN shows.reviewed_at IS NULL THEN EXCLUDED.review_reasons ELSE shows.review_reasons END,
@@ -281,6 +292,12 @@ export type EditShowInput = {
   lineup: LineupEntry[];
   notes: string;
   link: string;
+  // 24-hour "HH:MM" clock strings from the edit form's <input type="time">
+  // (""/absent clears the column). Undefined means "not part of this edit" —
+  // e.g. /admin/review's inline edit, which doesn't send times — so those keep
+  // whatever the row already had rather than being nulled out.
+  musicTime?: string | null;
+  doorsTime?: string | null;
 };
 
 /**
@@ -307,6 +324,13 @@ export async function editShow(
     `;
     if (before.length === 0) return { success: false };
 
+    // undefined => this edit doesn't carry times (admin-review inline edit):
+    // leave the existing column untouched. A provided value (incl. "") sets it.
+    const musicTime =
+      input.musicTime === undefined ? tx`music_time` : sqlTimeOrNull(input.musicTime);
+    const doorsTime =
+      input.doorsTime === undefined ? tx`doors_time` : sqlTimeOrNull(input.doorsTime);
+
     const rows = await tx`
       UPDATE shows SET
         venue_name = ${input.venue},
@@ -315,6 +339,8 @@ export async function editShow(
         ticket_url = ${input.link || null},
         lineup = ${tx.json(lineup)},
         notes = ${input.notes || null},
+        music_time = ${musicTime},
+        doors_time = ${doorsTime},
         edited_at = now(),
         needs_review = false,
         confidence = 'ok',

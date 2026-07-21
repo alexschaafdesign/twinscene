@@ -248,6 +248,8 @@ export type ShowInitial = {
   lineup: string;
   notes: string;
   link: string;
+  musicTime: string; // 24-hour "HH:MM" for <input type="time">, "" when unset
+  doorsTime: string;
   bands: BandOption[];
 };
 
@@ -270,6 +272,9 @@ export default function ShowSubmitForm({
   const [lineup, setLineup] = useState(initial?.lineup ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [link, setLink] = useState(initial?.link ?? "");
+  // Structured show/doors times (edit mode only). "HH:MM" 24-hour or "".
+  const [musicTime, setMusicTime] = useState(initial?.musicTime ?? "");
+  const [doorsTime, setDoorsTime] = useState(initial?.doorsTime ?? "");
 
   const [flyerFile, setFlyerFile] = useState<File | null>(null);
   const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
@@ -436,6 +441,8 @@ export default function ShowSubmitForm({
           lineup: lineup.trim(),
           notes: notes.trim(),
           link: link.trim(),
+          musicTime,
+          doorsTime,
           linkedBands: selectedBands.map((b) => ({ name: b.name, slug: b.slug })),
         };
         const res = await fetch("/api/shows/edit", {
@@ -587,6 +594,32 @@ export default function ShowSubmitForm({
                 className={inputClass}
               />
             </Field>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Show time"
+                htmlFor="musicTime"
+                hint="When the music starts. Leave blank if unknown."
+              >
+                <input
+                  id="musicTime"
+                  type="time"
+                  value={musicTime}
+                  onChange={(e) => setMusicTime(e.target.value)}
+                  className={`${inputClass} [color-scheme:dark]`}
+                />
+              </Field>
+
+              <Field label="Doors" htmlFor="doorsTime" hint="Optional.">
+                <input
+                  id="doorsTime"
+                  type="time"
+                  value={doorsTime}
+                  onChange={(e) => setDoorsTime(e.target.value)}
+                  className={`${inputClass} [color-scheme:dark]`}
+                />
+              </Field>
+            </div>
           </>
         )}
 

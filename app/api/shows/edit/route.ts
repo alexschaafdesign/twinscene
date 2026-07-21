@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 // stays open (no login check), everything else now requires login.
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { id, venue, date, title, lineup, notes, link, secret } = body;
+  const { id, venue, date, title, lineup, notes, link, musicTime, doorsTime, secret } = body;
   if (!id || !date || !venue || !title) {
     return NextResponse.json(
       { success: false, error: "Missing id, date, venue, or title" },
@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
         lineup: buildLineupEntries(lineup || title, linkedBands),
         notes: notes ?? "",
         link: link ?? "",
+        // Only the show-edit form sends these; admin-review's inline edit omits
+        // them, so leave them undefined there to preserve the existing times.
+        musicTime: typeof musicTime === "string" ? musicTime : undefined,
+        doorsTime: typeof doorsTime === "string" ? doorsTime : undefined,
       },
       isAdmin ? "admin" : "public_submission",
       isAdmin ? undefined : { name: user!.name ?? user!.email, email: user!.email },

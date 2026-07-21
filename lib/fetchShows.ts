@@ -8,6 +8,7 @@
 
 import { sql } from "@/lib/db";
 import type { LineupEntry, StarredByEntry } from "@/lib/shows";
+import { formatShowTime, parseDisplayTime } from "@/lib/showTime";
 
 export type Show = {
   id: string; // stable per-row id used to target edits
@@ -19,6 +20,8 @@ export type Show = {
   lineupEntries: LineupEntry[]; // raw name+bandSlug pairs, in order — for the show page, which renders each lineup name alongside its matched band's photo/bio (bandSlugs above is just the flattened slug list)
   eventType: string; // non-band listing label (e.g. "Private Event"), "" for shows
   notes: string;
+  musicTime: string; // show start time, "7:00pm" ("" when unknown) — shows.music_time (0039)
+  doorsTime: string; // doors time, "7:00pm" ("" when unknown) — shows.doors_time (0039)
   link: string;
   flyerUrl: string; // scraped poster image URL ("" when none)
   source: string; // "manual" | "pilllar" | …
@@ -40,6 +43,8 @@ type ShowsQueryRow = {
   title: string;
   lineup: LineupEntry[] | null;
   notes: string | null;
+  music_time: string | null; // "HH24:MI" from to_char, or null
+  doors_time: string | null;
   ticket_url: string | null;
   flyer_url: string | null;
   event_type: string | null;
@@ -78,6 +83,8 @@ function mapRow(row: ShowsQueryRow): Show {
     lineupEntries: lineup,
     eventType: row.event_type ?? "",
     notes: row.notes ?? "",
+    musicTime: formatShowTime(row.music_time) ?? "",
+    doorsTime: formatShowTime(row.doors_time) ?? "",
     link: row.ticket_url ?? "",
     flyerUrl: row.flyer_url ?? "",
     source: row.source,
@@ -102,7 +109,8 @@ export async function fetchShowById(id: string): Promise<Show | null> {
     rows = await sql<ShowsQueryRow[]>`
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
-        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
       WHERE id = ${id}
@@ -120,7 +128,8 @@ export async function fetchShows(): Promise<Show[]> {
     rows = await sql<ShowsQueryRow[]>`
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
-        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
       WHERE confidence IS DISTINCT FROM 'broken'
@@ -134,7 +143,20 @@ export async function fetchShows(): Promise<Show[]> {
   return rows
     .map(mapRow)
     .filter((show) => show.date && show.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort(byDateThenTime);
+}
+
+/** Sort by date, then by start time within a day (earliest first), with
+ * timeless shows last. Now that music_time is structured (0039), same-day
+ * shows list in set-time order instead of arbitrary DB order. */
+function byDateThenTime(a: Show, b: Show): number {
+  const byDate = a.date.localeCompare(b.date);
+  if (byDate !== 0) return byDate;
+  // parseDisplayTime turns "7:00pm" back into 24h "HH:MM", which sorts
+  // lexically; "" (no time) maps to a sentinel so it lands after real times.
+  const at = parseDisplayTime(a.musicTime) ?? "99:99";
+  const bt = parseDisplayTime(b.musicTime) ?? "99:99";
+  return at.localeCompare(bt);
 }
 
 /**
@@ -155,7 +177,8 @@ export async function fetchPastShows(days: number): Promise<Show[]> {
     rows = await sql<ShowsQueryRow[]>`
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
-        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
       WHERE confidence IS DISTINCT FROM 'broken' AND date >= ${startStr} AND date < ${today}
@@ -181,7 +204,8 @@ export async function fetchAllPastShows(): Promise<Show[]> {
     rows = await sql<ShowsQueryRow[]>`
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
-        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
       WHERE confidence IS DISTINCT FROM 'broken' AND date < ${today}
@@ -216,7 +240,8 @@ export async function fetchShowsForReview(days: number): Promise<Show[]> {
     rows = await sql<ShowsQueryRow[]>`
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
-        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
       WHERE date BETWEEN ${start} AND ${end}
@@ -248,7 +273,8 @@ export async function fetchAllShows(): Promise<Show[]> {
     rows = await sql<ShowsQueryRow[]>`
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
-        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
       ORDER BY date DESC
@@ -273,7 +299,8 @@ export async function fetchFlaggedShows(): Promise<Show[]> {
     rows = await sql<ShowsQueryRow[]>`
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
-        notes, ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
+        notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
       WHERE needs_review = true

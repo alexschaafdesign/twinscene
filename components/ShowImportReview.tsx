@@ -19,6 +19,8 @@ export type ImportShow = {
   lineup: string;
   tag: string | null; // event-type label for non-band listings (e.g. "Private Event")
   notes: string;
+  musicTime: string | null; // scraper display time ("7:00pm"), stored structured (0039)
+  doorsTime: string | null;
   link: string;
   flyerUrl: string | null;
   suggested: SuggestedMatch[];
@@ -317,6 +319,8 @@ function ShowCard({
           link: link.trim(),
           flyerUrl: show.flyerUrl ?? "",
           eventType: show.tag ?? "",
+          musicTime: show.musicTime,
+          doorsTime: show.doorsTime,
         }),
       });
       const data = await res.json();

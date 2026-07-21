@@ -6,6 +6,7 @@ import ShowSubmitForm, {
 } from "@/components/ShowSubmitForm";
 import { fetchBands } from "@/lib/fetchBands";
 import { getCurrentUser } from "@/lib/auth";
+import { parseDisplayTime } from "@/lib/showTime";
 
 export const metadata: Metadata = {
   title: "Add a Show — Twin Scene",
@@ -58,6 +59,10 @@ export default async function ShowSubmitPage({
       lineup: one(sp.lineup),
       notes: one(sp.notes),
       link: one(sp.link),
+      // Round-tripped as display strings ("7:00pm"); the form's time inputs want
+      // 24-hour "HH:MM", so convert here. Unset/unparseable -> "" (empty input).
+      musicTime: parseDisplayTime(one(sp.musicTime)) ?? "",
+      doorsTime: parseDisplayTime(one(sp.doorsTime)) ?? "",
       bands: initialBands,
     };
   }
