@@ -326,14 +326,40 @@ export default function ShowSubmitForm({
   // The show's id once saved, so the success screen can link straight to it.
   const [savedShowId, setSavedShowId] = useState("");
 
+  // Keep the free-text Lineup field (edit mode) in sync with the linked-band
+  // chips so linking/creating a band shows up in the marquee instantly, rather
+  // than only after a save round-trip merges it server-side.
+  function addNameToLineup(name: string) {
+    const n = name.trim();
+    if (!n) return;
+    setLineup((prev) => {
+      const parts = prev.split(",").map((s) => s.trim()).filter(Boolean);
+      if (parts.some((p) => p.toLowerCase() === n.toLowerCase())) return prev;
+      const base = prev.trim().replace(/,\s*$/, "");
+      return base ? `${base}, ${n}` : n;
+    });
+  }
+
+  function removeNameFromLineup(name: string) {
+    const n = name.trim().toLowerCase();
+    setLineup((prev) => {
+      const parts = prev.split(",").map((s) => s.trim()).filter(Boolean);
+      const next = parts.filter((p) => p.toLowerCase() !== n);
+      return next.length === parts.length ? prev : next.join(", ");
+    });
+  }
+
   function addBand(band: BandOption) {
     setSelectedBands((prev) =>
       prev.some((b) => b.slug === band.slug) ? prev : [...prev, band],
     );
+    if (isEdit) addNameToLineup(band.name);
   }
 
   function removeBand(slug: string) {
+    const removed = selectedBands.find((b) => b.slug === slug);
     setSelectedBands((prev) => prev.filter((b) => b.slug !== slug));
+    if (isEdit && removed) removeNameFromLineup(removed.name);
   }
 
   async function handleFlyerChange(e: React.ChangeEvent<HTMLInputElement>) {
