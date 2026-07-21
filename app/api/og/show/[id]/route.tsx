@@ -166,6 +166,25 @@ export async function GET(
     </div>
   ) : null;
 
+  // Brand call-to-action for the footer. These cards get reshared, so this
+  // doubles as an ad — a wordmark plus an explicit invite and the URL. When the
+  // card carries a status chip we frame it in the sharer's voice ("I'm tracking
+  // shows on Twin Scene"); otherwise it's a plain discovery prompt.
+  const ctaLine = statusLabel ? "I'm tracking shows on Twin Scene" : "Find your next show on Twin Scene";
+  const brandLockup = (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ display: "flex", fontSize: 34, fontWeight: 800, color: CREAM, letterSpacing: 4 }}>
+        TWIN SCENE
+      </div>
+      <div style={{ display: "flex", marginTop: 8, fontSize: 25, fontWeight: 500, color: CREAM, opacity: 0.6 }}>
+        {ctaLine}
+      </div>
+      <div style={{ display: "flex", marginTop: 4, fontSize: 25, fontWeight: 800, color: RED, letterSpacing: 1 }}>
+        twinscene.org
+      </div>
+    </div>
+  );
+
   const dateLabel = formatDateLabel(show.date);
   const acts = lineupActs(show.lineup);
   // The headliner is either an explicit title or the first act on the bill.
@@ -242,19 +261,7 @@ export async function GET(
         <div style={{ display: "flex", marginTop: 20, fontSize: 34, fontWeight: 500, color: RED }}>
           {timeLabel ? `${truncate(show.venue, 28)} · ${timeLabel}` : truncate(show.venue, 32)}
         </div>
-        <div
-          style={{
-            display: "flex",
-            marginTop: 20,
-            fontSize: 26,
-            fontWeight: 800,
-            color: CREAM,
-            opacity: 0.7,
-            letterSpacing: 3,
-          }}
-        >
-          TWIN SCENE · twinscene.org
-        </div>
+        <div style={{ display: "flex", marginTop: 26 }}>{brandLockup}</div>
       </div>
     </div>
   );
@@ -355,19 +362,7 @@ export async function GET(
               {timeLabel}
             </div>
           )}
-          <div
-            style={{
-              display: "flex",
-              marginTop: 44,
-              fontSize: 30,
-              fontWeight: 800,
-              color: CREAM,
-              opacity: 0.7,
-              letterSpacing: 3,
-            }}
-          >
-            TWIN SCENE · twinscene.org
-          </div>
+          <div style={{ display: "flex", marginTop: 44 }}>{brandLockup}</div>
         </div>
       </div>
   );
