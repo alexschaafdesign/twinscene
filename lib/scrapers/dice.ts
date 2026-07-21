@@ -95,7 +95,23 @@ function mapDiceEvent(
   const name = (e.name ?? "").trim();
 
   let bands = lineupBands(e.lineup);
-  if (bands.length === 0) bands = parseNameBands(name);
+  if (bands.length === 0) {
+    bands = parseNameBands(name);
+  } else {
+    // Dice's structured lineup rows are sometimes stale/incomplete even when
+    // the free-text event name lists every act (seen on Zhora Darling: a
+    // lineup of just "Sparrow Hawk"/"Thelma and the Sleaze" under a name of
+    // "Thelma and The Sleaze, Sparrow Hawk & Paisley Fields" — Paisley Fields
+    // missing from the structured rows only). Prefer the name-derived list
+    // when it's a strict superset of the structured one, so an added-later
+    // opener isn't silently dropped; otherwise trust the structured lineup,
+    // since a free-text split can fragment a comma/&-containing band name.
+    const nameBands = parseNameBands(name);
+    const isSuperset =
+      nameBands.length > bands.length &&
+      bands.every((b) => nameBands.some((n) => n.toLowerCase() === b.toLowerCase()));
+    if (isSuperset) bands = nameBands;
+  }
 
   // Keep a title even for band-less events so import never sees an empty one.
   const headliner = bands[0] ?? (name || null);
