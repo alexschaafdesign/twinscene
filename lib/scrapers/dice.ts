@@ -68,6 +68,18 @@ function parseNameBands(name: string): string[] {
     .filter(Boolean);
 }
 
+/** Loose same-act check for reconciling a structured lineup name against the
+ * free-text title's name at the same position: case/punctuation-insensitive
+ * prefix match, so a Dice artist handle ("Popstarband.us") still lines up
+ * with the display name the venue actually typed in the title ("Popstar")
+ * without risking a false match between two genuinely different short names. */
+function sameAct(a: string, b: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const na = norm(a);
+  const nb = norm(b);
+  return !!na && !!nb && (na === nb || na.startsWith(nb) || nb.startsWith(na));
+}
+
 /** Doors time from the lineup, normalised to pilllar's "7:30pm" shape. */
 function doorsTime(lineup: DiceEvent["lineup"]): string | null {
   const row = lineup?.find((l) => DOORS_RE.test(l.details ?? ""));
@@ -110,7 +122,17 @@ function mapDiceEvent(
     const isSuperset =
       nameBands.length > bands.length &&
       bands.every((b) => nameBands.some((n) => n.toLowerCase() === b.toLowerCase()));
-    if (isSuperset) bands = nameBands;
+    if (isSuperset) {
+      bands = nameBands;
+    } else if (nameBands.length === bands.length) {
+      // Same act count in both, but the venue's title sometimes uses an act's
+      // real display name where Dice's structured lineup carries a registered
+      // handle instead (seen on Underground Music Venue: title "Flagman w/
+      // Popstar" vs. structured lineup rows "Flagman"/"Popstarband.us") —
+      // prefer the title's spelling position-by-position wherever it's
+      // clearly the same act.
+      bands = bands.map((b, i) => (sameAct(b, nameBands[i]) ? nameBands[i] : b));
+    }
   }
 
   // Keep a title even for band-less events so import never sees an empty one.
