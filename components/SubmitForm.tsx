@@ -672,12 +672,14 @@ export default function SubmitForm({
   const [featuredLinks, setFeaturedLinks] = useState<LinkInput[]>(() =>
     initialFeaturedLinkSlots(initialFeaturedLinks),
   );
-  // Videos already on the band (correction mode), each hideable/unhideable,
-  // plus a dynamic add-list of new YouTube URLs — mirrors the shows list
-  // below. `videoHiddenOverrides` tracks only the ones the submitter has
-  // toggled this session (id -> new hidden state); everything else keeps
-  // whatever hidden state it loaded with.
-  const [existingVideos] = useState<ExistingVideo[]>(() =>
+  // Videos already on the band (correction mode), each hideable/unhideable
+  // and reorderable via move up/down, plus a dynamic add-list of new YouTube
+  // URLs — mirrors the shows list below. `videoHiddenOverrides` tracks only
+  // the ones the submitter has toggled this session (id -> new hidden
+  // state); everything else keeps whatever hidden state it loaded with. The
+  // array's own order IS the display order sent back on submit (see
+  // moveExistingVideo) — no separate "dirty" tracking needed there.
+  const [existingVideos, setExistingVideos] = useState<ExistingVideo[]>(() =>
     toExistingVideos(initialExistingVideos),
   );
   const [videoHiddenOverrides, setVideoHiddenOverrides] = useState<Record<number, boolean>>({});
@@ -857,6 +859,18 @@ export default function SubmitForm({
     setVideoHiddenOverrides((prev) => ({ ...prev, [id]: !currentHidden }));
   }
 
+  /** Swap an existing video with its neighbor — same move-buttons pattern as
+   * BandLayoutEditor's section reorder, adapted for a flat list. */
+  function moveExistingVideo(index: number, delta: number) {
+    setExistingVideos((prev) => {
+      const target = index + delta;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  }
+
   // Duplicate detection (add mode only): flag when the typed name matches a band
   // already in the directory, by normalized name or resulting slug. Best-effort
   // — the user can override it (see the warning below the Band name field).
@@ -990,6 +1004,9 @@ export default function SubmitForm({
           hidden,
         }))),
       );
+      // The array's current order — whether or not it was actually moved —
+      // becomes the band's pinned display order (lib/videos.ts setVideoOrder).
+      payload.set("existingVideoOrder", JSON.stringify(existingVideos.map((v) => v.id)));
 
       const res = await fetch("/api/bands/submit", { method: "POST", body: payload });
       const data = await res.json();
@@ -1462,11 +1479,11 @@ export default function SubmitForm({
 
             <SubGroup
               label="Videos"
-              description="YouTube videos of the band — a live set, a music video, whatever. Paste a link per row. Hiding an existing video takes it off your profile without deleting it, so you can bring it back later."
+              description="YouTube videos of the band — a live set, a music video, whatever. Paste a link per row. Use the arrows to set the order they show up in on your profile. Hiding an existing video takes it off your profile without deleting it, so you can bring it back later."
             >
               {existingVideos.length > 0 && (
                 <div className="space-y-2">
-                  {existingVideos.map((video) => {
+                  {existingVideos.map((video, i) => {
                     const hidden = videoHiddenOverrides[video.id] ?? video.hidden;
                     return (
                       <div
@@ -1489,17 +1506,37 @@ export default function SubmitForm({
                           </div>
                           <p className="truncate text-xs text-ink/50">{video.url}</p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => toggleVideoHidden(video.id, hidden)}
-                          className={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition ${
-                            hidden
-                              ? "border-ink/20 text-ink/70 hover:border-accent/50 hover:text-ink"
-                              : "border-ink/20 text-ink/70 hover:border-danger/50 hover:text-danger"
-                          }`}
-                        >
-                          {hidden ? "Unhide" : "Hide"}
-                        </button>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <button
+                            type="button"
+                            disabled={i === 0}
+                            onClick={() => moveExistingVideo(i, -1)}
+                            aria-label={`Move ${video.title} up`}
+                            className="flex h-7 w-7 items-center justify-center rounded-md border border-ink/20 text-xs text-ink/70 transition hover:bg-ink/10 hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            disabled={i === existingVideos.length - 1}
+                            onClick={() => moveExistingVideo(i, 1)}
+                            aria-label={`Move ${video.title} down`}
+                            className="flex h-7 w-7 items-center justify-center rounded-md border border-ink/20 text-xs text-ink/70 transition hover:bg-ink/10 hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => toggleVideoHidden(video.id, hidden)}
+                            className={`rounded-md border px-2.5 py-1 text-xs transition ${
+                              hidden
+                                ? "border-ink/20 text-ink/70 hover:border-accent/50 hover:text-ink"
+                                : "border-ink/20 text-ink/70 hover:border-danger/50 hover:text-danger"
+                            }`}
+                          >
+                            {hidden ? "Unhide" : "Hide"}
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

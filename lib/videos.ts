@@ -20,6 +20,10 @@ export interface VideoRow {
    * the row, so a band can pull a scraper-matched video off their profile
    * without losing it for good (migration 0044). */
   hidden: boolean;
+  /** Explicit display order, set via setVideoOrder (migration 0045). Null
+   * until a band reorders their videos at least once — until then, the
+   * published_date/created_at fallback below is what's actually in effect. */
+  position: number | null;
 }
 
 // 'review' rows are unconfirmed scraper matches (medium-confidence title
@@ -33,7 +37,7 @@ export async function getVisibleVideosBySlug(slug: string): Promise<VideoRow[]> 
     from videos v
     join bands b on b.id = v.band_id
     where b.slug = ${slug} and v.status in ${sql(VISIBLE_STATUSES)} and not v.hidden
-    order by v.published_date desc nulls last, v.created_at desc
+    order by v.position asc nulls last, v.published_date desc nulls last, v.created_at desc
   `;
 }
 
@@ -55,7 +59,7 @@ export async function getAllVideosForBand(bandId: number): Promise<VideoRow[]> {
   return sql<VideoRow[]>`
     select * from videos
     where band_id = ${bandId}
-    order by published_date desc nulls last, created_at desc
+    order by position asc nulls last, published_date desc nulls last, created_at desc
   `;
 }
 
@@ -101,4 +105,19 @@ export async function setVideosHidden(bandId: number, ids: number[], hidden: boo
   await sql`
     update videos set hidden = ${hidden} where band_id = ${bandId} and id in ${sql(ids)}
   `;
+}
+
+/** Persist the band's chosen display order — 0-indexed position per id, in
+ * the order given. Scoped to the band's own rows (same guard as
+ * setVideosHidden). Called on every "correct" save that has existing videos,
+ * whether or not the submitter actually touched the reorder buttons — the
+ * order the form loaded with (chronological, until first pinned) is the
+ * order that gets fixed in place. */
+export async function setVideoOrder(bandId: number, orderedIds: number[]): Promise<void> {
+  if (orderedIds.length === 0) return;
+  await sql.begin(async (tx) => {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await tx`update videos set position = ${i} where id = ${orderedIds[i]} and band_id = ${bandId}`;
+    }
+  });
 }
