@@ -36,8 +36,14 @@ export interface Venue {
   updated_at: string;
 }
 
+// Alphabetized case-insensitively and ignoring a leading "The " so "The
+// Cedar" files under C, "The Turf Club" under T(urf) rather than under T(he)
+// — mirrors app/shows/submit/page.tsx's venueSortKey for its venue picker.
 export async function getAllVenues(): Promise<Venue[]> {
-  return sql<Venue[]>`select * from venues order by name asc`;
+  return sql<Venue[]>`
+    select * from venues
+    order by lower(regexp_replace(name, '^the\s+', '', 'i')) asc
+  `;
 }
 
 export async function getVenueBySlug(slug: string): Promise<Venue | null> {
