@@ -320,6 +320,8 @@ export default function ShowSubmitForm({
     "idle" | "submitting" | "success" | "error"
   >("idle");
   const [errorMsg, setErrorMsg] = useState("");
+  // The show's id once saved, so the success screen can link straight to it.
+  const [savedShowId, setSavedShowId] = useState("");
 
   function addBand(band: BandOption) {
     setSelectedBands((prev) =>
@@ -450,6 +452,7 @@ export default function ShowSubmitForm({
     setErrors({});
     setErrorMsg("");
     setStatus("idle");
+    setSavedShowId("");
   }
 
   function validate(): Record<string, string> {
@@ -509,6 +512,7 @@ export default function ShowSubmitForm({
         if (!res.ok || !data?.success) {
           throw new Error(data?.error || "Submission failed");
         }
+        setSavedShowId(initial?.id ?? "");
       } else {
         const payload = new FormData();
         payload.set("date", date.trim());
@@ -534,6 +538,7 @@ export default function ShowSubmitForm({
               : "Submission failed. Please try again.");
           throw new Error(message);
         }
+        setSavedShowId(typeof data?.id === "string" ? data.id : "");
       }
       setStatus("success");
     } catch (err) {
@@ -564,6 +569,14 @@ export default function ShowSubmitForm({
           >
             ← Upcoming Shows
           </Link>
+          {savedShowId && (
+            <Link
+              href={`/shows/${savedShowId}`}
+              className="rounded-md border border-[#E8E0D0]/40 px-4 py-2 text-sm transition hover:bg-[#E8E0D0]/10"
+            >
+              View show →
+            </Link>
+          )}
           {!isEdit && (
             <button
               type="button"
