@@ -23,6 +23,22 @@ export async function POST(request: NextRequest) {
   const linkedBands: { name: string; slug: string }[] = Array.isArray(body.linkedBands)
     ? body.linkedBands
     : [];
+
+  // buildLineupEntries derives entries from the free-text lineup and only
+  // attaches a slug where a name matches. A band picked in the form's band
+  // selector whose name isn't in that text (e.g. one just quick-added to the
+  // directory) would otherwise be silently dropped — append any such linked
+  // band as its own entry so the link actually persists.
+  const lineupEntries = buildLineupEntries(lineup || title, linkedBands);
+  const present = new Set(lineupEntries.map((e) => e.name.trim().toLowerCase()));
+  for (const b of linkedBands) {
+    const key = b.name.trim().toLowerCase();
+    if (key && !present.has(key)) {
+      lineupEntries.push({ name: b.name.trim(), bandSlug: b.slug });
+      present.add(key);
+    }
+  }
+
   const isAdmin = !!process.env.SCRAPE_SECRET && secret === process.env.SCRAPE_SECRET;
 
   const user = isAdmin ? null : await getCurrentUser();
@@ -37,7 +53,7 @@ export async function POST(request: NextRequest) {
         venue,
         title,
         date,
-        lineup: buildLineupEntries(lineup || title, linkedBands),
+        lineup: lineupEntries,
         notes: notes ?? "",
         link: link ?? "",
         // Only the show-edit form sends these; admin-review's inline edit omits

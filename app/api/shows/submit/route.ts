@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildLineupEntries, insertManualShow } from "@/lib/shows";
+import { findOrCreateBandByName } from "@/lib/bands";
 import { processShowFlyer, uploadShowFlyer } from "@/lib/r2";
 import { getCurrentUser } from "@/lib/auth";
 import { revalidateShows } from "@/lib/cachedReads";
@@ -11,15 +12,6 @@ export const dynamic = "force-dynamic";
 // rationale as the avatar/media-pro upload routes.
 const MAX_FLYER_BYTES = 4 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
-
-/** Lowercase/hyphenate. Mirrors slugify() in lib/fetchBands.ts. */
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
 
 function str(raw: FormDataEntryValue | null): string {
   return typeof raw === "string" ? raw : "";
@@ -42,7 +34,7 @@ export async function POST(request: NextRequest) {
   const date = str(form.get("date")).trim();
   const notes = str(form.get("notes"));
   const link = str(form.get("link"));
-  const newBandName = str(form.get("newBandName"));
+  const newBandName = str(form.get("newBandName")).trim();
 
   if (!date || !venue) {
     return NextResponse.json(
@@ -58,11 +50,6 @@ export async function POST(request: NextRequest) {
   } catch {
     // Malformed JSON from the client falls back to no linked bands.
   }
-  if (newBandName) linkedBands.push({ name: newBandName, slug: slugify(newBandName) });
-
-  const names = linkedBands.map((b) => b.name);
-  const title = names[0] || venue;
-  const lineup = names.join(", ");
 
   const flyer = form.get("flyer");
   const flyerFile = flyer instanceof File && flyer.size > 0 ? flyer : null;
@@ -76,6 +63,19 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // A band typed into the "This band isn't listed yet" form is added to the
+    // canonical `bands` table here (name-only, de-duped by name) so its lineup
+    // slug resolves to a real directory row instead of dangling. Done before
+    // the lineup is built so the show links the slug the DB actually assigned.
+    if (newBandName) {
+      const { band } = await findOrCreateBandByName(newBandName);
+      linkedBands.push({ name: band.name, slug: band.slug });
+    }
+
+    const names = linkedBands.map((b) => b.name);
+    const title = names[0] || venue;
+    const lineup = names.join(", ");
+
     let flyerUrl: string | undefined;
     if (flyerFile) {
       const bytes = new Uint8Array(await flyerFile.arrayBuffer());

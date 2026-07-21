@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { postToAppsScript } from "@/lib/postToAppsScript";
 import { resizeImageFile } from "@/lib/resizeImage";
 
 // Shared input styling, kept in sync with SubmitForm.tsx.
@@ -369,43 +368,28 @@ export default function ShowSubmitForm({
   }
 
   /**
-   * Name-only quick-add for a band that isn't in the directory yet, mirroring
-   * the show-import "Add to directory" flow: publishes the band immediately
-   * (the Apps Script honours quickAdd to skip the notification email), then
-   * links it to this show by slug. Available in both modes from the band search
-   * box. Throws so the search box can surface errors.
+   * Name-only quick-add for a band that isn't in the directory yet. Posts to
+   * the same /api/bands/submit "add" flow the band form uses — login-only, and
+   * upsertBand de-dupes by slug — so the band lands in the canonical `bands`
+   * table (not the dead legacy Apps Script sheet nothing reads). Then links it
+   * to this show by the slug the server actually stored. Available in both
+   * modes from the band search box. Throws so the search box can surface errors.
    */
   async function quickAddBand(name: string): Promise<void> {
-    const url = process.env.NEXT_PUBLIC_SUBMIT_SCRIPT_URL;
-    if (!url) throw new Error("Submission endpoint isn't configured.");
     const trimmed = name.trim();
     if (!trimmed) return;
-    const slug = slugify(trimmed);
-    const payload = new URLSearchParams({
-      bandName: trimmed,
-      submitterName: "",
-      submitterEmail: "",
-      genres: "",
-      location: "",
-      neighborhoods: "",
-      members: "",
-      contactEmail: "",
-      contactMethod: "",
-      website: "",
-      instagram: "",
-      bandcamp: "",
-      bio: "",
-      notes: "",
-      existingSlug: "",
-      mode: "add",
-      bandSlug: slug,
-      removeImage: "false",
-      featuredLinks: "[]",
-      quickAdd: "true",
-    });
-    const data = await postToAppsScript(url, payload);
-    if (!data.success) throw new Error(data.error || "Couldn't add band");
-    addBand({ slug, name: trimmed });
+    const payload = new FormData();
+    payload.set("mode", "add");
+    payload.set("existingSlug", "");
+    payload.set("bandSlug", slugify(trimmed));
+    payload.set("bandName", trimmed);
+    const res = await fetch("/api/bands/submit", { method: "POST", body: payload });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      throw new Error(data?.error || "Couldn't add band");
+    }
+    // upsertBand may have de-duped the slug; link the one it actually stored.
+    addBand({ slug: typeof data.slug === "string" ? data.slug : slugify(trimmed), name: trimmed });
   }
 
   /**
