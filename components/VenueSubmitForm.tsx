@@ -51,6 +51,7 @@ export default function VenueSubmitForm({
   initialName = "",
   initialAddress = "",
   initialAddressPrivate = false,
+  initialManualScrape = false,
   initialLocation = "",
   initialNeighborhood = "",
   initialCapacity = "",
@@ -69,6 +70,7 @@ export default function VenueSubmitForm({
   initialName?: string;
   initialAddress?: string;
   initialAddressPrivate?: boolean;
+  initialManualScrape?: boolean;
   initialLocation?: string;
   initialNeighborhood?: string;
   initialCapacity?: string;
@@ -87,6 +89,7 @@ export default function VenueSubmitForm({
   const [name, setName] = useState(initialName);
   const [address, setAddress] = useState(initialAddress);
   const [addressPrivate, setAddressPrivate] = useState(initialAddressPrivate);
+  const [manualScrape, setManualScrape] = useState(initialManualScrape);
   const [location, setLocation] = useState(initialLocation);
   const [cityIsOther, setCityIsOther] = useState(
     () =>
@@ -235,6 +238,7 @@ export default function VenueSubmitForm({
       payload.set("venueName", name.trim());
       payload.set("address", addressPrivate ? "" : address.trim());
       payload.set("addressPrivate", addressPrivate ? "true" : "false");
+      payload.set("manualScrape", manualScrape ? "true" : "false");
       payload.set("location", location.trim());
       payload.set("neighborhood", neighborhood.trim());
       payload.set("capacity", capacity.trim());
@@ -482,6 +486,25 @@ export default function VenueSubmitForm({
               className={inputClass}
             />
           </Field>
+        </div>
+
+        <div className="rounded-md border border-[#E8E0D0]/15 bg-[rgba(232,224,208,0.04)] p-4">
+          <label className="flex items-start gap-2.5 text-sm text-[#E8E0D0]/85">
+            <input
+              type="checkbox"
+              checked={manualScrape}
+              onChange={(e) => setManualScrape(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-[#E8E0D0]"
+            />
+            <span>
+              Manual scrape required
+              <span className="mt-0.5 block text-xs text-[#E8E0D0]/50">
+                No auto-scraper for this venue — its shows have to be entered by
+                hand. It&apos;ll show up in the admin scraper panel&apos;s
+                &ldquo;Manual scrape required&rdquo; reminder list.
+              </span>
+            </span>
+          </label>
         </div>
 
         <Field

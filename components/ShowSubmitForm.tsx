@@ -263,28 +263,32 @@ export default function ShowSubmitForm({
   venues,
   mode = "add",
   initial,
+  initialVenue = "",
 }: {
   bands: BandOption[];
   venues: string[];
   mode?: "add" | "edit";
   initial?: ShowInitial;
+  // Preselect a venue in add mode (edit mode uses initial.venue instead).
+  initialVenue?: string;
 }) {
   const isEdit = mode === "edit";
 
-  // The venue dropdown is the canonical `venues` list. If we're editing a show
-  // whose stored venue predates the directory (or was free-typed by a scraper),
-  // keep it as an option so editing doesn't silently drop it.
-  const initialVenue = initial?.venue ?? "";
+  // The venue dropdown is the canonical `venues` list. In edit mode a show's
+  // stored venue may predate the directory (or be free-typed by a scraper); in
+  // add mode it may be preselected via initialVenue. Either way, keep a value
+  // that isn't in the list as an option so it isn't silently dropped.
+  const presetVenue = initial?.venue ?? initialVenue;
   const venueOptions =
-    initialVenue && !venues.includes(initialVenue)
-      ? [initialVenue, ...venues]
+    presetVenue && !venues.includes(presetVenue)
+      ? [presetVenue, ...venues]
       : venues;
 
   const [date, setDate] = useState(initial?.date ?? "");
   // The venue <select>'s current value: an existing venue name, or OTHER_VENUE
   // when adding one. `newVenue` holds the typed name in that case. The effective
   // venue string used for submission is derived from the two.
-  const [venueSelect, setVenueSelect] = useState(initial?.venue ?? "");
+  const [venueSelect, setVenueSelect] = useState(presetVenue);
   const [newVenue, setNewVenue] = useState("");
   const addingNewVenue = venueSelect === OTHER_VENUE;
   const venue = addingNewVenue ? newVenue.trim() : venueSelect;

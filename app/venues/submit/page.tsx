@@ -71,6 +71,7 @@ export default async function VenueSubmitPage({
         initialName={param("name")}
         initialAddress={param("address")}
         initialAddressPrivate={param("addressPrivate") === "true"}
+        initialManualScrape={param("manualScrape") === "true"}
         initialLocation={param("location")}
         initialNeighborhood={param("neighborhood")}
         initialCapacity={param("capacity")}

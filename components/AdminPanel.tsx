@@ -57,12 +57,15 @@ const CARD = "rounded-md border border-[rgba(232,224,208,0.15)] p-4";
 const BTN =
   "rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-sm text-[#E8E0D0] transition hover:bg-[#E8E0D0]/10 disabled:cursor-not-allowed disabled:opacity-40";
 
+type ManualVenue = { name: string; slug: string; city: string };
+
 export default function AdminPanel({
   scrapers,
   log,
   bands,
   nonLocalBands,
   dismissedBands,
+  manualVenues,
   secret,
   logConfigured,
 }: {
@@ -71,6 +74,7 @@ export default function AdminPanel({
   bands: Band[];
   nonLocalBands: NonLocalBand[];
   dismissedBands: DismissedBand[];
+  manualVenues: ManualVenue[];
   secret: string;
   logConfigured: boolean;
 }) {
@@ -211,7 +215,57 @@ export default function AdminPanel({
         />
       </section>
 
-      {/* 2. FLAGGED FOR REVIEW ────────────────────────────────────────── */}
+      {/* 2. MANUAL SCRAPE REQUIRED ────────────────────────────────────── */}
+      <section className="mb-12">
+        <h2 className={`${SECTION_HEADING} mb-4`}>
+          Manual scrape required
+          {manualVenues.length > 0 ? ` (${manualVenues.length})` : ""}
+        </h2>
+        {manualVenues.length === 0 ? (
+          <p className="text-sm text-[#E8E0D0]/55">
+            No venues are flagged for manual scraping. Mark one on its venue
+            page (Edit → &ldquo;Manual scrape required&rdquo;) and it&apos;ll
+            appear here as a reminder.
+          </p>
+        ) : (
+          <div className={CARD}>
+            <p className="mb-3 text-xs text-[#E8E0D0]/55">
+              These venues have no auto-scraper — enter their shows by hand.
+            </p>
+            <ul className="space-y-2">
+              {manualVenues.map((v) => (
+                <li
+                  key={v.slug}
+                  className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E8E0D0]/10 pt-2 first:border-t-0 first:pt-0"
+                >
+                  <span className="min-w-0 break-words text-sm text-[#E8E0D0]">
+                    {v.name}
+                    {v.city ? (
+                      <span className="text-[#E8E0D0]/45"> · {v.city}</span>
+                    ) : null}
+                  </span>
+                  <div className="inline-flex shrink-0 items-center gap-2">
+                    <a
+                      href={`/shows/submit?venue=${encodeURIComponent(v.name)}`}
+                      className={BTN}
+                    >
+                      + Add show
+                    </a>
+                    <a
+                      href={`/venues/${v.slug}`}
+                      className="text-xs text-[#E8E0D0]/40 hover:text-[#E8E0D0]/70"
+                    >
+                      View venue →
+                    </a>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+
+      {/* 3. FLAGGED FOR REVIEW ────────────────────────────────────────── */}
       <section className="mb-12">
         <h2 className={`${SECTION_HEADING} mb-4`}>Flagged for review</h2>
         {(() => {
@@ -250,7 +304,7 @@ export default function AdminPanel({
         })()}
       </section>
 
-      {/* 3. NEW BANDS DISCOVERED ──────────────────────────────────────── */}
+      {/* 4. NEW BANDS DISCOVERED ──────────────────────────────────────── */}
       <section>
         <h2 className={`${SECTION_HEADING} mb-4`}>
           {newBands.length} new{" "}

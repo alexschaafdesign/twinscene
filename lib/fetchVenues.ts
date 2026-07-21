@@ -27,6 +27,7 @@ function toVenue(row: VenueRow): Venue {
     slug: row.slug,
     address: row.address ?? "",
     addressPrivate: row.address_private,
+    manualScrape: row.manual_scrape,
     city: row.city ?? "",
     neighborhood: row.neighborhood ?? "",
     capacity: row.capacity,

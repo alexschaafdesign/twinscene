@@ -1,5 +1,6 @@
 import { SCRAPERS } from "@/lib/scrapers";
 import { fetchBands, type Band } from "@/lib/fetchBands";
+import { fetchVenues } from "@/lib/fetchVenues";
 import {
   fetchScraperLog,
   SCRAPER_LOG_CONFIGURED,
@@ -31,17 +32,26 @@ export default async function AdminPage() {
   // is is_admin-gated, so only admins ever receive it.
   const secret = process.env.SCRAPE_SECRET ?? "";
 
-  const [log, bands, nonLocalBands, dismissedBands]: [
+  const [log, bands, nonLocalBands, dismissedBands, venues]: [
     ScraperLogRow[],
     Band[],
     NonLocalBand[],
     DismissedBand[],
+    Awaited<ReturnType<typeof fetchVenues>>,
   ] = await Promise.all([
     fetchScraperLog(),
     fetchBands(),
     fetchNonLocalBands(),
     fetchDismissedBands(),
+    fetchVenues(),
   ]);
+
+  // Venues flagged "manual scrape required" — no auto-scraper, so their shows
+  // must be entered by hand. Surfaced as a reminder section in the panel.
+  const manualVenues = venues
+    .filter((v) => v.manualScrape)
+    .map((v) => ({ name: v.name, slug: v.slug, city: v.city }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   // Only pass serializable data to the client (scrape functions can't cross).
   const scrapers = Object.values(SCRAPERS).map((s) => ({
@@ -56,6 +66,7 @@ export default async function AdminPage() {
       bands={bands}
       nonLocalBands={nonLocalBands}
       dismissedBands={dismissedBands}
+      manualVenues={manualVenues}
       secret={secret}
       logConfigured={SCRAPER_LOG_CONFIGURED}
     />

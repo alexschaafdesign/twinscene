@@ -12,6 +12,7 @@ export type Venue = {
   slug: string;
   address: string; // street address; "" when none or private
   addressPrivate: boolean; // DIY venue: "DM venue for address"
+  manualScrape: boolean; // no auto-scraper — enter shows by hand
   city: string;
   neighborhood: string; // single value, unlike Band.neighborhoods
   capacity: number | null;

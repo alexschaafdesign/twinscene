@@ -87,6 +87,9 @@ export default async function ShowSubmitPage({
         venues={venueNames}
         mode={initial ? "edit" : "add"}
         initial={initial}
+        // Add mode can be deep-linked with a venue preselected (the admin
+        // panel's "Manual scrape required" list does this).
+        initialVenue={one(sp.venue)}
       />
     </main>
   );
