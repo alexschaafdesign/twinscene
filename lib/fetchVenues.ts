@@ -30,6 +30,8 @@ function toVenue(row: VenueRow): Venue {
     manualScrape: row.manual_scrape,
     city: row.city ?? "",
     neighborhood: row.neighborhood ?? "",
+    lat: row.lat,
+    lng: row.lng,
     capacity: row.capacity,
     contact: row.contact ?? "",
     notes: row.notes ?? "",

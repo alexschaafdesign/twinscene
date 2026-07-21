@@ -7,6 +7,7 @@ import { VenuePlaceLine } from "@/components/venue-shared";
 import VenueAvatar from "@/components/VenueAvatar";
 import { autoInitials } from "@/lib/venueColor";
 import { iconProps } from "@/components/band-shared";
+import VenueMap from "@/components/VenueMap";
 
 const LOCATION_TAGS = ["All", "Minneapolis", "St. Paul", "Other"];
 
@@ -129,6 +130,7 @@ export default function VenueGrid({
   intro?: ReactNode;
 }) {
   const [query, setQuery] = useState("");
+  const [view, setView] = useState<"list" | "map">("list");
   const [location, setLocation] = useState("All");
   const [selectedType, setSelectedType] = useState("");
   const [showAllTypes, setShowAllTypes] = useState(false);
@@ -219,6 +221,13 @@ export default function VenueGrid({
 
   const gridKey = `${query}|${location}|${selectedType}|${selectedNeighborhood}`;
 
+  // How many of the filtered venues can actually be placed on the map (we only
+  // have coords for venues with a public, geocodable address).
+  const mappableCount = useMemo(
+    () => filtered.filter((v) => v.lat != null && v.lng != null).length,
+    [filtered],
+  );
+
   const activeFilterCount =
     (location !== "All" ? 1 : 0) +
     (selectedType ? 1 : 0) +
@@ -248,6 +257,41 @@ export default function VenueGrid({
             placeholder="Search by name, neighborhood, or type…"
             className="w-full flex-1 rounded-md border border-[#E8E0D0]/25 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
           />
+          {/* List / Map view toggle — segmented control */}
+          <div className="inline-flex shrink-0 overflow-hidden rounded-md border border-[#E8E0D0]/40">
+            {(["list", "map"] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => setView(v)}
+                aria-pressed={view === v}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-sm capitalize transition ${
+                  view === v
+                    ? "bg-[#E8E0D0] text-[#2A2420]"
+                    : "text-[#E8E0D0]/70 hover:bg-[#E8E0D0]/10"
+                }`}
+              >
+                {v === "list" ? (
+                  // ti-list (Tabler)
+                  <svg {...iconProps} width={16} height={16}>
+                    <path d="M9 6l11 0" />
+                    <path d="M9 12l11 0" />
+                    <path d="M9 18l11 0" />
+                    <path d="M5 6l0 .01" />
+                    <path d="M5 12l0 .01" />
+                    <path d="M5 18l0 .01" />
+                  </svg>
+                ) : (
+                  // ti-map-pin (Tabler)
+                  <svg {...iconProps} width={16} height={16}>
+                    <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+                    <path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" />
+                  </svg>
+                )}
+                {v}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             onClick={() => setFiltersOpen((v) => !v)}
@@ -421,10 +465,31 @@ export default function VenueGrid({
       </div>
 
       <p className="mb-4 text-center text-xs text-[#E8E0D0]/55">
-        Showing {filtered.length} of {venues.length} venues
+        {view === "map"
+          ? `Showing ${mappableCount} of ${filtered.length} venues on the map`
+          : `Showing ${filtered.length} of ${venues.length} venues`}
       </p>
 
-      {filtered.length === 0 ? (
+      {view === "map" ? (
+        filtered.length === 0 ? (
+          <p className="py-16 text-center text-sm text-[#E8E0D0]/50">
+            No venues match those filters.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-[#E8E0D0]/15">
+            <div className="h-[70vh] min-h-80 w-full">
+              <VenueMap venues={filtered} />
+            </div>
+            {mappableCount < filtered.length && (
+              <p className="border-t border-[#E8E0D0]/10 px-3 py-2 text-center text-xs text-[#E8E0D0]/45">
+                {filtered.length - mappableCount} venue
+                {filtered.length - mappableCount === 1 ? " isn't" : "s aren't"} on the
+                map yet — no public address to place them.
+              </p>
+            )}
+          </div>
+        )
+      ) : filtered.length === 0 ? (
         <p className="py-16 text-center text-sm text-[#E8E0D0]/50">
           No venues match those filters.
         </p>

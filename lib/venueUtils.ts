@@ -15,6 +15,8 @@ export type Venue = {
   manualScrape: boolean; // no auto-scraper — enter shows by hand
   city: string;
   neighborhood: string; // single value, unlike Band.neighborhoods
+  lat: number | null; // geocoded from address; null when private/unknown
+  lng: number | null;
   capacity: number | null;
   contact: string;
   notes: string;

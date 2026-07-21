@@ -7,6 +7,7 @@
 
 import { sql } from "./db.ts";
 import { slugify } from "./venueUtils.ts";
+import { geocodeAddress } from "./geocode.ts";
 
 export { slugify };
 
@@ -21,6 +22,10 @@ export interface Venue {
   manual_scrape: boolean; // no auto-scraper — shows must be entered by hand
   city: string | null;
   neighborhood: string | null;
+  // Geocoded from `address` on upsert (free US Census geocoder); null when the
+  // address is private/unknown or geocoding failed. Powers the venue map.
+  lat: number | null;
+  lng: number | null;
   capacity: number | null;
   contact: string | null;
   notes: string | null;
@@ -88,6 +93,30 @@ export async function upsertVenue(
 ): Promise<UpsertVenueResult> {
   const targetSlug = mode === "correct" && existingSlug ? existingSlug : slugify(input.name);
 
+  // A private-address venue stores no address, regardless of what was typed.
+  const address = input.addressPrivate ? null : input.address || null;
+
+  // Resolve coordinates OUTSIDE the transaction — geocoding hits the Census
+  // service (up to ~8s) and we must never hold a DB transaction open on a slow
+  // network call. Reuse the stored coords when the address is unchanged;
+  // re-geocode only when it changed or we never had coords. If geocoding fails
+  // we fall back to whatever we had rather than wiping good data.
+  let lat: number | null = null;
+  let lng: number | null = null;
+  if (address) {
+    const [prior] = await sql<
+      { address: string | null; lat: number | null; lng: number | null }[]
+    >`select address, lat, lng from venues where slug = ${targetSlug} limit 1`;
+    if (prior && prior.address === address && prior.lat != null && prior.lng != null) {
+      lat = prior.lat;
+      lng = prior.lng;
+    } else {
+      const point = await geocodeAddress(address, input.city || undefined);
+      lat = point?.lat ?? prior?.lat ?? null;
+      lng = point?.lng ?? prior?.lng ?? null;
+    }
+  }
+
   return sql.begin(async (tx) => {
     const [existing] = await tx<Venue[]>`select * from venues where slug = ${targetSlug} limit 1`;
 
@@ -103,9 +132,6 @@ export async function upsertVenue(
     if (input.photoUrl) photo = input.photoUrl;
     if (input.thumbnailUrl) thumbnailUrl = input.thumbnailUrl;
 
-    // A private-address venue stores no address, regardless of what was typed.
-    const address = input.addressPrivate ? null : input.address || null;
-
     if (existing) {
       const [updated] = await tx<Venue[]>`
         update venues set
@@ -115,6 +141,8 @@ export async function upsertVenue(
           manual_scrape = ${input.manualScrape},
           city = ${input.city || null},
           neighborhood = ${input.neighborhood || null},
+          lat = ${lat},
+          lng = ${lng},
           capacity = ${input.capacity},
           contact = ${input.contact || null},
           notes = ${input.notes || null},
@@ -135,10 +163,11 @@ export async function upsertVenue(
 
     const [created] = await tx<Venue[]>`
       insert into venues (
-        slug, name, address, address_private, manual_scrape, city, neighborhood, capacity, contact, notes, parking,
+        slug, name, address, address_private, manual_scrape, city, neighborhood, lat, lng, capacity, contact, notes, parking,
         accessibility, owner, type, photo, thumbnail_url, short_name, avatar_initials
       ) values (
         ${targetSlug}, ${input.name}, ${address}, ${input.addressPrivate}, ${input.manualScrape}, ${input.city || null}, ${input.neighborhood || null},
+        ${lat}, ${lng},
         ${input.capacity}, ${input.contact || null}, ${input.notes || null},
         ${input.parking || null}, ${input.accessibility || null}, ${input.owner || null},
         ${input.type || null}, ${photo}, ${thumbnailUrl}, ${input.shortName || null}, ${input.avatarInitials || null}
