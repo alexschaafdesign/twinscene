@@ -21,6 +21,23 @@ import { protectKnownNames } from "./knownActNames";
 const SHOWS_URL = "https://first-avenue.com/shows/";
 const USER_AGENT = "TwinScene/1.0 (+https://twinscene.org)";
 
+// First Avenue is also a *promoter*: its calendar lists shows it presents at
+// rooms it doesn't run, which another scraper already owns from that venue's
+// own site. Skipping them here avoids importing the same show twice (the
+// cross-source dedup in runAll only *flags* such pairs, it doesn't drop them).
+// Match is on the exact card venue label as First Avenue writes it (confirmed
+// against the .venue_name text) — which is NOT always the canonical venue name
+// the owning scraper emits, so keep these strings verbatim from this site:
+//   - "The Cedar Cultural Center" — owned by cedar.ts (same string).
+//   - "icehouse MPLS" — owned by icehouse.ts, which emits venue "Icehouse".
+const VENUES_OWNED_ELSEWHERE = new Set(
+  ["The Cedar Cultural Center", "icehouse MPLS"].map((v) => v.toLowerCase()),
+);
+
+function isOwnedElsewhere(venue: string): boolean {
+  return VENUES_OWNED_ELSEWHERE.has(clean(venue).toLowerCase());
+}
+
 // How many months past the current one to fetch. The rooms book well ahead, so
 // a few months of lead time keeps the review queue useful without hammering the
 // site (one request per month).
@@ -119,6 +136,12 @@ function parsePage(html: string): ScrapedShow[] {
       // Otherwise it's a .show_list_item. The card renders each field twice
       // (mobile + desktop variants), so take the first of each.
       const venue = clean($el.find(".venue_name").first().text());
+
+      // A room another scraper owns from its own site — skip First Avenue's
+      // "presented at …" copy of it so the show isn't imported from two
+      // sources (see VENUES_OWNED_ELSEWHERE).
+      if (isOwnedElsewhere(venue)) return;
+
       const headliner = clean($el.find(".show_name h4").first().text());
       const supportText = $el.find(".show_name h5").first().text();
       const supporting = supportText ? parseSupporting(supportText) : [];
