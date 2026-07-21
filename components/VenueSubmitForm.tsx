@@ -50,6 +50,7 @@ export default function VenueSubmitForm({
   initialSlug = "",
   initialName = "",
   initialAddress = "",
+  initialAddressPrivate = false,
   initialLocation = "",
   initialNeighborhood = "",
   initialCapacity = "",
@@ -67,6 +68,7 @@ export default function VenueSubmitForm({
   initialSlug?: string;
   initialName?: string;
   initialAddress?: string;
+  initialAddressPrivate?: boolean;
   initialLocation?: string;
   initialNeighborhood?: string;
   initialCapacity?: string;
@@ -84,6 +86,7 @@ export default function VenueSubmitForm({
 
   const [name, setName] = useState(initialName);
   const [address, setAddress] = useState(initialAddress);
+  const [addressPrivate, setAddressPrivate] = useState(initialAddressPrivate);
   const [location, setLocation] = useState(initialLocation);
   const [cityIsOther, setCityIsOther] = useState(
     () =>
@@ -230,7 +233,8 @@ export default function VenueSubmitForm({
       payload.set("existingSlug", isCorrect ? initialSlug : "");
       payload.set("venueSlug", venueSlug);
       payload.set("venueName", name.trim());
-      payload.set("address", address.trim());
+      payload.set("address", addressPrivate ? "" : address.trim());
+      payload.set("addressPrivate", addressPrivate ? "true" : "false");
       payload.set("location", location.trim());
       payload.set("neighborhood", neighborhood.trim());
       payload.set("capacity", capacity.trim());
@@ -313,15 +317,39 @@ export default function VenueSubmitForm({
           />
         </Field>
 
-        <Field label="Address" htmlFor="address" hint="Street address, e.g. 701 1st Ave N">
-          <input
-            id="address"
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="e.g. 701 1st Ave N"
-            className={inputClass}
-          />
+        <Field
+          label="Address"
+          htmlFor="address"
+          hint={
+            addressPrivate
+              ? "The profile will show “DM venue for address” instead of a street address."
+              : "Street address, e.g. 701 1st Ave N"
+          }
+        >
+          {!addressPrivate && (
+            <input
+              id="address"
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="e.g. 701 1st Ave N"
+              className={inputClass}
+            />
+          )}
+          <label className="mt-2 flex items-center gap-2 text-sm text-[#E8E0D0]/80">
+            <input
+              type="checkbox"
+              checked={addressPrivate}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setAddressPrivate(on);
+                // A private venue stores no address — clear anything typed.
+                if (on) setAddress("");
+              }}
+              className="h-4 w-4 accent-[#E8E0D0]"
+            />
+            Private — people DM the venue for the address
+          </label>
         </Field>
 
         <Field label="City" htmlFor="location">

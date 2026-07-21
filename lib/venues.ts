@@ -16,7 +16,8 @@ export interface Venue {
   id: number;
   slug: string;
   name: string;
-  address: string | null; // street address, e.g. "416 N 1st Ave"
+  address: string | null; // street address, e.g. "416 N 1st Ave"; null when private/unknown
+  address_private: boolean; // DIY venue: address withheld, "DM venue for address"
   city: string | null;
   neighborhood: string | null;
   capacity: number | null;
@@ -44,6 +45,7 @@ export async function getVenueBySlug(slug: string): Promise<Venue | null> {
 export interface VenueSubmissionInput {
   name: string;
   address: string;
+  addressPrivate: boolean;
   city: string;
   neighborhood: string;
   capacity: number | null;
@@ -89,11 +91,15 @@ export async function upsertVenue(
     if (input.photoUrl) photo = input.photoUrl;
     if (input.thumbnailUrl) thumbnailUrl = input.thumbnailUrl;
 
+    // A private-address venue stores no address, regardless of what was typed.
+    const address = input.addressPrivate ? null : input.address || null;
+
     if (existing) {
       const [updated] = await tx<Venue[]>`
         update venues set
           name = ${input.name},
-          address = ${input.address || null},
+          address = ${address},
+          address_private = ${input.addressPrivate},
           city = ${input.city || null},
           neighborhood = ${input.neighborhood || null},
           capacity = ${input.capacity},
@@ -114,10 +120,10 @@ export async function upsertVenue(
 
     const [created] = await tx<Venue[]>`
       insert into venues (
-        slug, name, address, city, neighborhood, capacity, contact, notes, parking,
+        slug, name, address, address_private, city, neighborhood, capacity, contact, notes, parking,
         accessibility, owner, type, photo, thumbnail_url
       ) values (
-        ${targetSlug}, ${input.name}, ${input.address || null}, ${input.city || null}, ${input.neighborhood || null},
+        ${targetSlug}, ${input.name}, ${address}, ${input.addressPrivate}, ${input.city || null}, ${input.neighborhood || null},
         ${input.capacity}, ${input.contact || null}, ${input.notes || null},
         ${input.parking || null}, ${input.accessibility || null}, ${input.owner || null},
         ${input.type || null}, ${photo}, ${thumbnailUrl}

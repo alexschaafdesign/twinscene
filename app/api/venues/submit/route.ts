@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
     const input: VenueSubmissionInput = {
       name: venueName,
       address: str(form.get("address")).trim(),
+      addressPrivate: str(form.get("addressPrivate")) === "true",
       city: str(form.get("location")).trim(),
       neighborhood: str(form.get("neighborhood")).trim(),
       capacity: parseCapacity(form.get("capacity")),
