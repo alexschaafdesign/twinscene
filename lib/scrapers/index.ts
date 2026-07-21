@@ -24,6 +24,7 @@ import { scrapeFlyingV } from "./flyingv";
 import { scrapeUndergroundMusic } from "./undergroundmusic";
 import { scrapeParkway } from "./parkway";
 import { scrapeDakota } from "./dakota";
+import { scrapeTerminal } from "./terminal";
 
 export type { ScrapedShow };
 
@@ -130,6 +131,11 @@ export const SCRAPERS: Record<string, Scraper> = {
     id: "dakota",
     name: "The Dakota",
     scrape: scrapeDakota,
+  },
+  terminal: {
+    id: "terminal",
+    name: "The Terminal Bar",
+    scrape: scrapeTerminal,
   },
 };
 
