@@ -48,6 +48,8 @@ type VenueState = {
   error?: string;
 };
 type FinalPhase = "press" | "reconcile" | "done" | null;
+// Transient per-row UI state for the inline "Looks good" / "Delete" actions.
+type RowState = { busy?: boolean; confirmDelete?: boolean; error?: string };
 
 const CARD = "rounded-md border border-[rgba(232,224,208,0.15)] p-4";
 const BTN =
@@ -168,52 +170,144 @@ function Stat({
   );
 }
 
-/** A drill-down list of shows (flagged / failed / added), each linking out. */
+/** A drill-down list of shows (flagged / failed / added), each linking out and
+ * offering the inline actions passed in `actions` (skipped for id-less rows). */
 function ShowList({
   shows,
   emptyHint,
   tone,
+  actions = [],
+  resolved,
+  rowState,
+  onAct,
+  onSetRow,
 }: {
   shows: ShowRef[];
   emptyHint: string;
   tone: string;
+  actions?: ("review" | "delete")[];
+  resolved: Record<string, "reviewed" | "deleted">;
+  rowState: Record<string, RowState>;
+  onAct: (id: string, action: "review" | "delete") => void;
+  onSetRow: (id: string, patch: RowState) => void;
 }) {
   if (shows.length === 0)
     return <p className="text-sm text-[#E8E0D0]/45">{emptyHint}</p>;
   return (
     <ul className="space-y-2">
-      {shows.map((s, i) => (
-        <li
-          key={`${s.id ?? "noid"}-${i}`}
-          className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 rounded-md border border-[rgba(232,224,208,0.12)] px-3 py-2"
-        >
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-sm text-[#E8E0D0]">
-                {s.title}
-              </span>
-              {s.id ? (
-                <a
-                  href={`/shows/${s.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 text-xs text-[#E8E0D0]/45 underline decoration-dotted hover:text-[#E8E0D0]"
+      {shows.map((s, i) => {
+        const done = s.id ? resolved[s.id] : undefined;
+        const rs = (s.id ? rowState[s.id] : undefined) ?? {};
+        return (
+          <li
+            key={`${s.id ?? "noid"}-${i}`}
+            className={`flex flex-wrap items-start justify-between gap-x-3 gap-y-2 rounded-md border border-[rgba(232,224,208,0.12)] px-3 py-2 ${
+              done === "deleted" ? "opacity-50" : ""
+            }`}
+          >
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`truncate text-sm text-[#E8E0D0] ${
+                    done === "deleted" ? "line-through" : ""
+                  }`}
                 >
-                  view →
-                </a>
-              ) : null}
-            </div>
-            <div className="mt-0.5 text-xs text-[#E8E0D0]/50">
-              {s.venue} · {formatDate(s.date)}
-            </div>
-            {s.reasons && s.reasons.length > 0 && (
-              <div className="mt-1 text-xs" style={{ color: tone }}>
-                {s.reasons.join(" · ")}
+                  {s.title}
+                </span>
+                {s.id && done !== "deleted" ? (
+                  <a
+                    href={`/shows/${s.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 text-xs text-[#E8E0D0]/45 underline decoration-dotted hover:text-[#E8E0D0]"
+                  >
+                    view →
+                  </a>
+                ) : null}
               </div>
-            )}
-          </div>
-        </li>
-      ))}
+              <div className="mt-0.5 text-xs text-[#E8E0D0]/50">
+                {s.venue} · {formatDate(s.date)}
+              </div>
+              {s.reasons && s.reasons.length > 0 && (
+                <div className="mt-1 text-xs" style={{ color: tone }}>
+                  {s.reasons.join(" · ")}
+                </div>
+              )}
+              {rs.error && (
+                <div className="mt-1 text-xs" style={{ color: RED }}>
+                  {rs.error}
+                </div>
+              )}
+            </div>
+
+            {/* Right side: resolved chip, or the inline action buttons. */}
+            {done === "reviewed" ? (
+              <span
+                className="shrink-0 self-center rounded-full px-2.5 py-1 text-xs font-medium"
+                style={{ color: GREEN, backgroundColor: "rgba(143,208,143,0.12)" }}
+              >
+                ✓ Cleared
+              </span>
+            ) : done === "deleted" ? (
+              <span
+                className="shrink-0 self-center rounded-full px-2.5 py-1 text-xs font-medium"
+                style={{ color: RED, backgroundColor: "rgba(229,160,160,0.12)" }}
+              >
+                Deleted
+              </span>
+            ) : s.id && actions.length > 0 ? (
+              <div className="flex shrink-0 items-center gap-1.5 self-center">
+                {rs.busy ? (
+                  <span className="text-xs text-[#E8E0D0]/45">Working…</span>
+                ) : (
+                  <>
+                    {actions.includes("review") && (
+                      <button
+                        type="button"
+                        onClick={() => onAct(s.id!, "review")}
+                        className="rounded border border-[#8FD08F]/40 px-2 py-1 text-xs text-[#8FD08F] transition hover:bg-[#8FD08F]/10"
+                      >
+                        ✓ Looks good
+                      </button>
+                    )}
+                    {actions.includes("delete") &&
+                      (rowState[s.id]?.confirmDelete ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onAct(s.id!, "delete")}
+                            className="rounded border border-[#E5A0A0]/50 bg-[#E5A0A0]/10 px-2 py-1 text-xs text-[#E5A0A0] transition hover:bg-[#E5A0A0]/20"
+                          >
+                            Confirm delete
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onSetRow(s.id!, { confirmDelete: false })
+                            }
+                            className="px-1.5 py-1 text-xs text-[#E8E0D0]/45 hover:text-[#E8E0D0]"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onSetRow(s.id!, { confirmDelete: true })
+                          }
+                          className="rounded border border-[#E8E0D0]/25 px-2 py-1 text-xs text-[#E8E0D0]/60 transition hover:border-[#E5A0A0]/50 hover:text-[#E5A0A0]"
+                        >
+                          Delete
+                        </button>
+                      ))}
+                  </>
+                )}
+              </div>
+            ) : null}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -228,6 +322,13 @@ export default function ScraperDashboard({
   secret: string;
 }) {
   const [venues, setVenues] = useState<Record<string, VenueState>>({});
+  // Per-show outcome of an inline action, keyed by show id — shared across the
+  // per-venue drill-down and the aggregated "needs attention" panel so a show
+  // resolved in one place reflects in the other.
+  const [resolved, setResolved] = useState<Record<string, "reviewed" | "deleted">>(
+    {},
+  );
+  const [rowState, setRowState] = useState<Record<string, RowState>>({});
   const [running, setRunning] = useState(false);
   const [finalPhase, setFinalPhase] = useState<FinalPhase>(null);
   const [summary, setSummary] = useState<DigestSummary | null>(null);
@@ -367,6 +468,39 @@ export default function ScraperDashboard({
       });
     } finally {
       setRunningOne(null);
+    }
+  }
+
+  const setRow = (id: string, patch: RowState) =>
+    setRowState((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+
+  // Clear a show's review flag ("looks good") or delete it outright — both hit
+  // the existing SCRAPE_SECRET-gated endpoints. On success the row flips to a
+  // resolved chip in place; on failure it keeps its buttons and shows why.
+  async function actOnShow(id: string, action: "review" | "delete") {
+    setRow(id, { busy: true, error: undefined });
+    try {
+      const url = action === "review" ? "/api/shows/review" : "/api/shows/delete";
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret, id }),
+      });
+      const data = (await res.json()) as { success?: boolean; error?: string };
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      setResolved((prev) => ({
+        ...prev,
+        [id]: action === "review" ? "reviewed" : "deleted",
+      }));
+      setRow(id, { busy: false, confirmDelete: false });
+    } catch (err) {
+      setRow(id, {
+        busy: false,
+        confirmDelete: false,
+        error: err instanceof Error ? err.message : "Failed",
+      });
     }
   }
 
@@ -617,6 +751,11 @@ export default function ScraperDashboard({
                           shows={d.flaggedShows ?? []}
                           emptyHint=""
                           tone={AMBER}
+                          actions={["review", "delete"]}
+                          resolved={resolved}
+                          rowState={rowState}
+                          onAct={actOnShow}
+                          onSetRow={setRow}
                         />
                       </div>
                     )}
@@ -629,6 +768,10 @@ export default function ScraperDashboard({
                           shows={d.failedShows ?? []}
                           emptyHint=""
                           tone={RED}
+                          resolved={resolved}
+                          rowState={rowState}
+                          onAct={actOnShow}
+                          onSetRow={setRow}
                         />
                       </div>
                     )}
@@ -641,6 +784,11 @@ export default function ScraperDashboard({
                           shows={d.addedShows ?? []}
                           emptyHint=""
                           tone={GREEN}
+                          actions={["delete"]}
+                          resolved={resolved}
+                          rowState={rowState}
+                          onAct={actOnShow}
+                          onSetRow={setRow}
                         />
                       </div>
                     )}
@@ -656,8 +804,10 @@ export default function ScraperDashboard({
       {(attention.flagged.length > 0 || attention.failed.length > 0) && (
         <div className={`${CARD} mt-6`}>
           <p className="mb-3 text-sm font-medium text-[#E8E0D0]">
-            Shows needing attention ({attention.flagged.length +
-              attention.failed.length}
+            Shows needing attention (
+            {[...attention.flagged, ...attention.failed].filter(
+              (s) => !(s.id && resolved[s.id]),
+            ).length}
             )
           </p>
           {attention.failed.length > 0 && (
@@ -665,7 +815,15 @@ export default function ScraperDashboard({
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#E8E0D0]/45">
                 Failed to import
               </p>
-              <ShowList shows={attention.failed} emptyHint="" tone={RED} />
+              <ShowList
+                shows={attention.failed}
+                emptyHint=""
+                tone={RED}
+                resolved={resolved}
+                rowState={rowState}
+                onAct={actOnShow}
+                onSetRow={setRow}
+              />
             </div>
           )}
           {attention.flagged.length > 0 && (
@@ -673,7 +831,16 @@ export default function ScraperDashboard({
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#E8E0D0]/45">
                 Flagged for review
               </p>
-              <ShowList shows={attention.flagged} emptyHint="" tone={AMBER} />
+              <ShowList
+                shows={attention.flagged}
+                emptyHint=""
+                tone={AMBER}
+                actions={["review", "delete"]}
+                resolved={resolved}
+                rowState={rowState}
+                onAct={actOnShow}
+                onSetRow={setRow}
+              />
             </div>
           )}
         </div>
