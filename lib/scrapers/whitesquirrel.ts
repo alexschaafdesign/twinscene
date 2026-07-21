@@ -146,7 +146,7 @@ function parseEvent(event: TribeEvent): ScrapedShow | null {
     flyerUrl: event.image ? event.image.url : null,
     // The venue doesn't sell tickets through this calendar (cost/website are
     // always empty) — link to the event's own page instead.
-    ticketUrl: null,
+    ticketUrl: event.url || null,
     doorsTime: null,
     musicTime: timePart(event.start_date),
     advancePrice: null,

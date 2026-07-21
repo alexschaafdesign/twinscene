@@ -190,7 +190,7 @@ function parseEvent(event: TribeEvent): ScrapedShow | null {
     // The taproom calendar doesn't expose a ticket link through the API
     // (`cost`/`website` are empty even for the ticketed BIG SHOW events) —
     // link to the event's own page instead.
-    ticketUrl: null,
+    ticketUrl: event.url || null,
     doorsTime: null,
     musicTime: timePart(event.start_date),
     advancePrice: parseAdvancePrice(event.cost),

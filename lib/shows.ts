@@ -157,30 +157,40 @@ export type ScrapedShowInput = {
  * "N added, N updated, N already had" rather than one opaque "imported" count:
  * - "created": no row existed for this source_key; a new show was inserted.
  * - "updated": a row existed and was replaced by the fresh scrape.
- * - "skipped": a row existed and is edited_at-locked, so a human edit won and
- *   the scrape was discarded.
+ * - "skipped": either a row existed and is edited_at-locked (a human edit won
+ *   and the scrape was discarded), or the source_key was rejected via
+ *   /admin/review "Delete" and is tombstoned in rejected_show_sources — either
+ *   way, a human already made a call on this row and a re-scrape must not
+ *   undo it.
  */
 export type UpsertOutcome = "created" | "updated" | "skipped";
 
 /**
  * Upsert a scraped/admin-confirmed show by source_key. Mirrors
- * upsertShowRow_/handleShowImport_: if a matching row exists and is
- * edited_at-locked, the write is skipped entirely (a human edit always wins
- * over a re-scrape); otherwise the row is inserted or fully replaced (minus
- * edited_at, which this path never sets). needs_review/confidence/
+ * upsertShowRow_/handleShowImport_: if the source_key was rejected (tombstoned
+ * in rejected_show_sources by a prior deleteShow) or a matching row exists and
+ * is edited_at-locked, the write is skipped entirely (a human decision always
+ * wins over a re-scrape); otherwise the row is inserted or fully replaced
+ * (minus edited_at, which this path never sets). needs_review/confidence/
  * review_reasons come along for the ride but stop updating once a human has
  * set reviewed_at, same idea as the edited_at lock but scoped to review status.
  */
 export async function upsertScrapedShow(
   input: ScrapedShowInput,
   actor: string,
-): Promise<{ outcome: UpsertOutcome; id: string }> {
+): Promise<{ outcome: UpsertOutcome; id: string | null }> {
   // Resolved outside the transaction — these are HTTP calls to Birdhaus, not
   // DB work, so they shouldn't hold a Postgres connection open. Wasted on the
-  // rare row that turns out to be edited-locked below, which is fine.
+  // rare row that turns out to be edited-locked/rejected below, which is fine.
   const lineup = await resolveLineupBandSlugs(input.lineup);
 
   return sql.begin(async (tx) => {
+    const rejected = await tx`
+      SELECT 1 FROM rejected_show_sources WHERE source_key = ${input.sourceKey}
+    `;
+    if (rejected.length > 0) {
+      return { outcome: "skipped", id: null };
+    }
     const existing = await tx`
       SELECT id, edited_at FROM shows WHERE source_key = ${input.sourceKey} FOR UPDATE
     `;
@@ -433,11 +443,23 @@ export async function markShowReviewed(
 /**
  * Delete a show outright — for junk/duplicate rows caught in /admin/review.
  * show_history rows for it cascade (ON DELETE CASCADE), so there's nothing
- * to log afterward.
+ * to log afterward. Also tombstones the row's source_key in
+ * rejected_show_sources so upsertScrapedShow refuses to resurrect it the next
+ * time that venue's scraper runs — otherwise a re-scrape would just re-insert
+ * the same junk/duplicate fresh, since ON CONFLICT (source_key) has nothing
+ * left to conflict with once the row is gone.
  */
-export async function deleteShow(id: string): Promise<{ success: boolean }> {
-  const rows = await sql`DELETE FROM shows WHERE id = ${id} RETURNING id`;
-  return { success: rows.length > 0 };
+export async function deleteShow(id: string, actor: string): Promise<{ success: boolean }> {
+  return sql.begin(async (tx) => {
+    const rows = await tx`DELETE FROM shows WHERE id = ${id} RETURNING source_key`;
+    if (rows.length === 0) return { success: false };
+    await tx`
+      INSERT INTO rejected_show_sources (source_key, actor)
+      VALUES (${rows[0].source_key}, ${actor})
+      ON CONFLICT (source_key) DO NOTHING
+    `;
+    return { success: true };
+  });
 }
 
 /**

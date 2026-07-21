@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await deleteShow(body.id);
+    const result = await deleteShow(body.id, "admin");
     if (!result.success) {
       return NextResponse.json({ success: false, error: "Show not found" }, { status: 404 });
     }
