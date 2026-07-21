@@ -43,6 +43,13 @@ function Field({
   );
 }
 
+// A plausible US street address for a venue: a house number (optionally with a
+// unit letter like "123A"), then a street name. This is what the Census
+// geocoder needs to resolve for "Detect from address", and it rejects obvious
+// free-text ("downtown", "the old warehouse") without being strict about the
+// street name itself, so out-of-town addresses still pass.
+const STREET_ADDRESS_RE = /^\d+[A-Za-z]?\s+\S/;
+
 type Mode = "add" | "correct";
 
 export default function VenueSubmitForm({
@@ -162,6 +169,12 @@ export default function VenueSubmitForm({
   function validate(): Record<string, string> {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = "Required";
+    // Only validate an address that's actually entered — the field is optional,
+    // and a "private" venue stores no address at all.
+    if (!addressPrivate && address.trim() && !STREET_ADDRESS_RE.test(address.trim())) {
+      e.address =
+        "Enter a street address, e.g. 701 1st Ave N (house number + street).";
+    }
     if (capacity.trim() && !/^\d+$/.test(capacity.trim())) {
       e.capacity = "Enter a whole number";
     }
@@ -324,6 +337,7 @@ export default function VenueSubmitForm({
         <Field
           label="Address"
           htmlFor="address"
+          error={errors.address}
           hint={
             addressPrivate
               ? "The profile will show “DM venue for address” instead of a street address."
@@ -335,7 +349,16 @@ export default function VenueSubmitForm({
               id="address"
               type="text"
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={(e) => {
+                setAddress(e.target.value);
+                if (errors.address) {
+                  setErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.address;
+                    return next;
+                  });
+                }
+              }}
               placeholder="e.g. 701 1st Ave N"
               className={inputClass}
             />
