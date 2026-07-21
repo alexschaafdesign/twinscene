@@ -9,8 +9,10 @@ export const dynamic = "force-dynamic";
 // gate as the rest of that admin-only page.
 export async function POST(request: NextRequest) {
   const body = await request.json();
+  // Fail closed: a missing/empty SCRAPE_SECRET must reject, not wave everyone
+  // through.
   const secret = process.env.SCRAPE_SECRET;
-  if (secret && body.secret !== secret) {
+  if (!secret || body.secret !== secret) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 

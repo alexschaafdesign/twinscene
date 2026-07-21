@@ -10,8 +10,10 @@ export const dynamic = "force-dynamic";
 // since both callers already know SCRAPE_SECRET.
 export async function POST(request: NextRequest) {
   const body = await request.json();
+  // Fail closed: reject when SCRAPE_SECRET is missing/empty rather than
+  // accepting writes from anyone.
   const secret = process.env.SCRAPE_SECRET;
-  if (secret && body.secret !== secret) {
+  if (!secret || body.secret !== secret) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 

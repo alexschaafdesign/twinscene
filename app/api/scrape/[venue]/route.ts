@@ -10,8 +10,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ venue: string }> },
 ) {
+  // Fail closed: reject when SCRAPE_SECRET is missing/empty rather than
+  // running the scraper for anyone.
   const secret = process.env.SCRAPE_SECRET;
-  if (secret && request.nextUrl.searchParams.get("secret") !== secret) {
+  if (!secret || request.nextUrl.searchParams.get("secret") !== secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

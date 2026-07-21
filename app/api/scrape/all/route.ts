@@ -6,8 +6,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  // Fail closed: reject when SCRAPE_SECRET is missing/empty rather than
+  // running the scrapers for anyone.
   const secret = process.env.SCRAPE_SECRET;
-  if (secret && request.nextUrl.searchParams.get("secret") !== secret) {
+  if (!secret || request.nextUrl.searchParams.get("secret") !== secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

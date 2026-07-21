@@ -8,8 +8,10 @@ export const dynamic = "force-dynamic";
 // and "Keep this one" (merge) actions.
 export async function POST(request: NextRequest) {
   const body = await request.json();
+  // Fail closed: a missing/empty SCRAPE_SECRET must reject, not wave everyone
+  // through — this is a destructive endpoint.
   const secret = process.env.SCRAPE_SECRET;
-  if (secret && body.secret !== secret) {
+  if (!secret || body.secret !== secret) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
   if (!body.id) {
