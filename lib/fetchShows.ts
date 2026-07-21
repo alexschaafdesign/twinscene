@@ -22,6 +22,8 @@ export type Show = {
   notes: string;
   musicTime: string; // show start time, "7:00pm" ("" when unknown) — shows.music_time (0039)
   doorsTime: string; // doors time, "7:00pm" ("" when unknown) — shows.doors_time (0039)
+  genres: string[]; // genre suggestions (Dakota/Crawl Space) — shows.genres (0040)
+  ageRestriction: string; // "21+" / "All Ages" ("" when unknown) — shows.age_restriction (0040)
   link: string;
   flyerUrl: string; // scraped poster image URL ("" when none)
   source: string; // "manual" | "pilllar" | …
@@ -45,6 +47,8 @@ type ShowsQueryRow = {
   notes: string | null;
   music_time: string | null; // "HH24:MI" from to_char, or null
   doors_time: string | null;
+  genres: string[] | null;
+  age_restriction: string | null;
   ticket_url: string | null;
   flyer_url: string | null;
   event_type: string | null;
@@ -85,6 +89,8 @@ function mapRow(row: ShowsQueryRow): Show {
     notes: row.notes ?? "",
     musicTime: formatShowTime(row.music_time) ?? "",
     doorsTime: formatShowTime(row.doors_time) ?? "",
+    genres: row.genres ?? [],
+    ageRestriction: row.age_restriction ?? "",
     link: row.ticket_url ?? "",
     flyerUrl: row.flyer_url ?? "",
     source: row.source,
@@ -110,6 +116,7 @@ export async function fetchShowById(id: string): Promise<Show | null> {
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        genres, age_restriction,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
@@ -129,6 +136,7 @@ export async function fetchShows(): Promise<Show[]> {
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        genres, age_restriction,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
@@ -178,6 +186,7 @@ export async function fetchPastShows(days: number): Promise<Show[]> {
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        genres, age_restriction,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
@@ -205,6 +214,7 @@ export async function fetchAllPastShows(): Promise<Show[]> {
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        genres, age_restriction,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
@@ -241,6 +251,7 @@ export async function fetchShowsForReview(days: number): Promise<Show[]> {
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        genres, age_restriction,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
@@ -274,6 +285,7 @@ export async function fetchAllShows(): Promise<Show[]> {
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        genres, age_restriction,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows
@@ -300,6 +312,7 @@ export async function fetchFlaggedShows(): Promise<Show[]> {
       SELECT
         id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
+        genres, age_restriction,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
         needs_review, confidence, review_reasons
       FROM shows

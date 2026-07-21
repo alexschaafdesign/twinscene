@@ -37,6 +37,8 @@ function editHref(show: {
   link: string;
   musicTime: string;
   doorsTime: string;
+  genres: string[];
+  ageRestriction: string;
   bandSlugs: string[];
 }): string {
   const params = new URLSearchParams({
@@ -49,6 +51,8 @@ function editHref(show: {
     link: show.link,
     musicTime: show.musicTime,
     doorsTime: show.doorsTime,
+    genres: show.genres.join(", "),
+    ageRestriction: show.ageRestriction,
     bandSlugs: show.bandSlugs.join(","),
   });
   return `/shows/submit?${params.toString()}`;
@@ -137,6 +141,23 @@ export default async function ShowDetailPage({
           </p>
           {showTimeLabel(show) && (
             <p className="mt-1 text-sm text-[#E8E0D0]/60">{showTimeLabel(show)}</p>
+          )}
+          {(show.genres.length > 0 || show.ageRestriction) && (
+            <p className="mt-2 flex flex-wrap items-center gap-1.5">
+              {show.genres.map((g) => (
+                <span
+                  key={g}
+                  className="rounded bg-[#E8E0D0]/10 px-2 py-0.5 text-xs text-[#E8E0D0]/80"
+                >
+                  {g}
+                </span>
+              ))}
+              {show.ageRestriction && (
+                <span className="rounded bg-[#E8B84B]/15 px-2 py-0.5 text-xs text-[#E8B84B]">
+                  {show.ageRestriction}
+                </span>
+              )}
+            </p>
           )}
 
           {notes.map((note) => (

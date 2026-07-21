@@ -13,6 +13,7 @@ import {
   runAllPressStars,
   type PressStarResult,
 } from "@/lib/scrapers/starPress";
+import { reconcileCrawlSpace, type ReconcileReport } from "@/lib/scrapers/reconcile";
 
 export type ScraperDigest = {
   id: string;
@@ -45,6 +46,9 @@ export type DigestSummary = {
   // runAllScrapers, so it's absent from a single-venue "Run now". Not folded
   // into the emailed digest above; visible via this JSON response.
   pressStars?: PressStarResult[];
+  // Crawl Space's complete-list reconcile: genre/age suggestions applied to
+  // shows we have + a count of ones we're missing. Also runAllScrapers-only.
+  reconcile?: ReconcileReport;
 };
 
 // Cap how many imports are in flight at once and retry a few times on
@@ -108,6 +112,15 @@ export async function runAllScrapers(
     summary.pressStars = await runAllPressStars(baseUrl);
   } catch (err) {
     console.error("runAllPressStars failed", err);
+  }
+
+  // Apply Crawl Space's genre/age suggestions to shows we have, and record what
+  // it lists that we're missing. After the venue imports above so tonight's
+  // freshly-scraped shows are already present to match against.
+  try {
+    summary.reconcile = await reconcileCrawlSpace(baseUrl);
+  } catch (err) {
+    console.error("reconcileCrawlSpace failed", err);
   }
 
   return summary;

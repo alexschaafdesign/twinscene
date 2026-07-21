@@ -82,6 +82,8 @@ export async function autoImportShow(
         eventType: show.tag ?? "",
         musicTime: show.musicTime,
         doorsTime: show.doorsTime,
+        genres: show.genres ?? [],
+        ageRestriction: show.ageRestriction ?? null,
         confidence,
         reviewReasons,
       }),

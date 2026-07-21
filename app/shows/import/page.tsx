@@ -148,6 +148,8 @@ export default async function ImportShowsPage() {
         notes: composeNotes(show),
         musicTime: show.musicTime,
         doorsTime: show.doorsTime,
+        genres: show.genres ?? [],
+        ageRestriction: show.ageRestriction ?? null,
         link: show.ticketUrl ?? "",
         flyerUrl: show.flyerUrl,
         suggested,

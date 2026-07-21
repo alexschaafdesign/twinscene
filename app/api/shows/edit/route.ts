@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 // stays open (no login check), everything else now requires login.
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { id, venue, date, title, lineup, notes, link, musicTime, doorsTime, secret } = body;
+  const { id, venue, date, title, lineup, notes, link, musicTime, doorsTime, genres, ageRestriction, secret } = body;
   if (!id || !date || !venue || !title) {
     return NextResponse.json(
       { success: false, error: "Missing id, date, venue, or title" },
@@ -44,6 +44,10 @@ export async function POST(request: NextRequest) {
         // them, so leave them undefined there to preserve the existing times.
         musicTime: typeof musicTime === "string" ? musicTime : undefined,
         doorsTime: typeof doorsTime === "string" ? doorsTime : undefined,
+        // Genres arrive as one comma-separated string; normalizeGenres (in
+        // editShow) splits it. undefined => admin-review path, leave as-is.
+        genres: typeof genres === "string" ? [genres] : undefined,
+        ageRestriction: typeof ageRestriction === "string" ? ageRestriction : undefined,
       },
       isAdmin ? "admin" : "public_submission",
       isAdmin ? undefined : { name: user!.name ?? user!.email, email: user!.email },

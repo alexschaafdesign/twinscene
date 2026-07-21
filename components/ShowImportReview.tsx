@@ -21,6 +21,8 @@ export type ImportShow = {
   notes: string;
   musicTime: string | null; // scraper display time ("7:00pm"), stored structured (0039)
   doorsTime: string | null;
+  genres: string[]; // genre suggestions from the source (0040)
+  ageRestriction: string | null;
   link: string;
   flyerUrl: string | null;
   suggested: SuggestedMatch[];
@@ -321,6 +323,8 @@ function ShowCard({
           eventType: show.tag ?? "",
           musicTime: show.musicTime,
           doorsTime: show.doorsTime,
+          genres: show.genres,
+          ageRestriction: show.ageRestriction,
         }),
       });
       const data = await res.json();

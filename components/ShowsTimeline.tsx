@@ -31,6 +31,8 @@ function editHref(show: Show): string {
     link: show.link,
     musicTime: show.musicTime,
     doorsTime: show.doorsTime,
+    genres: show.genres.join(", "),
+    ageRestriction: show.ageRestriction,
     bandSlugs: show.bandSlugs.join(","),
   });
   return `/shows/submit?${params.toString()}`;
@@ -198,6 +200,23 @@ export default function ShowsTimeline({
                       {showTimeLabel(show) && (
                         <p className="mt-0.5 text-sm text-[#E8E0D0]/60">
                           {showTimeLabel(show)}
+                        </p>
+                      )}
+                      {(show.genres.length > 0 || show.ageRestriction) && (
+                        <p className="mt-1 flex flex-wrap items-center gap-1">
+                          {show.genres.map((g) => (
+                            <span
+                              key={g}
+                              className="rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 text-[11px] text-[#E8E0D0]/75"
+                            >
+                              {g}
+                            </span>
+                          ))}
+                          {show.ageRestriction && (
+                            <span className="rounded bg-[#E8B84B]/15 px-1.5 py-0.5 text-[11px] text-[#E8B84B]">
+                              {show.ageRestriction}
+                            </span>
+                          )}
                         </p>
                       )}
                       {show.lineup && show.lineup !== show.title && (

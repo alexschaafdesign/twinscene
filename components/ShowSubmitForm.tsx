@@ -250,6 +250,8 @@ export type ShowInitial = {
   link: string;
   musicTime: string; // 24-hour "HH:MM" for <input type="time">, "" when unset
   doorsTime: string;
+  genres: string; // comma-separated for the text input, "" when none
+  ageRestriction: string; // "21+" / "All Ages", "" when unknown
   bands: BandOption[];
 };
 
@@ -275,6 +277,8 @@ export default function ShowSubmitForm({
   // Structured show/doors times (edit mode only). "HH:MM" 24-hour or "".
   const [musicTime, setMusicTime] = useState(initial?.musicTime ?? "");
   const [doorsTime, setDoorsTime] = useState(initial?.doorsTime ?? "");
+  const [genres, setGenres] = useState(initial?.genres ?? "");
+  const [ageRestriction, setAgeRestriction] = useState(initial?.ageRestriction ?? "");
 
   const [flyerFile, setFlyerFile] = useState<File | null>(null);
   const [flyerPreview, setFlyerPreview] = useState<string | null>(null);
@@ -443,6 +447,8 @@ export default function ShowSubmitForm({
           link: link.trim(),
           musicTime,
           doorsTime,
+          genres: genres.trim(),
+          ageRestriction: ageRestriction.trim(),
           linkedBands: selectedBands.map((b) => ({ name: b.name, slug: b.slug })),
         };
         const res = await fetch("/api/shows/edit", {
@@ -617,6 +623,34 @@ export default function ShowSubmitForm({
                   value={doorsTime}
                   onChange={(e) => setDoorsTime(e.target.value)}
                   className={`${inputClass} [color-scheme:dark]`}
+                />
+              </Field>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Genre(s)"
+                htmlFor="genres"
+                hint="Comma-separated. Suggested from listings; edit freely."
+              >
+                <input
+                  id="genres"
+                  type="text"
+                  value={genres}
+                  onChange={(e) => setGenres(e.target.value)}
+                  placeholder="e.g. Indie Rock, Post-Punk"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Age restriction" htmlFor="ageRestriction" hint="e.g. 21+, All Ages.">
+                <input
+                  id="ageRestriction"
+                  type="text"
+                  value={ageRestriction}
+                  onChange={(e) => setAgeRestriction(e.target.value)}
+                  placeholder="e.g. 21+"
+                  className={inputClass}
                 />
               </Field>
             </div>

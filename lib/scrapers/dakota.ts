@@ -72,6 +72,8 @@ const STATUS_PREFIXES: RegExp[] = [/^an (?:intimate )?evening with\s+/i];
 
 type CustomField = { label?: string; value?: string };
 
+type DakotaCategory = { name?: string; slug?: string };
+
 type DakotaEvent = {
   title: string;
   url: string;
@@ -80,6 +82,9 @@ type DakotaEvent = {
   start_date_details?: { year: string; month: string; day: string; hour: string; minutes: string };
   image?: { url?: string } | false;
   custom_fields?: Record<string, CustomField>;
+  // The Events Calendar event categories. At the Dakota these are all music
+  // genres (Jazz, R&B, Americana, …), so they double as the show's genre tags.
+  categories?: DakotaCategory[];
 };
 
 type EventsJson = {
@@ -213,6 +218,15 @@ function parseEvent(event: DakotaEvent): ScrapedShow | null {
   const { date, time: musicTime } = dateAndTime(event);
   const flyerUrl = event.image && event.image.url ? event.image.url : null;
 
+  // Categories are the venue's own genre tags — carry them as suggestions
+  // (decoded like titles; normalizeGenres tidies/dedupes downstream). A
+  // non-concert fixture (private event, dining) gets none.
+  const genres = tag
+    ? []
+    : (event.categories ?? [])
+        .map((c) => (c.name ? decodeEntities(c.name).trim() : ""))
+        .filter(Boolean);
+
   return {
     venue: offsite.venue ?? VENUE,
     date,
@@ -220,6 +234,7 @@ function parseEvent(event: DakotaEvent): ScrapedShow | null {
     supporting,
     allBands,
     flyerUrl,
+    genres,
     // The etix Buy Tickets button lives on the event page, not in the API, so
     // the event page is both the source and the ticketing link.
     ticketUrl: event.url || null,

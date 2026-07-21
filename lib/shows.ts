@@ -18,6 +18,7 @@ import { sql } from "@/lib/db";
 import { todayInChicago } from "@/lib/fetchShows";
 import { notifyBandOnNewShow, notifyShowChanged } from "@/lib/notifications";
 import { parseDisplayTime, sqlTimeOrNull } from "@/lib/showTime";
+import { normalizeGenres, normalizeAge } from "@/lib/showGenres";
 
 type TransactionSql = postgres.TransactionSql;
 
@@ -143,6 +144,10 @@ export type ScrapedShowInput = {
   // time. Unparseable strings drop to null rather than erroring the import.
   musicTime?: string | null;
   doorsTime?: string | null;
+  // Genre suggestions + age restriction (0040). Best-effort from the source;
+  // omitted/empty when it doesn't provide them.
+  genres?: string[];
+  ageRestriction?: string | null;
   confidence: string; // reviewFlags.ts ReviewConfidence: "ok" | "flag" | "broken"
   reviewReasons: string[];
 };
@@ -186,6 +191,8 @@ export async function upsertScrapedShow(
     const needsReview = input.confidence !== "ok";
     const musicTime = parseDisplayTime(input.musicTime);
     const doorsTime = parseDisplayTime(input.doorsTime);
+    const genres = normalizeGenres(input.genres);
+    const ageRestriction = normalizeAge(input.ageRestriction);
 
     // Once a human has reviewed a row (reviewed_at set, Phase 3's "looks good"),
     // a re-scrape must not resurrect flags they already cleared — leave
@@ -193,11 +200,12 @@ export async function upsertScrapedShow(
     const rows = await tx`
       INSERT INTO shows (
         source, source_key, venue_name, title, date, ticket_url, lineup, notes, flyer_url, event_type,
-        music_time, doors_time, needs_review, confidence, review_reasons
+        music_time, doors_time, genres, age_restriction, needs_review, confidence, review_reasons
       ) VALUES (
         ${input.source}, ${input.sourceKey}, ${input.venue}, ${input.title}, ${input.date},
         ${input.link || null}, ${tx.json(lineup)}, ${input.notes || null}, ${input.flyerUrl || null},
         ${input.eventType || null}, ${musicTime}, ${doorsTime},
+        ${tx.json(genres)}, ${ageRestriction},
         ${needsReview}, ${input.confidence}, ${tx.json(input.reviewReasons)}
       )
       ON CONFLICT (source_key) DO UPDATE SET
@@ -212,6 +220,11 @@ export async function upsertScrapedShow(
         event_type = EXCLUDED.event_type,
         music_time = EXCLUDED.music_time,
         doors_time = EXCLUDED.doors_time,
+        -- Only overwrite genre/age when this scrape actually carries them, so a
+        -- venue re-scrape (most give neither) can't wipe a Crawl Space
+        -- suggestion applied out-of-band via reconcile.ts.
+        genres = CASE WHEN jsonb_array_length(EXCLUDED.genres) > 0 THEN EXCLUDED.genres ELSE shows.genres END,
+        age_restriction = COALESCE(EXCLUDED.age_restriction, shows.age_restriction),
         needs_review = CASE WHEN shows.reviewed_at IS NULL THEN EXCLUDED.needs_review ELSE shows.needs_review END,
         confidence = CASE WHEN shows.reviewed_at IS NULL THEN EXCLUDED.confidence ELSE shows.confidence END,
         review_reasons = CASE WHEN shows.reviewed_at IS NULL THEN EXCLUDED.review_reasons ELSE shows.review_reasons END,
@@ -298,6 +311,10 @@ export type EditShowInput = {
   // whatever the row already had rather than being nulled out.
   musicTime?: string | null;
   doorsTime?: string | null;
+  // Genre suggestions + age restriction (0040). Undefined => not part of this
+  // edit (leave the column as-is); a value (incl. [] / "") sets/clears it.
+  genres?: string[];
+  ageRestriction?: string | null;
 };
 
 /**
@@ -330,6 +347,10 @@ export async function editShow(
       input.musicTime === undefined ? tx`music_time` : sqlTimeOrNull(input.musicTime);
     const doorsTime =
       input.doorsTime === undefined ? tx`doors_time` : sqlTimeOrNull(input.doorsTime);
+    const genres =
+      input.genres === undefined ? tx`genres` : tx.json(normalizeGenres(input.genres));
+    const ageRestriction =
+      input.ageRestriction === undefined ? tx`age_restriction` : normalizeAge(input.ageRestriction);
 
     const rows = await tx`
       UPDATE shows SET
@@ -341,6 +362,8 @@ export async function editShow(
         notes = ${input.notes || null},
         music_time = ${musicTime},
         doors_time = ${doorsTime},
+        genres = ${genres},
+        age_restriction = ${ageRestriction},
         edited_at = now(),
         needs_review = false,
         confidence = 'ok',
@@ -447,6 +470,49 @@ export async function linkBandToShow(
       await notifyBandOnNewShow(tx, id, [bandSlug]);
     }
     return { success: true };
+  });
+}
+
+/**
+ * Fill in genre/age *suggestions* on an existing show from an out-of-band
+ * reference source (Crawl Space's daily list; see lib/scrapers/reconcile.ts).
+ * Fill-only: sets genres only when the row has none, age only when it's null —
+ * never stomps a venue's own categorization or an admin's edit. Light-touch
+ * like linkBandToShow/starShow: no edited_at lock, so venue re-scrapes still
+ * refresh the row. Returns whether anything actually changed.
+ */
+export async function annotateShow(
+  id: string,
+  suggestion: { genres?: string[]; ageRestriction?: string | null },
+  actor: string,
+): Promise<{ success: boolean; changed: boolean }> {
+  const genres = normalizeGenres(suggestion.genres);
+  const age = normalizeAge(suggestion.ageRestriction);
+  if (genres.length === 0 && !age) return { success: true, changed: false };
+
+  return sql.begin(async (tx) => {
+    const rows = await tx<{ genres: unknown; age_restriction: string | null }[]>`
+      SELECT genres, age_restriction FROM shows WHERE id = ${id} FOR UPDATE
+    `;
+    if (rows.length === 0) return { success: false, changed: false };
+
+    const current: string[] = Array.isArray(rows[0].genres) ? (rows[0].genres as string[]) : [];
+    const setGenres = current.length === 0 && genres.length > 0;
+    const setAge = !rows[0].age_restriction && !!age;
+    if (!setGenres && !setAge) return { success: true, changed: false };
+
+    await tx`
+      UPDATE shows SET
+        genres = ${setGenres ? tx.json(genres) : tx`genres`},
+        age_restriction = ${setAge ? age : tx`age_restriction`},
+        updated_at = now()
+      WHERE id = ${id}
+    `;
+    await logHistory(tx, id, "annotated", actor, {
+      ...(setGenres ? { genres } : {}),
+      ...(setAge ? { age_restriction: age } : {}),
+    });
+    return { success: true, changed: true };
   });
 }
 

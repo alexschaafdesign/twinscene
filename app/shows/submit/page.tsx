@@ -63,6 +63,8 @@ export default async function ShowSubmitPage({
       // 24-hour "HH:MM", so convert here. Unset/unparseable -> "" (empty input).
       musicTime: parseDisplayTime(one(sp.musicTime)) ?? "",
       doorsTime: parseDisplayTime(one(sp.doorsTime)) ?? "",
+      genres: one(sp.genres),
+      ageRestriction: one(sp.ageRestriction),
       bands: initialBands,
     };
   }

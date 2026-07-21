@@ -25,6 +25,13 @@ export type ScrapedShow = {
   // hookandladder.ts); null/absent means an ordinary music show. Flows through
   // to the import review UI and the shows table's event_type column.
   tag?: string | null;
+  // Genre suggestions for the show. Set by sources that categorize events —
+  // The Dakota's API categories, Crawl Space's per-show <em> tags. Absent/empty
+  // for venues that don't. Best-effort, admin-overridable (shows.genres, 0040).
+  genres?: string[];
+  // Age restriction as the source phrases it: "21+", "18+", "All Ages".
+  // null/absent when the source doesn't say (shows.age_restriction, 0040).
+  ageRestriction?: string | null;
   // Set only by press-digest sources (e.g. crawlspace.ts, racket.ts): which
   // outlet picked this show, their blurb (if any), and a link to the post it
   // came from. Optional so venue scrapers are unaffected.
