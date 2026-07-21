@@ -48,8 +48,12 @@ import {
 } from "@/lib/bandProfileLayout";
 import { parseYoutubeId } from "@/lib/youtube";
 
-/** Prefilled "correct this band" submit URL — shown in the profile header. */
-export function editHref(band: Band, videos: VideoRow[] = []): string {
+/** Prefilled "correct this band" submit URL — shown in the profile header.
+ * Videos aren't round-tripped here: app/submit/page.tsx fetches every video
+ * row on the band itself (getAllVideosForBand) once it resolves `band` below,
+ * so the edit form always sees the current, complete list rather than
+ * whatever a stale or size-limited query string happened to carry. */
+export function editHref(band: Band): string {
   const params = new URLSearchParams({
     correct: "true",
     band: band.slug,
@@ -69,18 +73,6 @@ export function editHref(band: Band, videos: VideoRow[] = []): string {
     // Round-trip only url + label; the image is re-resolved server-side.
     featuredLinks: JSON.stringify(
       band.featuredLinks.map((l) => ({ url: l.url, label: l.label })),
-    ),
-    // Collapse the status enum to a simple scraper/manual split — that's all
-    // the edit form needs to label provenance ('review' never reaches here;
-    // getAllVideosForBand includes it, but only 'auto'/'created'/'manual' are
-    // meaningfully distinct to a submitter).
-    videos: JSON.stringify(
-      videos.map((v) => ({
-        id: v.id,
-        url: v.video_url,
-        title: v.video_title,
-        source: v.status === "manual" ? "manual" : "scraper",
-      })),
     ),
   });
   return `/submit?${params.toString()}`;

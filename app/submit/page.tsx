@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import SubmitForm from "@/components/SubmitForm";
 import { fetchBands } from "@/lib/fetchBands";
 import { getBandBySlug } from "@/lib/bands";
+import { getAllVideosForBand } from "@/lib/videos";
 import { getCurrentUser, canEditBand } from "@/lib/auth";
 import { NEIGHBORHOOD_OPTIONS } from "@/lib/neighborhoods";
 
@@ -38,6 +39,12 @@ export default async function SubmitPage({
     redirect(`/login?next=${encodeURIComponent(`/submit${qs ? `?${qs}` : ""}`)}`);
   }
 
+  // Every existing video row on the band (any status — including one still
+  // pending review), fetched fresh here rather than round-tripped through
+  // the "Edit this band" link's query string: a link baked at profile-render
+  // time can go stale, and a long video list risks the URL itself. This is
+  // the authoritative source the form seeds from.
+  let existingVideos: { id: number; video_url: string; video_title: string; status: string }[] = [];
   if (isCorrect) {
     const targetBand = band ? await getBandBySlug(band) : null;
     if (!targetBand || !(await canEditBand(user, targetBand.id))) {
@@ -49,6 +56,7 @@ export default async function SubmitPage({
         </main>
       );
     }
+    existingVideos = await getAllVideosForBand(targetBand.id);
   }
 
   // Unique, alphabetically sorted genres across all existing bands, used to
@@ -93,7 +101,7 @@ export default async function SubmitPage({
         initialBio={param("bio")}
         initialImage={param("image")}
         initialFeaturedLinks={param("featuredLinks")}
-        initialVideos={param("videos")}
+        initialExistingVideos={existingVideos}
         genreOptions={genreOptions}
         neighborhoodOptions={neighborhoodOptions}
         memberOptions={memberOptions}

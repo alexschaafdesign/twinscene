@@ -105,32 +105,26 @@ type VideoInput = { url: string; label: string };
 
 const emptyVideo = (): VideoInput => ({ url: "", label: "" });
 
-// A video already on the band (scraper-matched or previously hand-entered),
-// seeded from the correction round-trip. Only exists in "correct" mode.
-// `source` distinguishes the UnderCurrentMPLS backfill from a hand-entered
-// submission — see the `status` → `source` collapse in editHref (BandProfile.tsx).
+// A video already on the band (scraper-matched or previously hand-entered).
+// Only populated in "correct" mode. `source` distinguishes the
+// UnderCurrentMPLS backfill from a hand-entered submission.
 type ExistingVideo = { id: number; url: string; title: string; source: "manual" | "scraper" };
 
-/** Parse the correction round-trip JSON (see editHref in BandProfile.tsx). */
-function parseInitialVideos(raw: string): ExistingVideo[] {
-  try {
-    const parsed = JSON.parse(raw || "[]");
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(
-        (v): v is { id: unknown; url: unknown; title: unknown; source: unknown } =>
-          !!v && typeof v === "object",
-      )
-      .map((v) => ({
-        id: typeof v.id === "number" ? v.id : NaN,
-        url: typeof v.url === "string" ? v.url : "",
-        title: typeof v.title === "string" ? v.title : "",
-        source: (v.source === "manual" ? "manual" : "scraper") as "manual" | "scraper",
-      }))
-      .filter((v) => Number.isInteger(v.id) && v.url);
-  } catch {
-    return [];
-  }
+/** Every video row on the band, fetched server-side in "correct" mode
+ * (app/submit/page.tsx via lib/videos.ts getAllVideosForBand) — every
+ * status, not just the ones currently visible on the live profile, so a
+ * submitter can see (and remove, if they choose) a scraper match still
+ * pending review. Collapses the status enum to a simple scraper/manual
+ * split, which is all the form needs to label provenance. */
+function toExistingVideos(
+  rows: { id: number; video_url: string; video_title: string; status: string }[],
+): ExistingVideo[] {
+  return rows.map((v) => ({
+    id: v.id,
+    url: v.video_url,
+    title: v.video_title,
+    source: v.status === "manual" ? "manual" : "scraper",
+  }));
 }
 
 // Featured "linktree" links — a fixed set of highlight slots (url + label).
@@ -603,7 +597,7 @@ export default function SubmitForm({
   initialBio = "",
   initialImage = "",
   initialFeaturedLinks = "",
-  initialVideos = "",
+  initialExistingVideos = [],
   genreOptions = [],
   neighborhoodOptions = [],
   memberOptions = [],
@@ -625,7 +619,9 @@ export default function SubmitForm({
   initialBio?: string;
   initialImage?: string;
   initialFeaturedLinks?: string;
-  initialVideos?: string;
+  /** Every existing video row on the band (any status), fetched server-side
+   * by app/submit/page.tsx — see toExistingVideos above. */
+  initialExistingVideos?: { id: number; video_url: string; video_title: string; status: string }[];
   genreOptions?: string[];
   neighborhoodOptions?: string[];
   memberOptions?: string[];
@@ -664,7 +660,7 @@ export default function SubmitForm({
   // Videos already on the band (correction mode), each removable, plus a
   // dynamic add-list of new YouTube URLs — mirrors the shows list below.
   const [existingVideos, setExistingVideos] = useState<ExistingVideo[]>(() =>
-    parseInitialVideos(initialVideos),
+    toExistingVideos(initialExistingVideos),
   );
   const [removedVideoIds, setRemovedVideoIds] = useState<number[]>([]);
   const [videos, setVideos] = useState<VideoInput[]>([emptyVideo()]);

@@ -106,7 +106,7 @@ export default async function BandProfilePage({ params }: Props) {
 
       {canEdit && (
         <Link
-          href={editHref(band, videos)}
+          href={editHref(band)}
           className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
         >
           {/* ti-edit (Tabler) */}
