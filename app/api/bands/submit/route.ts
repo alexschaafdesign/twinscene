@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { upsertBand, getBandBySlug, type BandSubmissionInput } from "@/lib/bands";
-import { addVideo, removeVideos } from "@/lib/videos";
+import { addVideo, setVideosHidden } from "@/lib/videos";
 import { uploadBandPhoto, generateThumbnail, uploadBandThumbnail } from "@/lib/r2";
 import { buildLineupEntries, insertManualShow } from "@/lib/shows";
 import { getCurrentUser, canEditBand } from "@/lib/auth";
@@ -84,7 +84,10 @@ export async function POST(request: NextRequest) {
     [],
   );
   const newVideos = parseJson<{ url: string; label: string }[]>(form.get("newVideos"), []);
-  const removeVideoIds = parseJson<number[]>(form.get("removeVideoIds"), []);
+  const videoHiddenChanges = parseJson<{ id: number; hidden: boolean }[]>(
+    form.get("videoHiddenChanges"),
+    [],
+  );
   const shows = parseJson<{ date: string; venue: string; notes: string; link: string }[]>(
     form.get("shows"),
     [],
@@ -136,9 +139,10 @@ export async function POST(request: NextRequest) {
 
     const { band, action } = await upsertBand(input, mode, existingSlug, actorUserId);
 
-    if (removeVideoIds.length > 0) {
-      await removeVideos(band.id, removeVideoIds.filter((id) => Number.isInteger(id)));
-    }
+    const toHide = videoHiddenChanges.filter((c) => c.hidden && Number.isInteger(c.id)).map((c) => c.id);
+    const toUnhide = videoHiddenChanges.filter((c) => !c.hidden && Number.isInteger(c.id)).map((c) => c.id);
+    if (toHide.length > 0) await setVideosHidden(band.id, toHide, true);
+    if (toUnhide.length > 0) await setVideosHidden(band.id, toUnhide, false);
     for (const v of newVideos) {
       if (typeof v.url === "string" && v.url.trim()) {
         await addVideo(band.id, v.url, typeof v.label === "string" ? v.label : "");

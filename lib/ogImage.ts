@@ -5,7 +5,7 @@
 // Returns "" on any failure (many sites block bots or need JS to render the
 // meta tags) — a blank image must never fail the surrounding band submission.
 
-import { decodeHtmlEntities } from "./bandcamp";
+import { decodeHtmlEntities } from "./bandcamp.ts";
 
 const OG_IMAGE_PATTERNS = [
   /<meta[^>]+property=["']og:image(?::secure_url|:url)?["'][^>]+content=["']([^"']+)["']/i,

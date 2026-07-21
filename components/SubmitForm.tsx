@@ -107,23 +107,32 @@ const emptyVideo = (): VideoInput => ({ url: "", label: "" });
 
 // A video already on the band (scraper-matched or previously hand-entered).
 // Only populated in "correct" mode. `source` distinguishes the
-// UnderCurrentMPLS backfill from a hand-entered submission.
-type ExistingVideo = { id: number; url: string; title: string; source: "manual" | "scraper" };
+// UnderCurrentMPLS backfill from a hand-entered submission; `hidden` is the
+// video's current on/off state (lib/videos.ts, migration 0044) — toggling it
+// off a profile is reversible, unlike the old hard-delete.
+type ExistingVideo = {
+  id: number;
+  url: string;
+  title: string;
+  source: "manual" | "scraper";
+  hidden: boolean;
+};
 
 /** Every video row on the band, fetched server-side in "correct" mode
  * (app/submit/page.tsx via lib/videos.ts getAllVideosForBand) — every
  * status, not just the ones currently visible on the live profile, so a
- * submitter can see (and remove, if they choose) a scraper match still
+ * submitter can see (and hide, if they choose) a scraper match still
  * pending review. Collapses the status enum to a simple scraper/manual
  * split, which is all the form needs to label provenance. */
 function toExistingVideos(
-  rows: { id: number; video_url: string; video_title: string; status: string }[],
+  rows: { id: number; video_url: string; video_title: string; status: string; hidden: boolean }[],
 ): ExistingVideo[] {
   return rows.map((v) => ({
     id: v.id,
     url: v.video_url,
     title: v.video_title,
     source: v.status === "manual" ? "manual" : "scraper",
+    hidden: v.hidden,
   }));
 }
 
@@ -621,7 +630,13 @@ export default function SubmitForm({
   initialFeaturedLinks?: string;
   /** Every existing video row on the band (any status), fetched server-side
    * by app/submit/page.tsx — see toExistingVideos above. */
-  initialExistingVideos?: { id: number; video_url: string; video_title: string; status: string }[];
+  initialExistingVideos?: {
+    id: number;
+    video_url: string;
+    video_title: string;
+    status: string;
+    hidden: boolean;
+  }[];
   genreOptions?: string[];
   neighborhoodOptions?: string[];
   memberOptions?: string[];
@@ -657,12 +672,15 @@ export default function SubmitForm({
   const [featuredLinks, setFeaturedLinks] = useState<LinkInput[]>(() =>
     initialFeaturedLinkSlots(initialFeaturedLinks),
   );
-  // Videos already on the band (correction mode), each removable, plus a
-  // dynamic add-list of new YouTube URLs — mirrors the shows list below.
-  const [existingVideos, setExistingVideos] = useState<ExistingVideo[]>(() =>
+  // Videos already on the band (correction mode), each hideable/unhideable,
+  // plus a dynamic add-list of new YouTube URLs — mirrors the shows list
+  // below. `videoHiddenOverrides` tracks only the ones the submitter has
+  // toggled this session (id -> new hidden state); everything else keeps
+  // whatever hidden state it loaded with.
+  const [existingVideos] = useState<ExistingVideo[]>(() =>
     toExistingVideos(initialExistingVideos),
   );
-  const [removedVideoIds, setRemovedVideoIds] = useState<number[]>([]);
+  const [videoHiddenOverrides, setVideoHiddenOverrides] = useState<Record<number, boolean>>({});
   const [videos, setVideos] = useState<VideoInput[]>([emptyVideo()]);
   const [status, setStatus] = useState<
     "idle" | "submitting" | "success" | "error"
@@ -832,9 +850,11 @@ export default function SubmitForm({
     });
   }
 
-  function removeExistingVideo(id: number) {
-    setExistingVideos((prev) => prev.filter((v) => v.id !== id));
-    setRemovedVideoIds((prev) => [...prev, id]);
+  /** Toggle an existing video's hidden state — reversible, unlike the old
+   * hard-delete. `currentHidden` is the effective state shown in the UI
+   * (initial value overridden by any earlier toggle this session). */
+  function toggleVideoHidden(id: number, currentHidden: boolean) {
+    setVideoHiddenOverrides((prev) => ({ ...prev, [id]: !currentHidden }));
   }
 
   // Duplicate detection (add mode only): flag when the typed name matches a band
@@ -958,12 +978,18 @@ export default function SubmitForm({
       payload.set("featuredLinks", JSON.stringify(filledLinks));
 
       // New videos — keep only rows with a URL. Existing videos the user
-      // removed are sent separately by id.
+      // hid/unhid this session are sent separately by id.
       const filledVideos = videos
         .filter((v) => v.url.trim())
         .map((v) => ({ url: v.url.trim(), label: v.label.trim() }));
       payload.set("newVideos", JSON.stringify(filledVideos));
-      payload.set("removeVideoIds", JSON.stringify(removedVideoIds));
+      payload.set(
+        "videoHiddenChanges",
+        JSON.stringify(Object.entries(videoHiddenOverrides).map(([id, hidden]) => ({
+          id: Number(id),
+          hidden,
+        }))),
+      );
 
       const res = await fetch("/api/bands/submit", { method: "POST", body: payload });
       const data = await res.json();
@@ -1436,33 +1462,47 @@ export default function SubmitForm({
 
             <SubGroup
               label="Videos"
-              description="YouTube videos of the band — a live set, a music video, whatever. Paste a link per row."
+              description="YouTube videos of the band — a live set, a music video, whatever. Paste a link per row. Hiding an existing video takes it off your profile without deleting it, so you can bring it back later."
             >
               {existingVideos.length > 0 && (
                 <div className="space-y-2">
-                  {existingVideos.map((video) => (
-                    <div
-                      key={video.id}
-                      className="flex items-center justify-between gap-3 rounded-md bg-ink/5 px-3.5 py-2.5"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="truncate text-sm text-ink">{video.title}</p>
-                          <span className="shrink-0 rounded-full border border-ink/15 bg-ink/5 px-1.5 py-0.5 text-[10px] font-medium text-ink/45">
-                            {video.source === "manual" ? "Added by the band" : "Found by UnderCurrentMPLS"}
-                          </span>
-                        </div>
-                        <p className="truncate text-xs text-ink/50">{video.url}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeExistingVideo(video.id)}
-                        className="shrink-0 rounded-md border border-ink/20 px-2.5 py-1 text-xs text-ink/70 transition hover:border-danger/50 hover:text-danger"
+                  {existingVideos.map((video) => {
+                    const hidden = videoHiddenOverrides[video.id] ?? video.hidden;
+                    return (
+                      <div
+                        key={video.id}
+                        className={`flex items-center justify-between gap-3 rounded-md bg-ink/5 px-3.5 py-2.5 ${
+                          hidden ? "opacity-50" : ""
+                        }`}
                       >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm text-ink">{video.title}</p>
+                            <span className="shrink-0 rounded-full border border-ink/15 bg-ink/5 px-1.5 py-0.5 text-[10px] font-medium text-ink/45">
+                              {video.source === "manual" ? "Added by the band" : "Found by UnderCurrentMPLS"}
+                            </span>
+                            {hidden && (
+                              <span className="shrink-0 rounded-full border border-ink/15 bg-ink/5 px-1.5 py-0.5 text-[10px] font-medium text-ink/45">
+                                Hidden
+                              </span>
+                            )}
+                          </div>
+                          <p className="truncate text-xs text-ink/50">{video.url}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => toggleVideoHidden(video.id, hidden)}
+                          className={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition ${
+                            hidden
+                              ? "border-ink/20 text-ink/70 hover:border-accent/50 hover:text-ink"
+                              : "border-ink/20 text-ink/70 hover:border-danger/50 hover:text-danger"
+                          }`}
+                        >
+                          {hidden ? "Unhide" : "Hide"}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 

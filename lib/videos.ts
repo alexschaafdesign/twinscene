@@ -16,6 +16,10 @@ export interface VideoRow {
   match_score: number | null;
   status: "auto" | "review" | "created" | "manual";
   created_at: string;
+  /** Set/cleared via setVideosHidden — a reversible alternative to deleting
+   * the row, so a band can pull a scraper-matched video off their profile
+   * without losing it for good (migration 0044). */
+  hidden: boolean;
 }
 
 // 'review' rows are unconfirmed scraper matches (medium-confidence title
@@ -28,7 +32,7 @@ export async function getVisibleVideosBySlug(slug: string): Promise<VideoRow[]> 
     select v.*
     from videos v
     join bands b on b.id = v.band_id
-    where b.slug = ${slug} and v.status in ${sql(VISIBLE_STATUSES)}
+    where b.slug = ${slug} and v.status in ${sql(VISIBLE_STATUSES)} and not v.hidden
     order by v.published_date desc nulls last, v.created_at desc
   `;
 }
@@ -40,7 +44,7 @@ export async function getSlugsWithVideos(): Promise<string[]> {
     select distinct b.slug
     from videos v
     join bands b on b.id = v.band_id
-    where v.status in ${sql(VISIBLE_STATUSES)}
+    where v.status in ${sql(VISIBLE_STATUSES)} and not v.hidden
   `;
   return rows.map((r) => r.slug);
 }
@@ -87,11 +91,14 @@ export async function addVideo(bandId: number, url: string, label: string): Prom
   `;
 }
 
-/** Remove videos from a band, scoped to that band's own rows so a correction
- * can't delete another band's video by guessing an id. */
-export async function removeVideos(bandId: number, ids: number[]): Promise<void> {
+/** Hide or unhide videos on a band, scoped to that band's own rows so a
+ * correction can't touch another band's video by guessing an id. Hiding
+ * (rather than deleting) keeps a scraper-matched video recoverable — the
+ * band can toggle it back on, and a re-run of the UnderCurrentMPLS backfill
+ * still finds its video_url already present. */
+export async function setVideosHidden(bandId: number, ids: number[], hidden: boolean): Promise<void> {
   if (ids.length === 0) return;
   await sql`
-    delete from videos where band_id = ${bandId} and id in ${sql(ids)}
+    update videos set hidden = ${hidden} where band_id = ${bandId} and id in ${sql(ids)}
   `;
 }

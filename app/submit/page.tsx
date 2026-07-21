@@ -44,7 +44,13 @@ export default async function SubmitPage({
   // the "Edit this band" link's query string: a link baked at profile-render
   // time can go stale, and a long video list risks the URL itself. This is
   // the authoritative source the form seeds from.
-  let existingVideos: { id: number; video_url: string; video_title: string; status: string }[] = [];
+  let existingVideos: {
+    id: number;
+    video_url: string;
+    video_title: string;
+    status: string;
+    hidden: boolean;
+  }[] = [];
   if (isCorrect) {
     const targetBand = band ? await getBandBySlug(band) : null;
     if (!targetBand || !(await canEditBand(user, targetBand.id))) {
