@@ -24,6 +24,7 @@ import type { ShowStatus } from "@/lib/showSaves";
 import type { BandMusician } from "@/lib/musicians";
 import type { PendingBandMemberClaim } from "@/lib/bandMemberClaims";
 import { pressNotes } from "@/lib/press";
+import { showHeading, showSubtitle } from "@/lib/showDisplay";
 import BandcampPlayer from "@/components/BandcampPlayer";
 import {
   IconLink,
@@ -412,13 +413,16 @@ function UpcomingShows({
                 </a>
               )}
             </div>
-            {show.title && (
+            {showHeading(show) && (
               <p className="mt-0.5 text-sm font-medium text-[#E8E0D0]/90">
-                {show.title}
+                {showHeading(show)}
                 {show.starredBy.length > 0 && (
                   <span className="ml-1.5 text-amber-400">★</span>
                 )}
               </p>
+            )}
+            {showSubtitle(show) && (
+              <p className="mt-0.5 text-xs text-[#E8E0D0]/60">{showSubtitle(show)}</p>
             )}
             {show.venue && (
               <p className="mt-0.5 text-sm text-[#E8E0D0]/75">

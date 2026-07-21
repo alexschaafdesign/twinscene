@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { AttendedShow } from "@/lib/showSaves";
 import { formatShowDate } from "@/components/band-shared";
+import { showHeading } from "@/lib/showDisplay";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 
 // "Shows you've been to" list on /profile — shows marked 'went', most recent
@@ -29,7 +30,7 @@ export default function AttendedShowsList({ initialShows }: { initialShows: Atte
           >
             <div className="min-w-0">
               <span className="font-medium text-[#E8E0D0]">{formatShowDate(s.date)}</span>
-              <span className="text-[#E8E0D0]/50"> — {s.title}</span>
+              <span className="text-[#E8E0D0]/50"> — {showHeading({ lineup: s.lineup, title: s.title, venue: s.venue_name })}</span>
               {s.venue_name && <span className="text-[#E8E0D0]/50"> ({s.venue_name})</span>}
             </div>
             <ShowStatusButtons

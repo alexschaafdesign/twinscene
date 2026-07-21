@@ -59,6 +59,7 @@ export interface UpcomingShowStatus {
   date: string;
   venue_name: string;
   title: string;
+  lineup: string; // comma-joined lineup names — the bands-forward heading (see lib/showDisplay.ts)
 }
 
 // Shows the user marked interested/going that haven't happened yet, soonest
@@ -71,7 +72,12 @@ export async function listUpcomingForUser(userId: number): Promise<UpcomingShowS
       show_saves.status,
       to_char(shows.date, 'YYYY-MM-DD') as date,
       shows.venue_name,
-      shows.title
+      shows.title,
+      coalesce(
+        (select string_agg(e->>'name', ', ')
+           from jsonb_array_elements(coalesce(shows.lineup, '[]'::jsonb)) as e),
+        ''
+      ) as lineup
     from show_saves
     join shows on shows.id = show_saves.show_id
     where show_saves.user_id = ${userId}
@@ -86,6 +92,7 @@ export interface AttendedShow {
   date: string;
   venue_name: string;
   title: string;
+  lineup: string; // comma-joined lineup names — the bands-forward heading (see lib/showDisplay.ts)
 }
 
 // Shows marked 'went', most recent first, for the "Shows you've been to"
@@ -97,7 +104,12 @@ export async function listAttended(userId: number): Promise<AttendedShow[]> {
       shows.id as show_id,
       to_char(shows.date, 'YYYY-MM-DD') as date,
       shows.venue_name,
-      shows.title
+      shows.title,
+      coalesce(
+        (select string_agg(e->>'name', ', ')
+           from jsonb_array_elements(coalesce(shows.lineup, '[]'::jsonb)) as e),
+        ''
+      ) as lineup
     from show_saves
     join shows on shows.id = show_saves.show_id
     where show_saves.user_id = ${userId} and show_saves.status = 'went'

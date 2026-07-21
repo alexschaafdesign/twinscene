@@ -643,150 +643,7 @@ export default function ShowSubmitForm({
           </Field>
         </div>
 
-        <Field
-          label="Event title"
-          htmlFor="title"
-          error={errors.title}
-          hint="Optional — a name for the night, shown as a subtitle (e.g. “New Band Night”). Leave blank to just list the bands playing."
-        >
-          <input
-            id="title"
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. New Band Night"
-            className={inputClass}
-          />
-        </Field>
-
-        {isEdit && (
-          <>
-            <Field
-              label="Lineup"
-              htmlFor="lineup"
-              hint="Everyone playing, comma-separated — this is the show's marquee. Link the ones in our directory below; acts that aren't (e.g. touring/scraped bands) can just be typed here and stay as text."
-            >
-              <input
-                id="lineup"
-                type="text"
-                value={lineup}
-                onChange={(e) => setLineup(e.target.value)}
-                placeholder="e.g. shugE, Average Joey, Ditch Pigeon"
-                className={inputClass}
-              />
-            </Field>
-
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field
-                label="Show time"
-                htmlFor="musicTime"
-                hint="When the music starts. Leave blank if unknown."
-              >
-                <input
-                  id="musicTime"
-                  type="time"
-                  value={musicTime}
-                  onChange={(e) => setMusicTime(e.target.value)}
-                  className={`${inputClass} [color-scheme:dark]`}
-                />
-              </Field>
-
-              <Field label="Doors" htmlFor="doorsTime" hint="Optional.">
-                <input
-                  id="doorsTime"
-                  type="time"
-                  value={doorsTime}
-                  onChange={(e) => setDoorsTime(e.target.value)}
-                  className={`${inputClass} [color-scheme:dark]`}
-                />
-              </Field>
-            </div>
-
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field
-                label="Genre(s)"
-                htmlFor="genres"
-                hint="Comma-separated. Suggested from listings; edit freely."
-              >
-                <input
-                  id="genres"
-                  type="text"
-                  value={genres}
-                  onChange={(e) => setGenres(e.target.value)}
-                  placeholder="e.g. Indie Rock, Post-Punk"
-                  className={inputClass}
-                />
-              </Field>
-
-              <Field label="Age restriction" htmlFor="ageRestriction" hint="e.g. 21+, All Ages.">
-                <input
-                  id="ageRestriction"
-                  type="text"
-                  value={ageRestriction}
-                  onChange={(e) => setAgeRestriction(e.target.value)}
-                  placeholder="e.g. 21+"
-                  className={inputClass}
-                />
-              </Field>
-            </div>
-          </>
-        )}
-
-        <Field label="Notes" htmlFor="notes">
-          <input
-            id="notes"
-            type="text"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. with Special Guest, free entry, 21+"
-            className={inputClass}
-          />
-        </Field>
-
-        <Field label="Link" htmlFor="link" error={errors.link}>
-          <input
-            id="link"
-            type="url"
-            value={link}
-            onChange={(e) => setLink(e.target.value)}
-            placeholder="https:// — tickets, event page, etc."
-            className={inputClass}
-          />
-        </Field>
-
-        {!isEdit && (
-          <Field label="Flyer" htmlFor="flyer" error={errors.flyer} hint="Optional — JPG, PNG, WebP, or GIF.">
-            <div className="flex items-center gap-3">
-              {flyerPreview && (
-                // eslint-disable-next-line @next/next/no-img-element -- local preview
-                <img
-                  src={flyerPreview}
-                  alt=""
-                  className="h-16 w-16 shrink-0 rounded-md object-cover ring-1 ring-[#E8E0D0]/15"
-                />
-              )}
-              <input
-                id="flyer"
-                ref={flyerInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
-                onChange={handleFlyerChange}
-                className="block w-full text-sm text-[#E8E0D0]/70 file:mr-3 file:rounded-md file:border file:border-[#E8E0D0]/25 file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:text-[#E8E0D0] hover:file:border-[#E8E0D0]/50"
-              />
-            </div>
-            {flyerPreview && (
-              <button
-                type="button"
-                onClick={removeFlyer}
-                className="mt-2 text-xs text-[#E8E0D0]/50 underline underline-offset-2 hover:text-[#E8E0D0]"
-              >
-                Remove flyer
-              </button>
-            )}
-          </Field>
-        )}
-
-        {/* Band section */}
+        {/* Band section — who's playing is the show's marquee, so it leads. */}
         <div>
           <h2 className="text-sm font-medium text-[#E8E0D0]/85">
             Who&apos;s playing?
@@ -929,6 +786,151 @@ export default function ShowSubmitForm({
             </div>
           )}
         </div>
+
+        {isEdit && (
+          <Field
+            label="Lineup"
+            htmlFor="lineup"
+            hint="Everyone playing, comma-separated — this is the show's marquee. The bands you linked above are matched to the directory; acts that aren't (e.g. touring/scraped bands) can just be typed here and stay as text."
+          >
+            <input
+              id="lineup"
+              type="text"
+              value={lineup}
+              onChange={(e) => setLineup(e.target.value)}
+              placeholder="e.g. shugE, Average Joey, Ditch Pigeon"
+              className={inputClass}
+            />
+          </Field>
+        )}
+
+        <Field
+          label="Event title"
+          htmlFor="title"
+          error={errors.title}
+          hint="Optional — a name for the night, shown as a subtitle (e.g. “New Band Night”). Leave blank to just list the bands playing."
+        >
+          <input
+            id="title"
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. New Band Night"
+            className={inputClass}
+          />
+        </Field>
+
+        {isEdit && (
+          <>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Show time"
+                htmlFor="musicTime"
+                hint="When the music starts. Leave blank if unknown."
+              >
+                <input
+                  id="musicTime"
+                  type="time"
+                  value={musicTime}
+                  onChange={(e) => setMusicTime(e.target.value)}
+                  className={`${inputClass} [color-scheme:dark]`}
+                />
+              </Field>
+
+              <Field label="Doors" htmlFor="doorsTime" hint="Optional.">
+                <input
+                  id="doorsTime"
+                  type="time"
+                  value={doorsTime}
+                  onChange={(e) => setDoorsTime(e.target.value)}
+                  className={`${inputClass} [color-scheme:dark]`}
+                />
+              </Field>
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Genre(s)"
+                htmlFor="genres"
+                hint="Comma-separated. Suggested from listings; edit freely."
+              >
+                <input
+                  id="genres"
+                  type="text"
+                  value={genres}
+                  onChange={(e) => setGenres(e.target.value)}
+                  placeholder="e.g. Indie Rock, Post-Punk"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Age restriction" htmlFor="ageRestriction" hint="e.g. 21+, All Ages.">
+                <input
+                  id="ageRestriction"
+                  type="text"
+                  value={ageRestriction}
+                  onChange={(e) => setAgeRestriction(e.target.value)}
+                  placeholder="e.g. 21+"
+                  className={inputClass}
+                />
+              </Field>
+            </div>
+          </>
+        )}
+
+        <Field label="Notes" htmlFor="notes">
+          <input
+            id="notes"
+            type="text"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g. with Special Guest, free entry, 21+"
+            className={inputClass}
+          />
+        </Field>
+
+        <Field label="Link" htmlFor="link" error={errors.link}>
+          <input
+            id="link"
+            type="url"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder="https:// — tickets, event page, etc."
+            className={inputClass}
+          />
+        </Field>
+
+        {!isEdit && (
+          <Field label="Flyer" htmlFor="flyer" error={errors.flyer} hint="Optional — JPG, PNG, WebP, or GIF.">
+            <div className="flex items-center gap-3">
+              {flyerPreview && (
+                // eslint-disable-next-line @next/next/no-img-element -- local preview
+                <img
+                  src={flyerPreview}
+                  alt=""
+                  className="h-16 w-16 shrink-0 rounded-md object-cover ring-1 ring-[#E8E0D0]/15"
+                />
+              )}
+              <input
+                id="flyer"
+                ref={flyerInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handleFlyerChange}
+                className="block w-full text-sm text-[#E8E0D0]/70 file:mr-3 file:rounded-md file:border file:border-[#E8E0D0]/25 file:bg-transparent file:px-3 file:py-1.5 file:text-sm file:text-[#E8E0D0] hover:file:border-[#E8E0D0]/50"
+              />
+            </div>
+            {flyerPreview && (
+              <button
+                type="button"
+                onClick={removeFlyer}
+                className="mt-2 text-xs text-[#E8E0D0]/50 underline underline-offset-2 hover:text-[#E8E0D0]"
+              >
+                Remove flyer
+              </button>
+            )}
+          </Field>
+        )}
 
         {status === "error" && (
           <p className="rounded-md border border-[#E5A0A0]/40 bg-[#E5A0A0]/10 px-3.5 py-2.5 text-sm text-[#E5A0A0]">
