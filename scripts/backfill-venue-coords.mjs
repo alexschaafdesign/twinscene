@@ -26,11 +26,9 @@ try {
 const CENSUS_URL =
   "https://geocoding.geo.census.gov/geocoder/locations/onelineaddress";
 
-/** Mirror of lib/geocode.ts's geocodeAddress, inlined so this stays a plain
- * .mjs script with no TS-import step. Returns { lng, lat } or null. */
-async function geocodeAddress(address, city, state = "MN") {
-  const oneline = [address?.trim(), city?.trim(), state].filter(Boolean).join(", ");
-  if (!address?.trim()) return null;
+/** One Census onelineaddress lookup. Returns { lng, lat } or null. */
+async function geocodeOne(oneline) {
+  if (!oneline?.trim()) return null;
   const url =
     `${CENSUS_URL}?address=${encodeURIComponent(oneline)}` +
     `&benchmark=Public_AR_Current&format=json`;
@@ -49,6 +47,19 @@ async function geocodeAddress(address, city, state = "MN") {
   } catch {
     return null;
   }
+}
+
+/** Geocode a venue address. Some rows store a bare street ("204 N 1st St"),
+ * others a fully-formed one already carrying city/state/zip. Appending city +
+ * state to an already-complete address duplicates them and the Census matcher
+ * returns nothing — so try the address AS-IS first, then fall back to appending
+ * city/state for the bare-street rows. */
+async function geocodeAddress(address, city, state = "MN") {
+  if (!address?.trim()) return null;
+  return (
+    (await geocodeOne(address.trim())) ??
+    (await geocodeOne([address.trim(), city?.trim(), state].filter(Boolean).join(", ")))
+  );
 }
 
 const sql = postgres(process.env.DATABASE_URL, { prepare: false });

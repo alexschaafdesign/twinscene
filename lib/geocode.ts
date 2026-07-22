@@ -15,18 +15,12 @@ type CensusResponse = {
   };
 };
 
-/** Best-effort geocode. Returns null on no match, a bad response, or a network
- * error — the caller treats "no coordinates" and "no neighborhood" the same. */
-export async function geocodeAddress(
-  address: string,
-  city?: string,
-  state = "MN",
+/** One Census onelineaddress lookup. Returns null on no match, a bad response,
+ * or a network error. */
+async function geocodeOne(
+  oneline: string,
 ): Promise<{ lng: number; lat: number } | null> {
-  const oneline = [address.trim(), city?.trim(), state]
-    .filter(Boolean)
-    .join(", ");
-  if (!address.trim()) return null;
-
+  if (!oneline.trim()) return null;
   const url =
     `${CENSUS_URL}?address=${encodeURIComponent(oneline)}` +
     `&benchmark=Public_AR_Current&format=json`;
@@ -48,4 +42,26 @@ export async function geocodeAddress(
   } catch {
     return null;
   }
+}
+
+/** Best-effort geocode. Returns null on no match, a bad response, or a network
+ * error — the caller treats "no coordinates" and "no neighborhood" the same.
+ *
+ * Some stored addresses are a bare street ("204 N 1st St"), others already
+ * carry city/state/zip ("204 N 1st St, Minneapolis, MN 55401"). Appending
+ * city/state to an already-complete address duplicates them and the Census
+ * matcher returns nothing — so try the address AS-IS first, then fall back to
+ * appending city/state for the bare-street case. */
+export async function geocodeAddress(
+  address: string,
+  city?: string,
+  state = "MN",
+): Promise<{ lng: number; lat: number } | null> {
+  if (!address.trim()) return null;
+  return (
+    (await geocodeOne(address.trim())) ??
+    (await geocodeOne(
+      [address.trim(), city?.trim(), state].filter(Boolean).join(", "),
+    ))
+  );
 }
