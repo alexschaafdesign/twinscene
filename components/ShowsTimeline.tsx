@@ -13,8 +13,31 @@ import { showHeading, showSubtitle } from "@/lib/showDisplay";
 import { showTimeLabel } from "@/lib/showTime";
 import { formatMiles } from "@/lib/distance";
 import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
+import { matchVenue, type Venue } from "@/lib/venueUtils";
+import { autoInitials } from "@/lib/venueColor";
+import VenueAvatar from "@/components/VenueAvatar";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 import { iconProps } from "@/components/band-shared";
+
+/** Fixed thumbnail size (px) for a show card's artwork — matches the h-20/w-20
+ * flyer thumb, so the venue-avatar and initials fallbacks line up with it. */
+const THUMB_PX = 80;
+
+/** Fallback thumbnail for a flyer-less show whose venue isn't in the directory
+ * yet (no page to borrow an avatar from): a neutral tile with the venue's
+ * initials, so the card still has artwork without implying a venue profile. */
+function GenericVenueThumb({ venue }: { venue: string }) {
+  return (
+    <div
+      className="flex items-center justify-center rounded-md border border-[#E8E0D0]/15 bg-[rgba(232,224,208,0.06)]"
+      style={{ width: THUMB_PX, height: THUMB_PX }}
+    >
+      <span className="select-none font-mono text-2xl font-semibold text-[#E8E0D0]/55">
+        {autoInitials(venue)}
+      </span>
+    </div>
+  );
+}
 
 /** Prefix a bare URL with https:// so hrefs from the sheet always resolve. */
 function ensureUrl(value: string): string {
@@ -81,9 +104,14 @@ export default function ShowsTimeline({
   returnTo = "/shows",
   columns = 1,
   distances,
+  venues = [],
 }: {
   shows: Show[];
   press?: Press[];
+  /** Venue directory, used to give a flyer-less show a fallback thumbnail: the
+   * matching venue's avatar when it has a page, else a generic initials tile.
+   * Omit (default []) to skip venue-avatar fallbacks entirely. */
+  venues?: Venue[];
   emptyMessage?: string;
   /** "YYYY-MM-DD" in America/Chicago — a show dated before this is past. Plain
    * string comparison works since dates are already ISO-ordered. */
@@ -133,6 +161,12 @@ export default function ShowsTimeline({
               // source it came from.
               const imageSrc = show.flyerUrl || venueFallbackImage(show.venue);
               const isLogo = isVenueLogo(imageSrc);
+              // No flyer/logo: fall back to the venue's directory avatar when it
+              // has a page, so scraped flyer-less shows still carry the venue's
+              // artwork. Only matched when a name is present and a directory was
+              // passed in.
+              const fallbackVenue =
+                !imageSrc && show.venue ? matchVenue(venues, show.venue) : undefined;
               // A show with at least one band linked to the directory — same
               // signal as ShowsList's "Local bands" filter.
               const isSceneShow = show.bandSlugs.length > 0;
@@ -150,32 +184,52 @@ export default function ShowsTimeline({
               >
                 <div className="flex items-start justify-between gap-x-4 gap-y-2">
                   <div className="flex min-w-0 flex-1 items-start gap-3">
-                    {imageSrc && (() => {
-                      // Posters are cropped to fill; a venue logo is padded and
-                      // contained so it isn't cut off.
-                      const img = (
-                        // eslint-disable-next-line @next/next/no-img-element -- external flyer art / local venue logo
-                        <img
-                          src={imageSrc}
-                          alt=""
-                          loading="lazy"
-                          className={`h-20 w-20 rounded-md border border-[#E8E0D0]/15 ${
-                            isLogo
-                              ? "bg-[rgba(232,224,208,0.06)] object-contain p-1.5"
-                              : "object-cover"
-                          }`}
-                        />
-                      );
+                    {(imageSrc || show.venue) && (() => {
+                      // Priority: scraped flyer/venue-logo image → the venue's
+                      // directory avatar (venues with a page) → a generic
+                      // initials tile (venue not in the directory yet).
+                      let artwork;
+                      if (imageSrc) {
+                        // Posters are cropped to fill; a venue logo is padded and
+                        // contained so it isn't cut off.
+                        artwork = (
+                          // eslint-disable-next-line @next/next/no-img-element -- external flyer art / local venue logo
+                          <img
+                            src={imageSrc}
+                            alt=""
+                            loading="lazy"
+                            className={`h-20 w-20 rounded-md border border-[#E8E0D0]/15 ${
+                              isLogo
+                                ? "bg-[rgba(232,224,208,0.06)] object-contain p-1.5"
+                                : "object-cover"
+                            }`}
+                          />
+                        );
+                      } else if (fallbackVenue) {
+                        artwork = (
+                          <VenueAvatar
+                            slug={fallbackVenue.slug}
+                            initials={
+                              fallbackVenue.avatarInitials ||
+                              autoInitials(fallbackVenue.name)
+                            }
+                            size={THUMB_PX}
+                            className="rounded-md border border-[#E8E0D0]/15"
+                          />
+                        );
+                      } else {
+                        artwork = <GenericVenueThumb venue={show.venue} />;
+                      }
                       return show.id ? (
                         <Link
                           href={`/shows/${show.id}`}
                           className="shrink-0"
                           aria-label={showHeading(show)}
                         >
-                          {img}
+                          {artwork}
                         </Link>
                       ) : (
-                        <span className="shrink-0">{img}</span>
+                        <span className="shrink-0">{artwork}</span>
                       );
                     })()}
                     <div className="min-w-0">

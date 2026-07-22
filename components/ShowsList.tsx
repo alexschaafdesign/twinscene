@@ -582,6 +582,7 @@ export default function ShowsList({
         statuses={statuses}
         loggedIn={loggedIn}
         distances={distanceSortActive ? showDistances : undefined}
+        venues={venueDirectory}
         returnTo="/shows"
         emptyMessage={
           view === "recent"

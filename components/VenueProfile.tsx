@@ -116,7 +116,7 @@ export default function VenueProfile({
           today={today}
           statuses={showStatuses}
           loggedIn={loggedIn}
-          venueSlug={venue.slug}
+          venue={venue}
         />
       </div>
 

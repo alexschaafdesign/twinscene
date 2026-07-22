@@ -9,6 +9,7 @@ import { useState } from "react";
 import type { Show } from "@/lib/fetchShows";
 import type { Press } from "@/lib/fetchPress";
 import type { ShowStatus } from "@/lib/showSaves";
+import type { Venue } from "@/lib/venueUtils";
 import ShowsTimeline from "@/components/ShowsTimeline";
 
 export default function VenueShowsSection({
@@ -18,7 +19,7 @@ export default function VenueShowsSection({
   today,
   statuses,
   loggedIn,
-  venueSlug,
+  venue,
 }: {
   shows: Show[];
   pastShows: Show[];
@@ -26,7 +27,7 @@ export default function VenueShowsSection({
   today: string;
   statuses: Record<string, ShowStatus>;
   loggedIn: boolean;
-  venueSlug: string;
+  venue: Venue;
 }) {
   const [view, setView] = useState<"upcoming" | "past">("upcoming");
   const activeShows = view === "past" ? pastShows : shows;
@@ -71,7 +72,8 @@ export default function VenueShowsSection({
         today={today}
         statuses={statuses}
         loggedIn={loggedIn}
-        returnTo={`/venues/${venueSlug}`}
+        venues={[venue]}
+        returnTo={`/venues/${venue.slug}`}
         emptyMessage={
           view === "past"
             ? "No past shows on record at this venue."
