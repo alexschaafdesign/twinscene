@@ -17,6 +17,11 @@ export type Venue = {
   neighborhood: string; // single value, unlike Band.neighborhoods
   lat: number | null; // geocoded from address; null when private/unknown
   lng: number | null;
+  // Fallback location for venues with no exact coords but a known neighborhood:
+  // the neighborhood's centroid. Null when there's no neighborhood match. Used
+  // to place an APPROXIMATE map pin; never a substitute for real coords.
+  approxLat: number | null;
+  approxLng: number | null;
   capacity: number | null;
   contact: string;
   notes: string;

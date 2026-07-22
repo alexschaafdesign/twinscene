@@ -16,6 +16,12 @@ const LOCATION_TAGS = ["All", "Minneapolis", "St. Paul", "Other"];
 const COLLAPSED_TYPE_COUNT = 10;
 const COLLAPSED_NEIGHBORHOOD_COUNT = 10;
 
+/** Map placement predicates: a venue is exact when geocoded, approximate-only
+ * when it has no exact coords but a neighborhood centroid. */
+const isExact = (v: Venue) => v.lat != null && v.lng != null;
+const isApproxOnly = (v: Venue) =>
+  !isExact(v) && v.approxLat != null && v.approxLng != null;
+
 /** Does a venue's city match one of the top-level location buckets? */
 function matchesLocation(city: string, filter: string): boolean {
   if (filter === "All") return true;
@@ -221,12 +227,13 @@ export default function VenueGrid({
 
   const gridKey = `${query}|${location}|${selectedType}|${selectedNeighborhood}`;
 
-  // How many of the filtered venues can actually be placed on the map (we only
-  // have coords for venues with a public, geocodable address).
+  // Map placement counts: exact geocoded coords, or an approximate
+  // neighborhood centroid as a fallback (isExact/isApproxOnly are module-scope).
   const mappableCount = useMemo(
-    () => filtered.filter((v) => v.lat != null && v.lng != null).length,
+    () => filtered.filter((v) => isExact(v) || isApproxOnly(v)).length,
     [filtered],
   );
+  const approxCount = useMemo(() => filtered.filter(isApproxOnly).length, [filtered]);
 
   const activeFilterCount =
     (location !== "All" ? 1 : 0) +
@@ -480,12 +487,25 @@ export default function VenueGrid({
             <div className="h-[70vh] min-h-80 w-full">
               <VenueMap venues={filtered} />
             </div>
-            {mappableCount < filtered.length && (
-              <p className="border-t border-[#E8E0D0]/10 px-3 py-2 text-center text-xs text-[#E8E0D0]/45">
-                {filtered.length - mappableCount} venue
-                {filtered.length - mappableCount === 1 ? " isn't" : "s aren't"} on the
-                map yet — no public address to place them.
-              </p>
+            {(approxCount > 0 || mappableCount < filtered.length) && (
+              <div className="space-y-1 border-t border-[#E8E0D0]/10 px-3 py-2 text-center text-xs text-[#E8E0D0]/45">
+                {approxCount > 0 && (
+                  <p>
+                    <span className="mr-1 inline-block rounded-sm border border-dashed border-[#E8E0D0]/60 px-1 align-middle text-[#E8E0D0]/70">
+                      ≈
+                    </span>
+                    Dashed pins are approximate — placed at the venue&apos;s
+                    neighborhood center, not an exact address.
+                  </p>
+                )}
+                {mappableCount < filtered.length && (
+                  <p>
+                    {filtered.length - mappableCount} venue
+                    {filtered.length - mappableCount === 1 ? " isn't" : "s aren't"} on
+                    the map yet — no address or known neighborhood.
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )

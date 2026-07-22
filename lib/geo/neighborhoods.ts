@@ -71,3 +71,79 @@ export function findNeighborhood(
   }
   return null;
 }
+
+/** Area-weighted centroid of a single closed [lng,lat] ring (shoelace). Also
+ * returns |area| so multi-ring geometries can weight their pieces. Degenerate
+ * rings fall back to the average vertex. */
+function ringCentroid(ring: Ring): { lng: number; lat: number; area: number } {
+  let area = 0;
+  let cx = 0;
+  let cy = 0;
+  const n = ring.length;
+  for (let i = 0; i < n; i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[(i + 1) % n];
+    const cross = xi * yj - xj * yi;
+    area += cross;
+    cx += (xi + xj) * cross;
+    cy += (yi + yj) * cross;
+  }
+  area *= 0.5;
+  if (area === 0) {
+    let sx = 0;
+    let sy = 0;
+    for (const [x, y] of ring) {
+      sx += x;
+      sy += y;
+    }
+    return { lng: sx / (n || 1), lat: sy / (n || 1), area: 0 };
+  }
+  return { lng: cx / (6 * area), lat: cy / (6 * area), area: Math.abs(area) };
+}
+
+/** Centroid of a Polygon/MultiPolygon, weighting each polygon's outer ring by
+ * its area so the pin lands in the visual middle of the neighborhood. */
+function geometryCentroid(geom: Geometry): { lat: number; lng: number } {
+  const outerRings =
+    geom.type === "Polygon"
+      ? [geom.coordinates[0]]
+      : geom.coordinates.map((poly) => poly[0]);
+  let wLng = 0;
+  let wLat = 0;
+  let total = 0;
+  for (const ring of outerRings) {
+    const c = ringCentroid(ring);
+    const w = c.area || 1e-9; // keep degenerate rings from vanishing entirely
+    wLng += c.lng * w;
+    wLat += c.lat * w;
+    total += w;
+  }
+  return { lng: wLng / total, lat: wLat / total };
+}
+
+// Lazily-built lookup from a normalized neighborhood name to its centroid.
+// Keyed by BOTH the boundary source's official name and its canonicalized
+// (seed-vocabulary) form, so a venue's stored neighborhood matches whichever
+// spelling it uses.
+let centroidsByKey: Map<string, { lat: number; lng: number }> | null = null;
+function buildCentroids(): Map<string, { lat: number; lng: number }> {
+  const map = new Map<string, { lat: number; lng: number }>();
+  for (const n of NEIGHBORHOODS) {
+    const centroid = geometryCentroid(n.geometry);
+    for (const key of [canonicalKey(n.name), canonicalKey(canonicalizeName(n.name))]) {
+      if (!map.has(key)) map.set(key, centroid);
+    }
+  }
+  return map;
+}
+
+/** The centroid of a named neighborhood, for placing an APPROXIMATE pin when a
+ * venue has no street address but a known neighborhood. Null when the name
+ * doesn't match any bundled boundary. */
+export function neighborhoodCentroid(
+  name: string,
+): { lat: number; lng: number } | null {
+  if (!name) return null;
+  centroidsByKey ??= buildCentroids();
+  return centroidsByKey.get(canonicalKey(name)) ?? null;
+}

@@ -17,11 +17,18 @@
 
 import { getAllVenues, type Venue as VenueRow } from "./venues";
 import { type Venue, slugify, matchVenue } from "./venueUtils";
+import { neighborhoodCentroid } from "./geo/neighborhoods";
 
 export type { Venue };
 export { slugify, matchVenue };
 
 function toVenue(row: VenueRow): Venue {
+  // Approximate location only when there's no exact geocode but a neighborhood
+  // we have boundaries for — placed at that neighborhood's centroid.
+  const approx =
+    row.lat == null && row.neighborhood
+      ? neighborhoodCentroid(row.neighborhood)
+      : null;
   return {
     name: row.name,
     slug: row.slug,
@@ -32,6 +39,8 @@ function toVenue(row: VenueRow): Venue {
     neighborhood: row.neighborhood ?? "",
     lat: row.lat,
     lng: row.lng,
+    approxLat: approx?.lat ?? null,
+    approxLng: approx?.lng ?? null,
     capacity: row.capacity,
     contact: row.contact ?? "",
     notes: row.notes ?? "",

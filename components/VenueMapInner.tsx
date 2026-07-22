@@ -5,6 +5,11 @@
 // the server. Tiles are CARTO's "Dark Matter" basemap (keyless, like the
 // Census geocoder): roads/labels recede into a muted dark palette so the venue
 // pins carry the emphasis and it sits inside the app's dark theme.
+//
+// Two kinds of pin: EXACT (solid pill + downward beak at the geocoded point)
+// and APPROXIMATE (dashed pill, "≈" prefix, centered on the venue's
+// neighborhood centroid) for venues that publish no street address but a known
+// neighborhood.
 
 import { useEffect, useMemo } from "react";
 import L from "leaflet";
@@ -17,42 +22,45 @@ import { hueForSlug, autoInitials } from "@/lib/venueColor";
 // Twin Cities center — the fallback view when no venues have coordinates yet.
 const TWIN_CITIES: [number, number] = [44.965, -93.15];
 
-type MappableVenue = Venue & { lat: number; lng: number };
-// A venue plus the coordinates we actually draw it at (dLat/dLng), which differ
-// from lat/lng only when it was fanned out of an overlapping cluster below.
-type PlacedVenue = MappableVenue & { dLat: number; dLng: number };
+// A venue resolved to a drawable point, plus whether that point is exact (a
+// geocoded address) or approximate (its neighborhood's centroid).
+type MapPoint = { venue: Venue; lat: number; lng: number; approximate: boolean };
+// ...plus the coordinates we actually draw it at (dLat/dLng), which differ from
+// lat/lng only when it was fanned out of an overlapping cluster below.
+type PlacedPoint = MapPoint & { dLat: number; dLng: number };
 
-// Fan radius (~65m) for venues that share an address, e.g. First Avenue and
-// 7th St Entry occupy the same building and geocode to the identical point.
+// Fan radius (~65m) for points that share a coordinate — First Avenue and 7th
+// St Entry occupy the same building; several DIY venues can share a
+// neighborhood centroid — so both/all stay visible and clickable.
 const OVERLAP_RADIUS = 0.0006;
 
-/** Nudge venues that share a coordinate onto a small circle so every pin is
+/** Nudge points that share a coordinate onto a small circle so every pin is
  * visible and clickable instead of stacking invisibly on top of each other. */
-function spreadOverlaps(venues: MappableVenue[]): PlacedVenue[] {
-  const groups = new Map<string, MappableVenue[]>();
-  for (const v of venues) {
-    const key = `${v.lat.toFixed(5)},${v.lng.toFixed(5)}`;
+function spreadOverlaps(points: MapPoint[]): PlacedPoint[] {
+  const groups = new Map<string, MapPoint[]>();
+  for (const p of points) {
+    const key = `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`;
     const g = groups.get(key);
-    if (g) g.push(v);
-    else groups.set(key, [v]);
+    if (g) g.push(p);
+    else groups.set(key, [p]);
   }
 
-  const placed: PlacedVenue[] = [];
+  const placed: PlacedPoint[] = [];
   for (const group of groups.values()) {
     if (group.length === 1) {
-      const v = group[0];
-      placed.push({ ...v, dLat: v.lat, dLng: v.lng });
+      const p = group[0];
+      placed.push({ ...p, dLat: p.lat, dLng: p.lng });
       continue;
     }
     // Longitude degrees are shorter than latitude degrees this far north;
     // scale the horizontal offset so the fan reads as a circle, not an ellipse.
     const lngScale = 1 / Math.cos((group[0].lat * Math.PI) / 180);
-    group.forEach((v, i) => {
+    group.forEach((p, i) => {
       const angle = (2 * Math.PI * i) / group.length - Math.PI / 2;
       placed.push({
-        ...v,
-        dLat: v.lat + OVERLAP_RADIUS * Math.sin(angle),
-        dLng: v.lng + OVERLAP_RADIUS * Math.cos(angle) * lngScale,
+        ...p,
+        dLat: p.lat + OVERLAP_RADIUS * Math.sin(angle),
+        dLng: p.lng + OVERLAP_RADIUS * Math.cos(angle) * lngScale,
       });
     });
   }
@@ -77,35 +85,55 @@ const PILL_HEIGHT = 26; // px, the rounded label body
 const BEAK_HEIGHT = 7; // px, the little downward tail whose tip marks the spot
 
 /** A colored label pill with the venue's avatar title, mirroring VenueAvatar's
- * per-slug hue so the map reads as the same directory. The pill auto-sizes to
- * the label; a downward beak points at the exact location. Built as an
- * L.divIcon so there are no marker image assets to configure. */
-function pinIcon(venue: MappableVenue): L.DivIcon {
+ * per-slug hue so the map reads as the same directory. Exact pins get a solid
+ * fill and a downward beak at the point; approximate pins get a dashed border
+ * and an "≈" prefix, centered on the neighborhood. Built as an L.divIcon so
+ * there are no marker image assets to configure. */
+function pinIcon(point: MapPoint): L.DivIcon {
+  const { venue, approximate } = point;
   const hue = hueForSlug(venue.slug);
-  const bg = `hsl(${hue} 60% 50%)`;
   const label = escapeHtml(pinLabel(venue));
+  const display = approximate ? `≈&nbsp;${label}` : label;
   // Approximate the rendered width so Leaflet's marker box matches the pill
   // (keeps hit-testing and centering correct). Generous per-char estimate +
   // padding so real labels never clip; the ellipsis is only a safety net.
-  const width = Math.max(34, Math.round(label.length * 8) + 20);
-  const height = PILL_HEIGHT + BEAK_HEIGHT;
+  const charCount = approximate ? label.length + 2 : label.length;
+  const width = Math.max(34, Math.round(charCount * 8) + 20);
 
+  const inner = (borderStyle: string, weight: number) =>
+    `display:flex;align-items:center;justify-content:center;
+     width:100%;height:${PILL_HEIGHT}px;box-sizing:border-box;padding:0 9px;
+     border-radius:7px;border:2px ${borderStyle} #F5EFE2;
+     box-shadow:0 2px 8px rgba(0,0,0,0.5);
+     color:#fff;font:${weight} 12px/1 system-ui,sans-serif;
+     text-shadow:0 1px 1px rgba(0,0,0,0.35);`;
+
+  if (approximate) {
+    // Dashed, slightly translucent, centered on the neighborhood — no beak,
+    // since there's no exact spot to point at.
+    return L.divIcon({
+      className: "",
+      html: `<div style="${inner("dashed", 600)}background:hsl(${hue} 50% 45% / 0.82);">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${display}</span>
+      </div>`,
+      iconSize: [width, PILL_HEIGHT],
+      iconAnchor: [width / 2, PILL_HEIGHT / 2],
+      popupAnchor: [0, -(PILL_HEIGHT / 2) - 4],
+    });
+  }
+
+  const height = PILL_HEIGHT + BEAK_HEIGHT;
   return L.divIcon({
-    className: "", // drop Leaflet's default styling; we bring our own
+    className: "",
     html: `<div style="position:relative;width:100%;height:100%;">
-      <div style="
-        display:flex;align-items:center;justify-content:center;
-        width:100%;height:${PILL_HEIGHT}px;box-sizing:border-box;padding:0 9px;
-        border-radius:7px;background:${bg};border:2px solid #F5EFE2;
-        box-shadow:0 2px 8px rgba(0,0,0,0.55);
-        color:#fff;font:700 12px/1 system-ui,sans-serif;
-        text-shadow:0 1px 1px rgba(0,0,0,0.35);
-      "><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span></div>
+      <div style="${inner("solid", 700)}background:hsl(${hue} 60% 50%);">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${display}</span>
+      </div>
       <span style="
         position:absolute;left:50%;top:${PILL_HEIGHT}px;transform:translateX(-50%);
         width:0;height:0;
         border-left:6px solid transparent;border-right:6px solid transparent;
-        border-top:${BEAK_HEIGHT}px solid ${bg};
+        border-top:${BEAK_HEIGHT}px solid hsl(${hue} 60% 50%);
       "></span>
     </div>`,
     iconSize: [width, height],
@@ -125,17 +153,23 @@ function FitBounds({ points }: { points: [number, number][] }) {
 }
 
 export default function VenueMapInner({ venues }: { venues: Venue[] }) {
-  // Only venues we actually have coordinates for can be placed; then fan out
-  // any that share an address so none hide beneath another.
+  // Place each venue at its exact coords when we have them, otherwise at its
+  // neighborhood centroid (approximate); skip venues with neither. Then fan out
+  // any that share a coordinate so none hide beneath another.
   const placed = useMemo(() => {
-    const mappable = venues.filter(
-      (v): v is MappableVenue => v.lat != null && v.lng != null,
-    );
-    return spreadOverlaps(mappable);
+    const points: MapPoint[] = [];
+    for (const v of venues) {
+      if (v.lat != null && v.lng != null) {
+        points.push({ venue: v, lat: v.lat, lng: v.lng, approximate: false });
+      } else if (v.approxLat != null && v.approxLng != null) {
+        points.push({ venue: v, lat: v.approxLat, lng: v.approxLng, approximate: true });
+      }
+    }
+    return spreadOverlaps(points);
   }, [venues]);
 
   const points = useMemo<[number, number][]>(
-    () => placed.map((v) => [v.dLat, v.dLng]),
+    () => placed.map((p) => [p.dLat, p.dLng]),
     [placed],
   );
 
@@ -152,16 +186,32 @@ export default function VenueMapInner({ venues }: { venues: Venue[] }) {
         subdomains="abcd"
       />
       <FitBounds points={points} />
-      {placed.map((venue) => (
-        <Marker key={venue.slug} position={[venue.dLat, venue.dLng]} icon={pinIcon(venue)}>
+      {placed.map((point) => (
+        <Marker
+          key={point.venue.slug}
+          position={[point.dLat, point.dLng]}
+          icon={pinIcon(point)}
+        >
           <Popup>
-            <Link href={`/venues/${venue.slug}`} className="font-semibold text-[#2A2420]">
-              {venue.shortName || venue.name}
+            <Link
+              href={`/venues/${point.venue.slug}`}
+              className="font-semibold text-[#2A2420]"
+            >
+              {point.venue.shortName || point.venue.name}
             </Link>
-            {(venue.neighborhood || venue.city) && (
+            {point.approximate ? (
               <div className="mt-0.5 text-xs text-[#2A2420]/70">
-                {[venue.neighborhood, venue.city].filter(Boolean).join(", ")}
+                Approximate
+                {point.venue.neighborhood ? ` · ${point.venue.neighborhood}` : ""}
               </div>
+            ) : (
+              (point.venue.neighborhood || point.venue.city) && (
+                <div className="mt-0.5 text-xs text-[#2A2420]/70">
+                  {[point.venue.neighborhood, point.venue.city]
+                    .filter(Boolean)
+                    .join(", ")}
+                </div>
+              )
             )}
           </Popup>
         </Marker>
