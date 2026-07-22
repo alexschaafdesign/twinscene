@@ -144,7 +144,7 @@ export default function ShowsTimeline({
                   isPressRecommended
                     ? "border-amber-400/40 bg-amber-400/[0.06]"
                     : isSceneShow
-                      ? "border-yellow-400/30 bg-yellow-400/[0.04]"
+                      ? "border-violet-400/25 bg-violet-400/[0.05]"
                       : "border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)]"
                 }`}
               >
@@ -191,7 +191,7 @@ export default function ShowsTimeline({
                           <span className="ml-1.5 text-amber-400">★</span>
                         )}
                         {isSceneShow && (
-                          <span className="ml-2 rounded bg-yellow-400/15 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-yellow-400">
+                          <span className="ml-2 rounded bg-violet-400/15 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-violet-300">
                             Scene bands
                           </span>
                         )}
