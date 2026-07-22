@@ -36,7 +36,7 @@ export default async function AdminVenuesPage() {
   // a matching-width container so the two read as one page.
   return (
     <>
-      <div className="mx-auto w-full max-w-3xl px-5 pt-6 text-[#E8E0D0] sm:px-8 sm:pt-8">
+      <div className="mx-auto w-full max-w-6xl px-5 pt-6 text-[#E8E0D0] sm:px-8 sm:pt-8">
         <VenueAgeRulesPanel
           venues={venues.map((v) => v.name)}
           rules={ageRuleItems}
