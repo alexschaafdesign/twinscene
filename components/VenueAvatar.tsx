@@ -33,6 +33,7 @@ export default function VenueAvatar({
   slug,
   initials,
   size,
+  fill = false,
   className = "",
 }: {
   slug: string;
@@ -40,15 +41,21 @@ export default function VenueAvatar({
   /** Fixed pixel size, e.g. for the dev preview grid. Omit to fill the
    * parent (`w-full aspect-square`) for use in a responsive grid card. */
   size?: number;
+  /** Fill the parent in BOTH dimensions (`h-full w-full`, no forced square) —
+   * for a stretched, full-height column rather than a square tile. Overrides
+   * the default aspect-square sizing; ignored when `size` is set. */
+  fill?: boolean;
   /** Merged onto the tile's outer div — pass rounding/ring/etc. here, since
    * the base classes below are purely structural (sizing, layout). */
   className?: string;
 }) {
   const hue = hueForSlug(slug);
+  const sizing =
+    size != null ? "" : fill ? "h-full w-full" : "aspect-square w-full";
 
   return (
     <div
-      className={`relative overflow-hidden ${size == null ? "aspect-square w-full" : ""} ${className}`}
+      className={`relative overflow-hidden ${sizing} ${className}`}
       style={{
         ...(size != null ? { width: size, height: size } : {}),
         // Establishes this tile's own box as the query container, so the

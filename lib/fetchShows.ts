@@ -8,7 +8,7 @@
 
 import { sql } from "@/lib/db";
 import type { LineupEntry, StarredByEntry } from "@/lib/shows";
-import { formatShowTime, parseDisplayTime } from "@/lib/showTime";
+import { formatShowTime, parseDisplayTime, showStartTime } from "@/lib/showTime";
 
 export type Show = {
   id: string; // stable per-row id used to target edits
@@ -173,8 +173,10 @@ function byDateThenTime(a: Show, b: Show): number {
   if (byDate !== 0) return byDate;
   // parseDisplayTime turns "7:00pm" back into 24h "HH:MM", which sorts
   // lexically; "" (no time) maps to a sentinel so it lands after real times.
-  const at = parseDisplayTime(a.musicTime) ?? "99:99";
-  const bt = parseDisplayTime(b.musicTime) ?? "99:99";
+  // showStartTime falls back to the time embedded in notes, since the
+  // structured music_time/doors_time columns are almost always empty today.
+  const at = parseDisplayTime(showStartTime(a)) ?? "99:99";
+  const bt = parseDisplayTime(showStartTime(b)) ?? "99:99";
   return at.localeCompare(bt);
 }
 

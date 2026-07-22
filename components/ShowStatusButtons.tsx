@@ -9,6 +9,32 @@ const inactiveBtn = `${baseBtn} border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:bord
 const activeBtn = `${baseBtn} border-[#8FD693]/50 bg-[#8FD693]/10 text-[#8FD693]`;
 const shareBtn = `${baseBtn} border-[#8FD693]/50 bg-[#8FD693]/10 text-[#8FD693] hover:bg-[#8FD693]/20`;
 
+// The "Interested" toggle is a bare star icon (outline when off, filled green
+// when on) rather than a text pill — see StarButton below.
+const starBtn = "inline-flex items-center justify-center rounded-md p-1 transition disabled:opacity-50";
+const starInactive = `${starBtn} text-[#E8E0D0]/45 hover:bg-[#E8E0D0]/5 hover:text-[#E8E0D0]`;
+const starActive = `${starBtn} text-[#8FD693] hover:bg-[#8FD693]/10`;
+
+/** Star glyph — outline when not interested, filled when interested. Tabler
+ * ti-star path; fill toggles between none and currentColor. */
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width={22}
+      height={22}
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 17.75l-6.172 3.245l1.179 -6.873l-5 -4.867l6.9 -1l3.086 -6.253l3.086 6.253l6.9 1l-5 4.867l1.179 6.873z" />
+    </svg>
+  );
+}
+
 /**
  * Attendance controls for one show — "Interested"/"Going" toggles for an
  * upcoming show, or a single "I went to this" toggle for a past one. Clicking
@@ -94,14 +120,27 @@ export function ShowStatusButtons({
   }
 
   if (!loggedIn) {
+    // Past shows keep the text toggle; upcoming shows use the star icon.
+    if (isPast) {
+      return (
+        <Link
+          href={`/login?next=${encodeURIComponent(returnTo)}`}
+          aria-label="Log in to track this show"
+          title="Log in to track this show"
+          className={inactiveBtn}
+        >
+          I went to this
+        </Link>
+      );
+    }
     return (
       <Link
         href={`/login?next=${encodeURIComponent(returnTo)}`}
-        aria-label="Log in to track this show"
-        title="Log in to track this show"
-        className={inactiveBtn}
+        aria-label="Interested — log in to track this show"
+        title="Interested — log in to track this show"
+        className={starInactive}
       >
-        {isPast ? "I went to this" : "Interested"}
+        <StarIcon filled={false} />
       </Link>
     );
   }
@@ -153,9 +192,11 @@ export function ShowStatusButtons({
         onClick={() => toggle("interested")}
         disabled={pending}
         aria-pressed={status === "interested"}
-        className={status === "interested" ? activeBtn : inactiveBtn}
+        aria-label="Interested"
+        title={status === "interested" ? "Interested — tap to remove" : "Mark interested"}
+        className={status === "interested" ? starActive : starInactive}
       >
-        Interested
+        <StarIcon filled={status === "interested"} />
       </button>
       {showGoing && (
         <button

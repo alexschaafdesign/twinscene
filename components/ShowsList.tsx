@@ -116,6 +116,10 @@ export default function ShowsList({
   intro?: ReactNode;
 }) {
   const [view, setView] = useState<"upcoming" | "recent">("upcoming");
+  // Render density for the timeline: "compact" (default) is the venue-clustered
+  // agenda with flyer/venue avatars; "list" is an ultra-compact flat list (no
+  // artwork, one line per show); "cards" is roomy, detail-rich per-show cards.
+  const [density, setDensity] = useState<"cards" | "compact" | "list">("compact");
   const [query, setQuery] = useState("");
   const [venue, setVenue] = useState<string>("");
   const [venueType, setVenueType] = useState<string>("");
@@ -526,40 +530,37 @@ export default function ShowsList({
         )}
       </div>
 
-      {/* Upcoming/Recent tab — Recent only worth showing once there's
-          something in the last 30 days to look back at. Lets a past show
-          stay reachable (to mark "I went to this") after fetchShows() drops
-          it from the upcoming list. Positioned like BandGrid's Sort/View row. */}
+      {/* Upcoming/Recent tab — only once there's something in the last 30 days
+          to look back at (a past show stays reachable to mark "I went to this"
+          after fetchShows() drops it). Positioned like BandGrid's Sort/View row. */}
       {pastShows.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs text-[#E8E0D0]/45">Showing</span>
-            <div className="flex items-center gap-0.5 rounded-md border border-[#E8E0D0]/20 p-0.5">
-              <button
-                type="button"
-                onClick={() => setView("upcoming")}
-                aria-pressed={view === "upcoming"}
-                className={`rounded px-2.5 py-1 text-xs transition ${
-                  view === "upcoming"
-                    ? "bg-[#E8E0D0] text-[#2A2420]"
-                    : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
-                }`}
-              >
-                Upcoming ({shows.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setView("recent")}
-                aria-pressed={view === "recent"}
-                className={`rounded px-2.5 py-1 text-xs transition ${
-                  view === "recent"
-                    ? "bg-[#E8E0D0] text-[#2A2420]"
-                    : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
-                }`}
-              >
-                Recent ({pastShows.length})
-              </button>
-            </div>
+        <div className="mt-4 flex items-center gap-1.5">
+          <span className="text-xs text-[#E8E0D0]/45">Showing</span>
+          <div className="flex items-center gap-0.5 rounded-md border border-[#E8E0D0]/20 p-0.5">
+            <button
+              type="button"
+              onClick={() => setView("upcoming")}
+              aria-pressed={view === "upcoming"}
+              className={`rounded px-2.5 py-1 text-xs transition ${
+                view === "upcoming"
+                  ? "bg-[#E8E0D0] text-[#2A2420]"
+                  : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
+              }`}
+            >
+              Upcoming ({shows.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("recent")}
+              aria-pressed={view === "recent"}
+              className={`rounded px-2.5 py-1 text-xs transition ${
+                view === "recent"
+                  ? "bg-[#E8E0D0] text-[#2A2420]"
+                  : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
+              }`}
+            >
+              Recent ({pastShows.length})
+            </button>
           </div>
         </div>
       )}
@@ -570,13 +571,37 @@ export default function ShowsList({
         )}
       </div>
 
-      <p className="mb-4 mt-4 text-center text-xs text-[#E8E0D0]/55">
-        Showing {visible.length} of {baseShows.length} shows
-      </p>
+      {/* Density selector (left) + count (right), sitting right above the show list. */}
+      <div className="mb-4 mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-[#E8E0D0]/45">View</span>
+          <div className="flex items-center gap-0.5 rounded-md border border-[#E8E0D0]/20 p-0.5">
+            {(["cards", "compact", "list"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDensity(d)}
+                aria-pressed={density === d}
+                className={`rounded px-2.5 py-1 text-xs capitalize transition ${
+                  density === d
+                    ? "bg-[#E8E0D0] text-[#2A2420]"
+                    : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="text-xs text-[#E8E0D0]/55">
+          Showing {visible.length} of {baseShows.length} shows
+        </p>
+      </div>
 
       <ShowsTimeline
         shows={ordered}
         columns={2}
+        density={density}
         press={press}
         today={today}
         statuses={statuses}

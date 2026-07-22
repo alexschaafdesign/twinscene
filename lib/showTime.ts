@@ -56,3 +56,24 @@ export function showTimeLabel(show: { musicTime: string; doorsTime: string }): s
   if (show.musicTime) parts.push(`Show ${show.musicTime}`);
   return parts.join(" · ");
 }
+
+/** Pull a "Music 7:00pm" / "Doors 6:30pm" style time out of a show's free-text
+ * notes — the scrapers currently write times there rather than into the
+ * structured music_time/doors_time columns (which are almost always empty). */
+function timeFromNotes(notes: string, label: "Music" | "Doors"): string {
+  const m = new RegExp(`${label}\\s+(\\d{1,2}(?::\\d{2})?\\s*[ap]\\.?m)`, "i").exec(notes);
+  return m ? m[1].replace(/\s+/g, "") : "";
+}
+
+/** A show's best-guess start time for a compact list's time column: the
+ * structured music_time when set, else doors_time, else the "Music …"/"Doors …"
+ * time embedded in the notes. Returns "" when no time is discoverable. */
+export function showStartTime(show: {
+  musicTime: string;
+  doorsTime: string;
+  notes: string;
+}): string {
+  if (show.musicTime) return show.musicTime;
+  if (show.doorsTime) return show.doorsTime;
+  return timeFromNotes(show.notes, "Music") || timeFromNotes(show.notes, "Doors");
+}
