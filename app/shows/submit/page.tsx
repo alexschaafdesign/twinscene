@@ -80,6 +80,18 @@ export default async function ShowSubmitPage({
     };
   }
 
+  // Add mode can also be deep-linked with a band preselected (a band's edit
+  // form points here so a submitter can add a show we missed). Accepts one
+  // slug via ?band= or a comma list via ?bandSlugs=; unknown slugs are dropped.
+  const bySlug = new Map(bandOptions.map((b) => [b.slug, b]));
+  const prefillBands: BandOption[] = [one(sp.band), one(sp.bandSlugs)]
+    .join(",")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((slug) => bySlug.get(slug))
+    .filter((b): b is BandOption => b !== undefined);
+
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-6 sm:px-8 sm:py-8">
       <ShowSubmitForm
@@ -90,6 +102,7 @@ export default async function ShowSubmitPage({
         // Add mode can be deep-linked with a venue preselected (the admin
         // panel's "Manual scrape required" list does this).
         initialVenue={one(sp.venue)}
+        initialBands={prefillBands}
       />
     </main>
   );

@@ -86,21 +86,7 @@ type FormState = {
   notes: string;
 };
 
-type ShowInput = {
-  date: string;
-  venue: string;
-  notes: string;
-  link: string;
-};
-
-const emptyShow = (): ShowInput => ({
-  date: "",
-  venue: "",
-  notes: "",
-  link: "",
-});
-
-// New YouTube videos to attach — dynamic add/remove list, same shape as shows.
+// New YouTube videos to attach — dynamic add/remove list.
 type VideoInput = { url: string; label: string };
 
 const emptyVideo = (): VideoInput => ({ url: "", label: "" });
@@ -666,15 +652,13 @@ export default function SubmitForm({
   const [imageError, setImageError] = useState("");
   // Correction flow: whether the user asked to remove the band's current photo.
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
-  // Optional upcoming shows. Always at least one (possibly empty) row on screen.
-  const [shows, setShows] = useState<ShowInput[]>([emptyShow()]);
   // Featured "linktree" links — three fixed slots (url + label).
   const [featuredLinks, setFeaturedLinks] = useState<LinkInput[]>(() =>
     initialFeaturedLinkSlots(initialFeaturedLinks),
   );
   // Videos already on the band (correction mode), each hideable/unhideable
   // and reorderable via move up/down, plus a dynamic add-list of new YouTube
-  // URLs — mirrors the shows list below. `videoHiddenOverrides` tracks only
+  // URLs. `videoHiddenOverrides` tracks only
   // the ones the submitter has toggled this session (id -> new hidden
   // state); everything else keeps whatever hidden state it loaded with. The
   // array's own order IS the display order sent back on submit (see
@@ -811,24 +795,6 @@ export default function SubmitForm({
     setImageFile(null);
     // Reset the input's value so re-selecting the same file fires onChange.
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }
-
-  function updateShow(index: number, key: keyof ShowInput, value: string) {
-    setShows((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, [key]: value } : s)),
-    );
-  }
-
-  function addShow() {
-    setShows((prev) => [...prev, emptyShow()]);
-  }
-
-  function removeShow(index: number) {
-    // Removing the last remaining row just clears it back to one empty row.
-    setShows((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      return next.length ? next : [emptyShow()];
-    });
   }
 
   function updateFeaturedLink(index: number, key: keyof LinkInput, value: string) {
@@ -1001,19 +967,6 @@ export default function SubmitForm({
         payload.set("photo", imageFile);
       }
 
-      // Shows are optional. Only include rows with at least a date or venue.
-      const filledShows = shows
-        .filter((s) => s.date.trim() || s.venue.trim())
-        .map((s) => ({
-          date: s.date.trim(),
-          venue: s.venue.trim(),
-          notes: s.notes.trim(),
-          link: s.link.trim(),
-        }));
-      if (filledShows.length > 0) {
-        payload.set("shows", JSON.stringify(filledShows));
-      }
-
       // Featured links — keep only rows with a URL, in slot order. Always send
       // the key (even when empty) so clearing every link on a correction wipes
       // the stored value rather than leaving the old one.
@@ -1097,7 +1050,6 @@ export default function SubmitForm({
 
   // Status-chip inputs for the two enrichment sections.
   const filledFeaturedLinksList = featuredLinks.filter((l) => l.url.trim());
-  const filledShowsList = shows.filter((s) => s.date.trim() || s.venue.trim());
   const filledNewVideosList = videos.filter((v) => v.url.trim());
   const previewPhotoUrl = previewUrl ?? (showExistingImage ? initialImage : null);
   const hasPhoto = !!previewPhotoUrl;
@@ -1119,8 +1071,7 @@ export default function SubmitForm({
         ? `${contactMethodLabel(form.contactMethod)} set`
         : `${musicLinksCount} added`;
 
-  const bioShowsCount =
-    (form.bio.trim() ? 1 : 0) + (hasPhoto ? 1 : 0) + filledShowsList.length;
+  const bioShowsCount = (form.bio.trim() ? 1 : 0) + (hasPhoto ? 1 : 0);
   const bioShowsChip =
     bioShowsCount === 0
       ? "Empty"
@@ -1652,8 +1603,8 @@ export default function SubmitForm({
 
           <AccordionSection
             id="bioShows"
-            title="Bio, Photo & Shows"
-            description="Your bio, photo, and any upcoming shows fans should know about."
+            title="Bio & Photo"
+            description="Your bio and a photo for the top of your profile."
             statusChip={bioShowsChip}
             open={openSections.bioShows}
             onToggle={() => toggleSection("bioShows")}
@@ -1737,102 +1688,38 @@ export default function SubmitForm({
 
             <SubGroup
               label="Upcoming shows"
-              description="Let people know where to catch you live."
+              description="Your shows mostly appear on their own — no need to enter them here."
             >
-              <div className="space-y-3">
-                {shows.map((show, i) => (
-                  <div
-                    key={i}
-                    className="relative rounded-md bg-ink/5 p-4 pr-10"
+              <div className="rounded-md border border-ink/10 bg-ink/[0.03] p-4 text-[13px] leading-relaxed text-ink/60">
+                <p>
+                  Twin Scene keeps a master list of upcoming shows across local
+                  venues. Whenever a show&rsquo;s lineup includes your band, it
+                  links to your profile automatically — so most of your shows
+                  land here with nothing to do on your end.
+                </p>
+                <p className="mt-2">
+                  {isCorrect ? (
+                    <>Don&rsquo;t see one of your upcoming shows? Add it and pick
+                    your band from the list — it&rsquo;ll show up on your
+                    profile right away.</>
+                  ) : (
+                    <>Once your band is live, your shows will start linking
+                    here automatically. Anything we miss, you can add yourself
+                    from the Shows page.</>
+                  )}
+                </p>
+
+                {isCorrect && (
+                  <Link
+                    href={`/shows/submit${
+                      initialSlug ? `?band=${encodeURIComponent(initialSlug)}` : ""
+                    }`}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-ink/30 px-3 py-1.5 text-sm text-ink/80 transition hover:bg-ink/10 hover:text-ink"
                   >
-                    <button
-                      type="button"
-                      aria-label="Remove this show"
-                      onClick={() => removeShow(i)}
-                      className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full border border-ink/20 text-sm leading-none text-ink/70 transition hover:text-ink"
-                    >
-                      ×
-                    </button>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <label
-                          htmlFor={`show-${i}-date`}
-                          className="mb-1 block text-xs text-ink/70"
-                        >
-                          Date
-                        </label>
-                        <input
-                          id={`show-${i}-date`}
-                          type="date"
-                          value={show.date}
-                          onChange={(e) => updateShow(i, "date", e.target.value)}
-                          className={`${inputClass} [color-scheme:light]`}
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor={`show-${i}-venue`}
-                          className="mb-1 block text-xs text-ink/70"
-                        >
-                          Venue
-                        </label>
-                        <input
-                          id={`show-${i}-venue`}
-                          type="text"
-                          value={show.venue}
-                          onChange={(e) => updateShow(i, "venue", e.target.value)}
-                          placeholder="e.g. 7th St Entry"
-                          className={inputClass}
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor={`show-${i}-notes`}
-                          className="mb-1 block text-xs text-ink/70"
-                        >
-                          Notes
-                        </label>
-                        <input
-                          id={`show-${i}-notes`}
-                          type="text"
-                          value={show.notes}
-                          onChange={(e) => updateShow(i, "notes", e.target.value)}
-                          placeholder="e.g. w/ other band, free entry"
-                          className={inputClass}
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          htmlFor={`show-${i}-link`}
-                          className="mb-1 block text-xs text-ink/70"
-                        >
-                          Link
-                        </label>
-                        <input
-                          id={`show-${i}-link`}
-                          type="url"
-                          value={show.link}
-                          onChange={(e) => updateShow(i, "link", e.target.value)}
-                          placeholder="https://"
-                          className={inputClass}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    + Add a show in the Shows page
+                  </Link>
+                )}
               </div>
-
-              <button
-                type="button"
-                onClick={addShow}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-ink/30 px-3 py-1.5 text-sm text-ink/80 transition hover:bg-ink/10 hover:text-ink"
-              >
-                + Add another show
-              </button>
             </SubGroup>
           </AccordionSection>
 

@@ -264,6 +264,7 @@ export default function ShowSubmitForm({
   mode = "add",
   initial,
   initialVenue = "",
+  initialBands = [],
 }: {
   bands: BandOption[];
   venues: string[];
@@ -271,6 +272,9 @@ export default function ShowSubmitForm({
   initial?: ShowInitial;
   // Preselect a venue in add mode (edit mode uses initial.venue instead).
   initialVenue?: string;
+  // Preselect one or more bands in add mode (e.g. deep-linked from a band's
+  // edit form). Edit mode uses initial.bands instead.
+  initialBands?: BandOption[];
 }) {
   const isEdit = mode === "edit";
 
@@ -309,7 +313,7 @@ export default function ShowSubmitForm({
   const flyerInputRef = useRef<HTMLInputElement>(null);
 
   const [selectedBands, setSelectedBands] = useState<BandOption[]>(
-    initial?.bands ?? [],
+    initial?.bands ?? initialBands,
   );
   const [showNewBand, setShowNewBand] = useState(false);
   const [newBandName, setNewBandName] = useState("");
