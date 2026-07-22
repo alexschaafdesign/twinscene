@@ -45,9 +45,12 @@ export interface Venue {
 // Cedar" files under C, "The Turf Club" under T(urf) rather than under T(he)
 // — mirrors app/shows/submit/page.tsx's venueSortKey for its venue picker.
 export async function getAllVenues(): Promise<Venue[]> {
+  // `\\s` (not `\s`) — inside a plain JS template literal `\s` isn't a
+  // recognized escape, so JS silently drops the backslash before it reaches
+  // Postgres, leaving the regex as a no-op `thes+` that never matches.
   return sql<Venue[]>`
     select * from venues
-    order by lower(regexp_replace(name, '^the\s+', '', 'i')) asc
+    order by lower(regexp_replace(name, '^the\\s+', '', 'i')) asc
   `;
 }
 
