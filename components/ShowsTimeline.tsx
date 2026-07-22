@@ -12,7 +12,7 @@ import { pressNotes } from "@/lib/press";
 import { showHeading, showSubtitle } from "@/lib/showDisplay";
 import { showTimeLabel } from "@/lib/showTime";
 import { formatMiles } from "@/lib/distance";
-import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
+import { isVenueLogo } from "@/lib/venueImages";
 import { matchVenue, type Venue } from "@/lib/venueUtils";
 import { autoInitials } from "@/lib/venueColor";
 import VenueAvatar from "@/components/VenueAvatar";
@@ -154,17 +154,15 @@ export default function ShowsTimeline({
             }
           >
             {group.shows.map((show, i) => {
-              // Scraped flyer if we have one; otherwise fall back to the venue's
-              // logo for venues that never publish flyers (e.g. Acadia). The
-              // logo can also arrive as flyer_url straight from the DB, so key
-              // the "logo vs poster" styling off isVenueLogo, not on which
-              // source it came from.
-              const imageSrc = show.flyerUrl || venueFallbackImage(show.venue);
-              const isLogo = isVenueLogo(imageSrc);
-              // No flyer/logo: fall back to the venue's directory avatar when it
-              // has a page, so scraped flyer-less shows still carry the venue's
-              // artwork. Only matched when a name is present and a directory was
-              // passed in.
+              // A real scraped poster, if any. A stored venue-logo flyer_url
+              // (e.g. Acadia's, written by its own scraper) no longer counts as
+              // a flyer — those fall through to the venue avatar below, same as
+              // any other flyer-less show.
+              const imageSrc =
+                show.flyerUrl && !isVenueLogo(show.flyerUrl) ? show.flyerUrl : "";
+              // No flyer: fall back to the venue's directory avatar when it has
+              // a page, so flyer-less shows still carry the venue's artwork.
+              // Only matched when a name is present and a directory was passed in.
               const fallbackVenue =
                 !imageSrc && show.venue ? matchVenue(venues, show.venue) : undefined;
               // A show with at least one band linked to the directory — same
@@ -185,24 +183,19 @@ export default function ShowsTimeline({
                 <div className="flex items-start justify-between gap-x-4 gap-y-2">
                   <div className="flex min-w-0 flex-1 items-start gap-3">
                     {(imageSrc || show.venue) && (() => {
-                      // Priority: scraped flyer/venue-logo image → the venue's
-                      // directory avatar (venues with a page) → a generic
-                      // initials tile (venue not in the directory yet).
+                      // Priority: scraped poster → the venue's directory avatar
+                      // (venues with a page) → a generic initials tile (venue
+                      // not in the directory yet).
                       let artwork;
                       if (imageSrc) {
-                        // Posters are cropped to fill; a venue logo is padded and
-                        // contained so it isn't cut off.
+                        // A scraped poster, cropped to fill the thumb.
                         artwork = (
-                          // eslint-disable-next-line @next/next/no-img-element -- external flyer art / local venue logo
+                          // eslint-disable-next-line @next/next/no-img-element -- external flyer art
                           <img
                             src={imageSrc}
                             alt=""
                             loading="lazy"
-                            className={`h-20 w-20 rounded-md border border-[#E8E0D0]/15 ${
-                              isLogo
-                                ? "bg-[rgba(232,224,208,0.06)] object-contain p-1.5"
-                                : "object-cover"
-                            }`}
+                            className="h-20 w-20 rounded-md border border-[#E8E0D0]/15 object-cover"
                           />
                         );
                       } else if (fallbackVenue) {
