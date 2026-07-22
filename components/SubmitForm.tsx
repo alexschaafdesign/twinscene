@@ -1337,6 +1337,11 @@ export default function SubmitForm({
                 <span className="mb-1 block text-sm font-medium text-ink">
                   How do you want to be contacted?
                 </span>
+                <p className="mb-2 text-sm text-ink/60">
+                  Other bands, bookers, and fans may use this to reach you —
+                  about show swaps, bookings, collaborations, or just to say
+                  they dig your music.
+                </p>
                 <div className="flex gap-2">
                   {(["email", "instagram", "website"] as const).map((m) => {
                     const active = form.contactMethod === m;
