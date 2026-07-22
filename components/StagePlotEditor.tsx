@@ -36,9 +36,6 @@ type Input = {
   uid: string;
   channel_number: number | null;
   source: string;
-  mic_or_di: string | null;
-  stand: string | null;
-  phantom_power: boolean;
   notes: string | null;
 };
 
@@ -65,9 +62,6 @@ function toInput(row: InputListItem): Input {
     uid: `srv-${row.id}`,
     channel_number: row.channel_number,
     source: row.source,
-    mic_or_di: row.mic_or_di,
-    stand: row.stand,
-    phantom_power: row.phantom_power,
     notes: row.notes,
   };
 }
@@ -121,9 +115,6 @@ export default function StagePlotEditor({
             inputs: inputs.map((row) => ({
               channel_number: row.channel_number,
               source: row.source,
-              mic_or_di: row.mic_or_di,
-              stand: row.stand,
-              phantom_power: row.phantom_power,
               notes: row.notes,
             })),
           }),
@@ -160,9 +151,6 @@ export default function StagePlotEditor({
           uid: uid(),
           channel_number: null,
           source: d.source,
-          mic_or_di: d.micOrDi ?? null,
-          stand: d.stand ?? null,
-          phantom_power: d.phantomPower ?? false,
           notes: null,
         })),
       ]);
@@ -240,9 +228,6 @@ export default function StagePlotEditor({
         uid: uid(),
         channel_number: null,
         source: "",
-        mic_or_di: null,
-        stand: null,
-        phantom_power: false,
         notes: null,
       },
     ]);
@@ -432,14 +417,11 @@ export default function StagePlotEditor({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-sm">
+            <table className="w-full min-w-[420px] border-collapse text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-[#E8E0D0]/45">
                   <th className="w-12 py-2 pr-2 font-medium">#</th>
                   <th className="py-2 pr-2 font-medium">Source</th>
-                  <th className="py-2 pr-2 font-medium">Mic / DI</th>
-                  <th className="py-2 pr-2 font-medium">Stand</th>
-                  <th className="w-14 py-2 pr-2 text-center font-medium">48V</th>
                   <th className="py-2 pr-2 font-medium">Notes</th>
                   <th className="w-10 py-2" />
                 </tr>
@@ -467,35 +449,6 @@ export default function StagePlotEditor({
                         onChange={(e) => updateInput(row.uid, { source: e.target.value })}
                         className={`w-full ${field}`}
                         maxLength={500}
-                      />
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <input
-                        value={row.mic_or_di ?? ""}
-                        onChange={(e) =>
-                          updateInput(row.uid, { mic_or_di: e.target.value || null })
-                        }
-                        className={`w-full ${field}`}
-                        maxLength={500}
-                      />
-                    </td>
-                    <td className="py-1.5 pr-2">
-                      <input
-                        value={row.stand ?? ""}
-                        onChange={(e) => updateInput(row.uid, { stand: e.target.value || null })}
-                        className={`w-full ${field}`}
-                        maxLength={500}
-                      />
-                    </td>
-                    <td className="py-1.5 pr-2 text-center">
-                      <input
-                        type="checkbox"
-                        checked={row.phantom_power}
-                        aria-label="Phantom power"
-                        onChange={(e) =>
-                          updateInput(row.uid, { phantom_power: e.target.checked })
-                        }
-                        className="h-4 w-4 accent-[#E8E0D0]"
                       />
                     </td>
                     <td className="py-1.5 pr-2">

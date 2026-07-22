@@ -3,19 +3,20 @@
 // This is code, not data: it's edited here in the repo, never by users. Each
 // entry knows how to render itself (an emoji `icon` for the web palette/canvas)
 // and what input-list rows to seed when it's dropped — dropping "Vocal Mic"
-// auto-adds a channel row (Lead Vocal / SM58), which the band then edits freely.
-// A dropped item and its seeded rows are NOT locked together after creation
+// auto-adds a "Lead Vocal" channel, which the band then edits freely. A dropped
+// item and its seeded rows are NOT locked together after creation
 // (lib/stagePlots.ts replaces both lists wholesale on save), so a band can add
 // a channel with no icon ("Talkback") or an icon with no channel.
+//
+// The input list is deliberately just the source (+ optional notes): mic/DI
+// choice, stand type and phantom power are the house engineer's call, not the
+// band's, so we don't collect them.
 //
 // `stage_plot_items.item_type` stores the `key`; an unknown key (e.g. a catalog
 // entry removed later) falls back to OTHER_ITEM so an old plot still renders.
 
 export interface DefaultInput {
   source: string;
-  micOrDi?: string;
-  stand?: string;
-  phantomPower?: boolean;
 }
 
 export interface CatalogItem {
@@ -34,25 +35,25 @@ export const STAGE_PLOT_CATALOG: CatalogItem[] = [
     key: "vocal_mic",
     label: "Vocal Mic",
     icon: "🎤",
-    defaultInputs: [{ source: "Lead Vocal", micOrDi: "SM58", stand: "Tall boom" }],
+    defaultInputs: [{ source: "Lead Vocal" }],
   },
   {
     key: "guitar_amp",
     label: "Guitar Amp",
     icon: "🔊",
-    defaultInputs: [{ source: "Guitar Amp", micOrDi: "SM57", stand: "Short boom" }],
+    defaultInputs: [{ source: "Guitar Amp" }],
   },
   {
     key: "bass_amp",
     label: "Bass Amp",
     icon: "🎚️",
-    defaultInputs: [{ source: "Bass", micOrDi: "DI" }],
+    defaultInputs: [{ source: "Bass" }],
   },
   {
     key: "acoustic_guitar",
     label: "Acoustic Guitar",
     icon: "🎸",
-    defaultInputs: [{ source: "Acoustic Guitar", micOrDi: "DI" }],
+    defaultInputs: [{ source: "Acoustic Guitar" }],
   },
   {
     key: "drum_kit",
@@ -61,33 +62,30 @@ export const STAGE_PLOT_CATALOG: CatalogItem[] = [
     // One canvas icon, several channels — the common minimum a house engineer
     // expects. Split into separate icons only if a band actually asks.
     defaultInputs: [
-      { source: "Kick", micOrDi: "D112", stand: "Short boom" },
-      { source: "Snare", micOrDi: "SM57", stand: "Short boom" },
-      { source: "Hi-Hat", micOrDi: "Condenser", stand: "Tall boom", phantomPower: true },
-      { source: "Overhead L", micOrDi: "Condenser", stand: "Tall boom", phantomPower: true },
-      { source: "Overhead R", micOrDi: "Condenser", stand: "Tall boom", phantomPower: true },
+      { source: "Kick" },
+      { source: "Snare" },
+      { source: "Hi-Hat" },
+      { source: "Overhead L" },
+      { source: "Overhead R" },
     ],
   },
   {
     key: "keys",
     label: "Keyboard / Keys",
     icon: "🎹",
-    defaultInputs: [
-      { source: "Keys L", micOrDi: "DI" },
-      { source: "Keys R", micOrDi: "DI" },
-    ],
+    defaultInputs: [{ source: "Keys L" }, { source: "Keys R" }],
   },
   {
     key: "horn",
     label: "Horn / Wind",
     icon: "🎺",
-    defaultInputs: [{ source: "Horn", micOrDi: "SM57", stand: "Tall boom" }],
+    defaultInputs: [{ source: "Horn" }],
   },
   {
     key: "di_box",
     label: "DI Box",
     icon: "🔌",
-    defaultInputs: [{ source: "DI", micOrDi: "DI" }],
+    defaultInputs: [{ source: "DI" }],
   },
   {
     key: "monitor",

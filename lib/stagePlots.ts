@@ -34,13 +34,13 @@ export interface StagePlotItem {
   position: number;
 }
 
+// mic_or_di / stand / phantom_power columns still exist on the table (0060) but
+// are deliberately no longer collected — those are the house engineer's call —
+// so they're absent here and left at their column defaults on insert.
 export interface InputListItem {
   id: number;
   channel_number: number | null;
   source: string;
-  mic_or_di: string | null;
-  stand: string | null;
-  phantom_power: boolean;
   notes: string | null;
   position: number;
 }
@@ -108,8 +108,7 @@ export async function getPlotDetail(plotId: number): Promise<StagePlotDetail | n
     order by position asc, id asc
   `;
   const inputs = await sql<InputListItem[]>`
-    select id, channel_number, source, mic_or_di, stand,
-           phantom_power, notes, position
+    select id, channel_number, source, notes, position
     from input_list_items
     where stage_plot_id = ${plotId}
     order by position asc, id asc
@@ -151,9 +150,6 @@ export interface NormalizedContent {
   inputs: {
     channel_number: number | null;
     source: string;
-    mic_or_di: string | null;
-    stand: string | null;
-    phantom_power: boolean;
     notes: string | null;
     position: number;
   }[];
@@ -210,9 +206,6 @@ export function normalizeContent(raw: unknown): NormalizedContent {
     return {
       channel_number: intOrNull(row.channel_number, 0, 9999),
       source: str(row.source, MAX_TEXT) ?? "",
-      mic_or_di: str(row.mic_or_di, MAX_TEXT),
-      stand: str(row.stand, MAX_TEXT),
-      phantom_power: row.phantom_power === true,
       notes: str(row.notes, MAX_TEXT),
       position: i,
     };
@@ -252,15 +245,14 @@ export async function saveContent(plotId: number, content: NormalizedContent): P
       `;
     }
     if (content.inputs.length) {
+      // mic_or_di / stand / phantom_power omitted → left at their column
+      // defaults (null / null / false); no longer band-editable.
       await tx`
         insert into input_list_items ${tx(
           content.inputs.map((row) => ({ stage_plot_id: plotId, ...row })),
           "stage_plot_id",
           "channel_number",
           "source",
-          "mic_or_di",
-          "stand",
-          "phantom_power",
           "notes",
           "position",
         )}

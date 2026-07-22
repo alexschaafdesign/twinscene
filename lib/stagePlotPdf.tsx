@@ -84,11 +84,8 @@ const styles = StyleSheet.create({
   headRow: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: INK, borderBottomStyle: "solid", backgroundColor: "#f4f1ea" },
   cell: { paddingVertical: 4, paddingHorizontal: 4 },
   headCell: { fontFamily: "Helvetica-Bold", fontSize: 8, color: RED },
-  cCh: { width: 28 },
-  cSource: { width: 130 },
-  cMic: { width: 80 },
-  cStand: { width: 80 },
-  c48: { width: 30, textAlign: "center" },
+  cCh: { width: 32 },
+  cSource: { width: 200 },
   cNotes: { flex: 1 },
   empty: { fontSize: 9, color: MUTED, fontStyle: "italic", marginTop: 4 },
 });
@@ -145,18 +142,12 @@ function StagePlotDoc({
             <View style={styles.headRow}>
               <Text style={[styles.cell, styles.headCell, styles.cCh]}>#</Text>
               <Text style={[styles.cell, styles.headCell, styles.cSource]}>Source</Text>
-              <Text style={[styles.cell, styles.headCell, styles.cMic]}>Mic / DI</Text>
-              <Text style={[styles.cell, styles.headCell, styles.cStand]}>Stand</Text>
-              <Text style={[styles.cell, styles.headCell, styles.c48]}>48V</Text>
               <Text style={[styles.cell, styles.headCell, styles.cNotes]}>Notes</Text>
             </View>
             {inputs.map((row, i) => (
               <View key={row.id} style={styles.row} wrap={false}>
                 <Text style={[styles.cell, styles.cCh]}>{row.channel_number ?? i + 1}</Text>
                 <Text style={[styles.cell, styles.cSource]}>{row.source}</Text>
-                <Text style={[styles.cell, styles.cMic]}>{row.mic_or_di ?? ""}</Text>
-                <Text style={[styles.cell, styles.cStand]}>{row.stand ?? ""}</Text>
-                <Text style={[styles.cell, styles.c48]}>{row.phantom_power ? "✓" : ""}</Text>
                 <Text style={[styles.cell, styles.cNotes]}>{row.notes ?? ""}</Text>
               </View>
             ))}
