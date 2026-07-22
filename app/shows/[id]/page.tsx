@@ -3,12 +3,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { todayInChicago } from "@/lib/fetchShows";
-import { getCachedShowById, getCachedBandsBySlugs } from "@/lib/cachedReads";
+import { getCachedShowById, getCachedBandsBySlugs, getCachedVenues } from "@/lib/cachedReads";
 import { fetchPress } from "@/lib/fetchPress";
 import { pressNotes } from "@/lib/press";
 import { showHeading, showSubtitle, splitSimilarTo } from "@/lib/showDisplay";
 import { showTimeLabel } from "@/lib/showTime";
-import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
+import { isVenueLogo } from "@/lib/venueImages";
+import { matchVenue } from "@/lib/venueUtils";
+import { autoInitials } from "@/lib/venueColor";
+import VenueAvatar from "@/components/VenueAvatar";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getShowStatus } from "@/lib/showSaves";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
@@ -100,17 +103,22 @@ export default async function ShowDetailPage({
   if (!show) notFound();
 
   const user = await getCurrentUser();
-  const [bands, press, status] = await Promise.all([
+  const [bands, press, venues, status] = await Promise.all([
     getCachedBandsBySlugs(show.bandSlugs),
     fetchPress(),
+    getCachedVenues(),
     user ? getShowStatus(user.id, show.id) : Promise.resolve(null),
   ]);
 
   const bandBySlug = new Map(bands.map((b) => [b.slug, b]));
   const notes = pressNotes(show.starredBy, show.starredNotes, press);
   const ticketHref = show.link || show.flyerUrl;
-  const imageSrc = show.flyerUrl || venueFallbackImage(show.venue);
-  const isLogo = isVenueLogo(imageSrc);
+  // A real scraped poster only. A stored venue-logo flyer_url (e.g. Acadia's)
+  // falls through to the venue avatar, same as any flyer-less show.
+  const imageSrc =
+    show.flyerUrl && !isVenueLogo(show.flyerUrl) ? show.flyerUrl : "";
+  const fallbackVenue =
+    !imageSrc && show.venue ? matchVenue(venues, show.venue) : undefined;
   const isPast = show.date < todayInChicago();
 
   return (
@@ -118,16 +126,28 @@ export default async function ShowDetailPage({
       <BackLink href="/shows" label="Shows" className="mb-6" />
 
       <div className="flex flex-col gap-6 sm:flex-row">
-        {imageSrc && (
-          // eslint-disable-next-line @next/next/no-img-element -- external flyer art / local venue logo
+        {imageSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element -- external flyer art
           <img
             src={imageSrc}
-            alt={`${showHeading(show)} ${isLogo ? "venue" : "flyer"}`}
-            className={`aspect-square w-full rounded-md border border-[#E8E0D0]/15 sm:w-64 ${
-              isLogo ? "bg-[rgba(232,224,208,0.06)] object-contain p-3" : "object-cover"
-            }`}
+            alt={`${showHeading(show)} flyer`}
+            className="aspect-square w-full rounded-md border border-[#E8E0D0]/15 object-cover sm:w-64"
           />
-        )}
+        ) : fallbackVenue ? (
+          // Flyer-less show at a directory venue: its avatar, matching /venues.
+          <VenueAvatar
+            slug={fallbackVenue.slug}
+            initials={fallbackVenue.avatarInitials || autoInitials(fallbackVenue.name)}
+            className="w-full shrink-0 rounded-md border border-[#E8E0D0]/15 sm:w-64"
+          />
+        ) : show.venue ? (
+          // Venue not in the directory yet: a generic initials tile.
+          <div className="flex aspect-square w-full shrink-0 items-center justify-center rounded-md border border-[#E8E0D0]/15 bg-[rgba(232,224,208,0.06)] sm:w-64">
+            <span className="select-none font-mono text-5xl font-semibold text-[#E8E0D0]/55">
+              {autoInitials(show.venue)}
+            </span>
+          </div>
+        ) : null}
 
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-medium text-[#E8E0D0]">
