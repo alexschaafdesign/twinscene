@@ -6,6 +6,7 @@ import { fetchPress } from "@/lib/fetchPress";
 import {
   getCachedBands,
   getCachedShows,
+  getCachedVenues,
   getCachedBandBySlug,
   getCachedVisibleVideosBySlug,
 } from "@/lib/cachedReads";
@@ -68,6 +69,7 @@ export default async function BandProfilePage({ params }: Props) {
 
   const shows = await getCachedShows(todayInChicago());
   const press = await fetchPress();
+  const venues = await getCachedVenues();
   const bandShows = shows.filter((s) => s.bandSlugs.includes(slug));
   const videos = await getCachedVisibleVideosBySlug(slug);
 
@@ -155,6 +157,7 @@ export default async function BandProfilePage({ params }: Props) {
         members={members}
         shows={bandShows}
         press={press}
+        venues={venues}
         videos={videos}
         today={todayInChicago()}
         showStatuses={showStatuses}

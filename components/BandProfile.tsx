@@ -1,5 +1,5 @@
 // Shared band profile content — the photo, name, location, genres, Bandcamp
-// player, bio, upcoming shows, social links and preferred contact method.
+// player, bio, upcoming shows and social links.
 //
 // Full-width, two-column layout for the dedicated /bands/[slug] page: a left
 // sidebar (photo, player, links, contact) and a wider main column (name, bio,
@@ -23,18 +23,16 @@ import type { VideoRow } from "@/lib/videos";
 import type { ShowStatus } from "@/lib/showSaves";
 import type { BandMusician } from "@/lib/musicians";
 import type { PendingBandMemberClaim } from "@/lib/bandMemberClaims";
-import { pressNotes } from "@/lib/press";
-import { showHeading, showSubtitle } from "@/lib/showDisplay";
+import type { Venue } from "@/lib/venueUtils";
 import BandcampPlayer from "@/components/BandcampPlayer";
 import {
   IconLink,
   PlaceLine,
   ensureUrl,
-  formatShowDate,
   iconProps,
 } from "@/components/band-shared";
 import { BandImage, CopyButton } from "@/components/band-shared-client";
-import { ShowStatusButtons } from "@/components/ShowStatusButtons";
+import ShowsTimeline from "@/components/ShowsTimeline";
 import BandMemberClaimSection from "@/components/BandMemberClaimSection";
 import BandMemberClaimsManager from "@/components/BandMemberClaimsManager";
 import BandProfileShell from "@/components/BandProfileShell";
@@ -104,6 +102,7 @@ type SectionProps = {
   shows: Show[];
   press: Press[];
   videos: VideoRow[];
+  venues: Venue[];
   today: string;
   showStatuses: Record<string, ShowStatus>;
   loggedIn: boolean;
@@ -246,34 +245,37 @@ function BandLinks({ band }: SectionProps) {
   if (!hasAny) return null;
 
   return (
-    <div className="flex flex-wrap gap-2.5">
-      {band.website && (
-        <IconLink href={ensureUrl(band.website)} label="Website">
-          <svg {...iconProps}>
-            <circle cx="12" cy="12" r="9" />
-            <path d="M3 12h18M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18" />
-          </svg>
-        </IconLink>
-      )}
-      {band.instagram && (
-        <IconLink
-          href={`https://instagram.com/${band.instagram}`}
-          label={`Instagram @${band.instagram}`}
-        >
-          <svg {...iconProps}>
-            <rect x="3" y="3" width="18" height="18" rx="5" />
-            <circle cx="12" cy="12" r="4" />
-            <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" />
-          </svg>
-        </IconLink>
-      )}
-      {bandcampHref && (
-        <IconLink href={ensureUrl(bandcampHref)} label="Bandcamp">
-          <svg {...iconProps}>
-            <path d="M4 16l5-8h11l-5 8z" />
-          </svg>
-        </IconLink>
-      )}
+    <div>
+      <SectionHeading>Links</SectionHeading>
+      <div className="flex flex-wrap gap-2.5">
+        {band.website && (
+          <IconLink href={ensureUrl(band.website)} label="Website">
+            <svg {...iconProps}>
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18" />
+            </svg>
+          </IconLink>
+        )}
+        {band.instagram && (
+          <IconLink
+            href={`https://instagram.com/${band.instagram}`}
+            label={`Instagram @${band.instagram}`}
+          >
+            <svg {...iconProps}>
+              <rect x="3" y="3" width="18" height="18" rx="5" />
+              <circle cx="12" cy="12" r="4" />
+              <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" />
+            </svg>
+          </IconLink>
+        )}
+        {bandcampHref && (
+          <IconLink href={ensureUrl(bandcampHref)} label="Bandcamp">
+            <svg {...iconProps}>
+              <path d="M4 16l5-8h11l-5 8z" />
+            </svg>
+          </IconLink>
+        )}
+      </div>
     </div>
   );
 }
@@ -402,101 +404,28 @@ function UpcomingShows({
   band,
   shows,
   press,
+  venues,
   today,
   showStatuses,
   loggedIn,
 }: SectionProps) {
   if (shows.length === 0) return null;
 
+  // Reuse the /shows card renderer so a band's shows match the rest of the
+  // site — flyer artwork (or the venue avatar / initials fallback), the scene
+  // and press badges, times, genres and attendance buttons all in one place.
   return (
     <div>
       <SectionHeading>Upcoming shows</SectionHeading>
-      <ul className="space-y-2">
-        {shows.map((show, i) => (
-          <li
-            key={`${show.date}-${show.venue}-${i}`}
-            className={`rounded-md border px-3 py-2.5 ${
-              show.starredBy.length > 0
-                ? "border-amber-400/40 bg-amber-400/[0.06]"
-                : "border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)]"
-            }`}
-          >
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-sm font-medium text-[#E8E0D0]">
-                {formatShowDate(show.date)}
-              </span>
-              {show.link && (
-                <a
-                  href={ensureUrl(show.link)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 text-xs text-[#E8E0D0]/70 underline decoration-[#E8E0D0]/30 underline-offset-2 transition hover:text-[#E8E0D0]"
-                >
-                  Tickets / Info →
-                </a>
-              )}
-            </div>
-            {showHeading(show) && (
-              <p className="mt-0.5 text-sm font-medium text-[#E8E0D0]/90">
-                {showHeading(show)}
-                {show.starredBy.length > 0 && (
-                  <span className="ml-1.5 text-amber-400">★</span>
-                )}
-              </p>
-            )}
-            {showSubtitle(show) && (
-              <p className="mt-0.5 text-xs text-[#E8E0D0]/60">{showSubtitle(show)}</p>
-            )}
-            {show.venue && (
-              <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
-                {show.venue}
-              </p>
-            )}
-            {show.notes && (
-              <p className="mt-0.5 text-xs text-[#E8E0D0]/50">
-                {show.notes}
-              </p>
-            )}
-            {pressNotes(show.starredBy, show.starredNotes, press).map(
-              (note) => (
-                <div key={note.id} className="mt-1.5">
-                  <p className="text-xs font-medium text-amber-400">
-                    ★ Recommended by{" "}
-                    {note.url ? (
-                      <a
-                        href={ensureUrl(note.url)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="underline decoration-amber-400/50 underline-offset-2 hover:text-amber-300"
-                      >
-                        {note.name}
-                      </a>
-                    ) : (
-                      note.name
-                    )}
-                  </p>
-                  {note.blurb && (
-                    <p className="mt-0.5 text-xs leading-relaxed text-[#E8E0D0]/60">
-                      {note.blurb}
-                    </p>
-                  )}
-                </div>
-              ),
-            )}
-            {show.id && (
-              <div className="mt-2">
-                <ShowStatusButtons
-                  showId={show.id}
-                  isPast={show.date < today}
-                  initialStatus={showStatuses[show.id] ?? null}
-                  loggedIn={loggedIn}
-                  returnTo={`/bands/${band.slug}`}
-                />
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+      <ShowsTimeline
+        shows={shows}
+        press={press}
+        today={today}
+        statuses={showStatuses}
+        loggedIn={loggedIn}
+        venues={venues}
+        returnTo={`/bands/${band.slug}`}
+      />
     </div>
   );
 }
@@ -587,6 +516,7 @@ export default function BandProfile({
   shows = [],
   press = [],
   videos = [],
+  venues = [],
   today,
   showStatuses = {},
   loggedIn = false,
@@ -606,6 +536,9 @@ export default function BandProfile({
   shows?: Show[];
   press?: Press[];
   videos?: VideoRow[];
+  /** Venue directory — passed to ShowsTimeline so a flyer-less show falls back
+   * to its venue's avatar (or an initials tile) for the card artwork. */
+  venues?: Venue[];
   /** "YYYY-MM-DD" in America/Chicago, for the upcoming/past split on each show. */
   today: string;
   /** Logged-in user's attendance status per show id. */
@@ -649,6 +582,7 @@ export default function BandProfile({
     shows,
     press,
     videos,
+    venues,
     today,
     showStatuses,
     loggedIn,

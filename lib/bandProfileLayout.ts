@@ -61,16 +61,15 @@ export const SECTION_META: Record<SectionId, SectionMeta> = {
 /** The arrangement every profile rendered before layouts were configurable. */
 export const DEFAULT_LAYOUT: BandProfileLayout = {
   main: [
+    "shows",
     "bio",
-    "members",
     "memberClaims",
     "claimEntry",
     "featured",
     "music",
     "videos",
-    "shows",
   ],
-  sidebar: ["links", "contact"],
+  sidebar: ["members", "links"],
   hidden: [],
 };
 

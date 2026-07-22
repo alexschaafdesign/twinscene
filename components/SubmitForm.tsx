@@ -29,18 +29,10 @@ const FIELD_SECTION: Record<string, SectionKey> = {
   bandName: "basics",
   genres: "basics",
   location: "basics",
-  contactEmail: "musicLinks",
   website: "musicLinks",
   instagram: "musicLinks",
   bandPhoto: "bioShows",
 };
-
-function contactMethodLabel(method: string): string {
-  if (method === "email") return "Email";
-  if (method === "instagram") return "Instagram";
-  if (method === "website") return "Website";
-  return "";
-}
 
 /**
  * Lowercase, collapse non-alphanumeric runs into single hyphens, trim hyphens.
@@ -1055,8 +1047,6 @@ export default function SubmitForm({
   const hasPhoto = !!previewPhotoUrl;
 
   const musicLinksCount =
-    (form.contactMethod ? 1 : 0) +
-    (form.contactEmail.trim() ? 1 : 0) +
     (form.website.trim() ? 1 : 0) +
     (form.instagram.trim() ? 1 : 0) +
     (form.bandcampLink.trim() ? 1 : 0) +
@@ -1064,12 +1054,7 @@ export default function SubmitForm({
     filledFeaturedLinksList.length +
     existingVideos.length +
     filledNewVideosList.length;
-  const musicLinksChip =
-    musicLinksCount === 0
-      ? "Empty"
-      : musicLinksCount === 1 && form.contactMethod
-        ? `${contactMethodLabel(form.contactMethod)} set`
-        : `${musicLinksCount} added`;
+  const musicLinksChip = musicLinksCount === 0 ? "Empty" : `${musicLinksCount} added`;
 
   const bioShowsCount = (form.bio.trim() ? 1 : 0) + (hasPhoto ? 1 : 0);
   const bioShowsChip =
@@ -1283,72 +1268,11 @@ export default function SubmitForm({
             open={openSections.musicLinks}
             onToggle={() => toggleSection("musicLinks")}
           >
-            <SubGroup label="Contact & socials">
-              <div>
-                <span className="mb-1 block text-sm font-medium text-ink">
-                  How do you want to be contacted?
-                </span>
-                <p className="mb-2 text-sm text-ink/60">
-                  Other bands, bookers, and fans may use this to reach you —
-                  about show swaps, bookings, collaborations, or just to say
-                  they dig your music.
-                </p>
-                <div className="flex gap-2">
-                  {(["email", "instagram", "website"] as const).map((m) => {
-                    const active = form.contactMethod === m;
-                    return (
-                      <button
-                        key={m}
-                        type="button"
-                        // Clicking the active choice again clears it (the choice is optional).
-                        onClick={() =>
-                          setForm((f) => ({
-                            ...f,
-                            contactMethod: active ? "" : m,
-                          }))
-                        }
-                        className={`rounded-md border px-3 py-1.5 text-sm transition ${
-                          active
-                            ? "border-ink bg-ink text-paper"
-                            : "border-ink/25 text-ink/70 hover:border-ink/60"
-                        }`}
-                      >
-                        {m === "email"
-                          ? "Email"
-                          : m === "instagram"
-                            ? "Instagram"
-                            : "Website"}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="mt-1 text-[13px] text-ink/40">
-                  Optional — choosing one makes that field required below.
-                </p>
-              </div>
-
-              <Field
-                label="Contact email"
-                htmlFor="contactEmail"
-                required={form.contactMethod === "email"}
-                error={errors.contactEmail}
-                hint="Shown publicly on your profile so people can reach you."
-              >
-                <input
-                  id="contactEmail"
-                  type="email"
-                  value={form.contactEmail}
-                  onChange={set("contactEmail")}
-                  placeholder="band@example.com"
-                  className={inputClass}
-                />
-              </Field>
-
+            <SubGroup label="Socials">
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field
                   label="Website"
                   htmlFor="website"
-                  required={form.contactMethod === "website"}
                   error={errors.website}
                 >
                   <input
@@ -1364,7 +1288,6 @@ export default function SubmitForm({
                 <Field
                   label="Instagram handle"
                   htmlFor="instagram"
-                  required={form.contactMethod === "instagram"}
                   error={errors.instagram}
                   hint="Just the handle, no @"
                 >
