@@ -189,6 +189,12 @@ export interface ProfileUpdate {
   show_status?: boolean;
   show_followed_bands?: boolean;
   show_attended_shows?: boolean;
+  // Saved home location. The route handler geocodes home_address before
+  // calling us; we just persist the trio (or clear all three when the user
+  // removes their address). home_lat/home_lng are null when geocoding failed.
+  home_address?: string | null;
+  home_lat?: number | null;
+  home_lng?: number | null;
 }
 
 const VISIBILITY_FIELDS = [
@@ -220,12 +226,25 @@ export async function updateProfile(userId: number, update: ProfileUpdate): Prom
   }
 
   const fields: Partial<
-    Record<"name" | "username" | "bio" | "profile_public" | (typeof VISIBILITY_FIELDS)[number], string | null | boolean>
+    Record<
+      | "name"
+      | "username"
+      | "bio"
+      | "profile_public"
+      | "home_address"
+      | "home_lat"
+      | "home_lng"
+      | (typeof VISIBILITY_FIELDS)[number],
+      string | number | null | boolean
+    >
   > = {};
   if (name !== undefined) fields.name = name;
   if (username !== undefined) fields.username = username;
   if (bio !== undefined) fields.bio = bio;
   if (update.profile_public !== undefined) fields.profile_public = update.profile_public;
+  if (update.home_address !== undefined) fields.home_address = update.home_address;
+  if (update.home_lat !== undefined) fields.home_lat = update.home_lat;
+  if (update.home_lng !== undefined) fields.home_lng = update.home_lng;
   for (const key of VISIBILITY_FIELDS) {
     if (update[key] !== undefined) fields[key] = update[key];
   }

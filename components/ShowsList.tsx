@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import type { Show } from "@/lib/fetchShows";
 import { matchVenue, type Venue } from "@/lib/venueUtils";
+import { haversineMiles } from "@/lib/distance";
 import type { Press } from "@/lib/fetchPress";
 import type { ShowStatus } from "@/lib/showSaves";
 import ShowsTimeline from "@/components/ShowsTimeline";
@@ -93,6 +94,7 @@ export default function ShowsList({
   today,
   statuses = {},
   loggedIn = false,
+  home = null,
   intro,
 }: {
   shows: Show[];
@@ -106,6 +108,9 @@ export default function ShowsList({
   /** Logged-in user's attendance status per show id. */
   statuses?: Record<string, ShowStatus>;
   loggedIn?: boolean;
+  /** Viewer's saved home coords (from their profile), or null. Enables the
+   * "Nearest" sort — shows are ordered by how close each venue is. */
+  home?: { lat: number; lng: number } | null;
   /** Primary CTA, rendered beside the search/filters column — mirrors
    * BandGrid's `intro` prop. */
   intro?: ReactNode;
@@ -120,6 +125,10 @@ export default function ShowsList({
   // The full filter set is collapsed behind a "Filters" button by default,
   // same as BandGrid.
   const [filtersOpen, setFiltersOpen] = useState(false);
+  // Sort mode: "soonest" is the default chronological timeline; "nearest"
+  // keeps the day grouping but orders shows within each day by distance from
+  // the viewer's home. Only meaningful when `home` is set.
+  const [sortByDistance, setSortByDistance] = useState(false);
 
   // Everything below (filters, counts, the timeline itself) derives from
   // whichever tab is active, so switching to "Recent" re-scopes the whole
@@ -213,6 +222,41 @@ export default function ShowsList({
     venueDirectory,
   ]);
 
+  // Miles from home to each visible show's venue, keyed by show id. null when
+  // there's no home set or the show's venue has no coordinates. Resolved
+  // through matchVenue so scraper spellings hit the same venue row the grid does.
+  const showDistances = useMemo(() => {
+    const map: Record<string, number | null> = {};
+    if (!home) return map;
+    for (const s of visible) {
+      const v = matchVenue(venueDirectory, s.venue);
+      map[s.id] =
+        v && v.lat != null && v.lng != null
+          ? haversineMiles(home, { lat: v.lat, lng: v.lng })
+          : null;
+    }
+    return map;
+  }, [home, visible, venueDirectory]);
+
+  const distanceSortActive = sortByDistance && home != null;
+
+  // In "nearest" mode, keep the chronological day order (the timeline groups by
+  // date) but sort within each day by distance; venues with no coords sink to
+  // the end of their day. Stable sort + already-date-ordered input means equal
+  // dates stay grouped for ShowsTimeline.
+  const ordered = useMemo(() => {
+    if (!distanceSortActive) return visible;
+    return [...visible].sort((a, b) => {
+      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+      const da = showDistances[a.id];
+      const db = showDistances[b.id];
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return da - db;
+    });
+  }, [distanceSortActive, visible, showDistances]);
+
   const activeFilterCount =
     (venue ? 1 : 0) +
     (venueType ? 1 : 0) +
@@ -261,6 +305,49 @@ export default function ShowsList({
             placeholder="Search by title, venue, or lineup…"
             className="w-full flex-1 rounded-md border border-[#E8E0D0]/25 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
           />
+          {/* Sort: chronological vs. nearest-first (needs a saved home address).
+              Without one, a subtle link points to where you set it. */}
+          {home ? (
+            <div className="inline-flex shrink-0 overflow-hidden rounded-md border border-[#E8E0D0]/40 text-sm">
+              {(["soonest", "nearest"] as const).map((mode) => {
+                const active = (mode === "nearest") === sortByDistance;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setSortByDistance(mode === "nearest")}
+                    aria-pressed={active}
+                    className={`inline-flex items-center gap-1.5 px-3 py-2 capitalize transition ${
+                      active
+                        ? "bg-[#E8E0D0] text-[#2A2420]"
+                        : "text-[#E8E0D0]/70 hover:bg-[#E8E0D0]/10"
+                    }`}
+                  >
+                    {mode === "nearest" && (
+                      // ti-map-pin (Tabler)
+                      <svg {...iconProps} width={15} height={15}>
+                        <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+                        <path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" />
+                      </svg>
+                    )}
+                    {mode}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <Link
+              href="/profile/edit"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-dashed border-[#E8E0D0]/35 px-3 py-2 text-sm text-[#E8E0D0]/60 transition hover:border-[#E8E0D0]/60 hover:text-[#E8E0D0]"
+            >
+              {/* ti-map-pin (Tabler) */}
+              <svg {...iconProps} width={15} height={15}>
+                <path d="M9 11a3 3 0 1 0 6 0a3 3 0 0 0 -6 0" />
+                <path d="M17.657 16.657l-4.243 4.243a2 2 0 0 1 -2.827 0l-4.244 -4.243a8 8 0 1 1 11.314 0z" />
+              </svg>
+              Sort by distance
+            </Link>
+          )}
           <button
             type="button"
             onClick={() => setFiltersOpen((v) => !v)}
@@ -488,12 +575,13 @@ export default function ShowsList({
       </p>
 
       <ShowsTimeline
-        shows={visible}
+        shows={ordered}
         columns={2}
         press={press}
         today={today}
         statuses={statuses}
         loggedIn={loggedIn}
+        distances={distanceSortActive ? showDistances : undefined}
         returnTo="/shows"
         emptyMessage={
           view === "recent"

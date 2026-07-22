@@ -11,6 +11,7 @@ import type { ShowStatus } from "@/lib/showSaves";
 import { pressNotes } from "@/lib/press";
 import { showHeading, showSubtitle } from "@/lib/showDisplay";
 import { showTimeLabel } from "@/lib/showTime";
+import { formatMiles } from "@/lib/distance";
 import { venueFallbackImage, isVenueLogo } from "@/lib/venueImages";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 import { iconProps } from "@/components/band-shared";
@@ -79,6 +80,7 @@ export default function ShowsTimeline({
   loggedIn = false,
   returnTo = "/shows",
   columns = 1,
+  distances,
 }: {
   shows: Show[];
   press?: Press[];
@@ -94,6 +96,10 @@ export default function ShowsTimeline({
   /** Cards per row on wide screens. Only opt into 2 in a full-width container —
    * in a narrow column (e.g. a venue profile) the cards get too cramped. */
   columns?: 1 | 2;
+  /** Miles from the viewer's home to each show's venue, keyed by show id, when
+   * sorting by distance. Present only in "nearest" mode; a null entry means the
+   * venue has no coordinates, so no chip is shown. */
+  distances?: Record<string, number | null>;
 }) {
   const groups = groupByDate(shows);
 
@@ -201,8 +207,13 @@ export default function ShowsTimeline({
                         </p>
                       )}
                       {show.venue && (
-                        <p className="mt-0.5 text-sm text-[#E8E0D0]/75">
-                          {show.venue}
+                        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm text-[#E8E0D0]/75">
+                          <span>{show.venue}</span>
+                          {distances?.[show.id] != null && (
+                            <span className="rounded-full bg-[#9FD3A0]/15 px-1.5 py-0.5 text-[11px] font-medium text-[#9FD3A0]">
+                              {formatMiles(distances[show.id]!)}
+                            </span>
+                          )}
                         </p>
                       )}
                       {showTimeLabel(show) && (

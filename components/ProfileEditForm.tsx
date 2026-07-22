@@ -23,6 +23,7 @@ export interface ProfileEditUser {
   show_status: boolean;
   show_followed_bands: boolean;
   show_attended_shows: boolean;
+  home_address: string | null;
 }
 
 /** One row in the "what's visible" list below the public/private switch —
@@ -81,11 +82,16 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
   const [showAttendedShows, setShowAttendedShows] = useState(user.show_attended_shows);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user.image_url);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [homeAddress, setHomeAddress] = useState(user.home_address ?? "");
 
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
-  const [fieldError, setFieldError] = useState<{ username?: string; bio?: string; avatar?: string; general?: string }>(
-    {},
-  );
+  const [fieldError, setFieldError] = useState<{
+    username?: string;
+    bio?: string;
+    avatar?: string;
+    home?: string;
+    general?: string;
+  }>({});
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -146,6 +152,7 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
           showStatus,
           showFollowedBands,
           showAttendedShows,
+          homeAddress,
         }),
       });
       const data = await res.json().catch(() => null);
@@ -156,6 +163,16 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
           setFieldError({ general: data?.error || "Couldn't save your profile" });
         }
         setStatus("error");
+        return;
+      }
+
+      // Saved fine, but if they gave an address we couldn't geocode, keep them
+      // here with a heads-up — distance sorting silently won't work otherwise.
+      if (homeAddress.trim() && data.user?.home_lat == null) {
+        setFieldError({
+          home: "Saved, but we couldn't locate that address. Distance sorting needs a locatable address — try adding the city, e.g. \"416 Cedar Ave S, Minneapolis\".",
+        });
+        setStatus("idle");
         return;
       }
 
@@ -257,6 +274,27 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
           {bioRemaining} characters left
         </p>
         {fieldError.bio && <p className="text-sm text-[#F5A3A3]">{fieldError.bio}</p>}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="profile-home" className="text-sm text-[#E8E0D0]/80">
+          Home address
+        </label>
+        <input
+          id="profile-home"
+          type="text"
+          value={homeAddress}
+          onChange={(e) => setHomeAddress(e.target.value)}
+          placeholder="416 Cedar Ave S, Minneapolis"
+          autoComplete="street-address"
+          aria-invalid={!!fieldError.home}
+          className="w-full rounded-md border border-[#E8E0D0]/25 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
+        />
+        <p className="text-xs text-[#E8E0D0]/50">
+          Private — never shown on your profile. Used only to sort shows by how
+          close the venue is to you. Leave blank to remove it.
+        </p>
+        {fieldError.home && <p className="text-sm text-[#F5A3A3]">{fieldError.home}</p>}
       </div>
 
       <div className="flex flex-col gap-1.5">

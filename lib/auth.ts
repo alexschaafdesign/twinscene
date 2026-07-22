@@ -27,6 +27,13 @@ export interface User {
   is_admin: boolean;
   created_at: string;
   last_seen_at: string | null;
+  // Saved home location (migration 0050), used to sort shows by distance.
+  // home_lat/home_lng are geocoded from home_address on save; null until the
+  // user sets an address. Private — excluded from the public profile
+  // projection (getUserByUsername), so it never reaches an unauthenticated page.
+  home_address: string | null;
+  home_lat: number | null;
+  home_lng: number | null;
   // Set once the account's email is confirmed. Magic-link users are verified
   // by the act of clicking their link (backfilled to created_at for accounts
   // that predate migration 0038); password signups start null and verify via

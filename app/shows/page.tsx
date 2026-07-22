@@ -28,6 +28,13 @@ export default async function ShowsPage() {
     ? await listShowStatuses(user.id, [...shows, ...pastShows].map((s) => s.id))
     : {};
 
+  // The viewer's saved home location, if any, enables sorting shows by how
+  // close each venue is (never leaves the server as an address — only coords).
+  const home =
+    user && user.home_lat != null && user.home_lng != null
+      ? { lat: user.home_lat, lng: user.home_lng }
+      : null;
+
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-6 sm:px-8 sm:py-8">
       {/* Visually hidden — every page needs an h1 for accessibility/SEO, but
@@ -43,6 +50,7 @@ export default async function ShowsPage() {
         today={todayInChicago()}
         statuses={statuses}
         loggedIn={!!user}
+        home={home}
         intro={
           <Link
             href="/shows/submit"
