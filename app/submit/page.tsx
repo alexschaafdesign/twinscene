@@ -95,6 +95,7 @@ export default async function SubmitPage({
         initialSlug={band}
         initialName={name}
         initialGenres={param("genres")}
+        initialSimilarTo={param("similarTo")}
         initialLocation={param("location")}
         initialNeighborhoods={param("neighborhoods")}
         initialMembers={param("members")}

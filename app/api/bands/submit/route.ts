@@ -122,6 +122,7 @@ export async function POST(request: NextRequest) {
     const input: BandSubmissionInput = {
       name: bandName,
       genres: splitList(form.get("genres")),
+      similarTo: splitList(form.get("similarTo")),
       city: str(form.get("location")).trim(),
       neighborhoods: splitList(form.get("neighborhoods")),
       members: splitList(form.get("members")),

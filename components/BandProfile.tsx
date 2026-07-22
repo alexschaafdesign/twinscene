@@ -57,6 +57,7 @@ export function editHref(band: Band): string {
     band: band.slug,
     name: band.name,
     genres: band.genres.join(", "),
+    similarTo: band.similarTo.join(", "),
     location: band.city, // the sheet's LOCATION column holds the city
     neighborhoods: band.neighborhoods.join(", "),
     members: band.members.join(", "),
@@ -622,6 +623,23 @@ export default function BandProfile({
               {g}
             </span>
           ))}
+        </div>
+      )}
+      {band.similarTo.length > 0 && (
+        <div className="mt-3">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-[#E8E0D0]/45">
+            For fans of
+          </p>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {band.similarTo.map((name) => (
+              <span
+                key={name}
+                className="rounded-full border border-[#E8B84B]/35 px-2 py-0.5 text-xs text-[#E8B84B]/90"
+              >
+                {name}
+              </span>
+            ))}
+          </div>
         </div>
       )}
     </div>

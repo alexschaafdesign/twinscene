@@ -28,6 +28,7 @@ const FIELD_LABELS: Record<string, string> = {
   bio: "bio",
   photo: "photo",
   genre: "genre",
+  similar: "influences",
   location: "location",
   links: "links",
   members: "lineup",

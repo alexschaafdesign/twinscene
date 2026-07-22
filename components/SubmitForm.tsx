@@ -65,6 +65,7 @@ function normalizeName(name: string): string {
 type FormState = {
   bandName: string;
   genres: string;
+  similarTo: string; // comma-joined "for fans of" references; parsed like genres
   location: string; // city — persisted to the sheet's LOCATION column
   neighborhoods: string; // comma-joined; parsed into a list like genres
   members: string; // comma-joined band member names; parsed into a list
@@ -572,6 +573,7 @@ export default function SubmitForm({
   initialSlug = "",
   initialName = "",
   initialGenres = "",
+  initialSimilarTo = "",
   initialLocation = "",
   initialNeighborhoods = "",
   initialMembers = "",
@@ -597,6 +599,7 @@ export default function SubmitForm({
   initialSlug?: string;
   initialName?: string;
   initialGenres?: string;
+  initialSimilarTo?: string;
   initialLocation?: string;
   initialNeighborhoods?: string;
   initialMembers?: string;
@@ -636,6 +639,7 @@ export default function SubmitForm({
   const [form, setForm] = useState<FormState>({
     bandName: initialName,
     genres: initialGenres,
+    similarTo: initialSimilarTo,
     location: initialLocation,
     neighborhoods: initialNeighborhoods,
     members: initialMembers,
@@ -1051,6 +1055,9 @@ export default function SubmitForm({
   const genresList = form.genres
     ? form.genres.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
+  const similarToList = form.similarTo
+    ? form.similarTo.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
   const neighborhoodsList = form.neighborhoods
     ? form.neighborhoods.split(",").map((s) => s.trim()).filter(Boolean)
     : [];
@@ -1209,6 +1216,22 @@ export default function SubmitForm({
                   clearError("genres");
                 }}
                 hasError={!!errors.genres}
+              />
+            </Field>
+
+            <Field
+              label="For fans of"
+              htmlFor="similarTo"
+              hint="Artists you sound like — the “recommended if you like…” a new listener would get. Pick from the directory or type any band."
+            >
+              <TagInput
+                id="similarTo"
+                options={existingBands.map((b) => b.name)}
+                placeholder="e.g. Low, Hüsker Dü, Bon Iver"
+                value={similarToList}
+                onChange={(next) =>
+                  setForm((f) => ({ ...f, similarTo: next.join(", ") }))
+                }
               />
             </Field>
 

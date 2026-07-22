@@ -20,6 +20,9 @@ export interface Band {
   name: string;
   unreviewed: boolean;
   genre: string | null;
+  // Band-authored "for fans of" references, comma-joined like `genre` (0058).
+  // The band's own counterpart to shows.similar_to (which is scraper-derived).
+  similar_to: string | null;
   socials: unknown; // jsonb — arbitrary { platform: url } shape, not modeled yet
   bio: string | null;
   hometown: string | null;
@@ -437,6 +440,7 @@ type FeaturedLink = { url: string; label: string; image: string };
 export interface BandSubmissionInput {
   name: string;
   genres: string[];
+  similarTo: string[]; // "for fans of" references, stored comma-joined
   city: string;
   neighborhoods: string[];
   members: string[];
@@ -567,6 +571,7 @@ function changedProfileFields(
   next: {
     bio: string;
     genre: string | null;
+    similarTo: string | null;
     city: string;
     neighborhoods: string[];
     members: string[];
@@ -580,6 +585,7 @@ function changedProfileFields(
   if (norm(existing.bio) !== norm(next.bio)) changed.push("bio");
   if (norm(existing.photo) !== norm(next.photo)) changed.push("photo");
   if (norm(existing.genre) !== norm(next.genre)) changed.push("genre");
+  if (norm(existing.similar_to) !== norm(next.similarTo)) changed.push("similar");
   if (norm(existing.city) !== norm(next.city) || listKey(existing.neighborhoods) !== next.neighborhoods.join("|")) {
     changed.push("location");
   }
@@ -618,6 +624,7 @@ export async function upsertBand(
         : null;
 
     const genre = input.genres.map((g) => g.trim()).filter(Boolean).join(", ") || null;
+    const similarTo = input.similarTo.map((s) => s.trim()).filter(Boolean).join(", ") || null;
     const neighborhoods = input.neighborhoods.map((n) => n.trim()).filter(Boolean);
     const members = input.members.map((m) => m.trim()).filter(Boolean);
     const socials = socialsJson(input);
@@ -661,6 +668,7 @@ export async function upsertBand(
         update bands set
           name = ${input.name},
           genre = ${genre},
+          similar_to = ${similarTo},
           socials = ${socials ? sql.json(socials) : null},
           bio = ${input.bio || null},
           city = ${input.city || null},
@@ -684,6 +692,7 @@ export async function upsertBand(
       const changed = changedProfileFields(existing, {
         bio: input.bio,
         genre,
+        similarTo,
         city: input.city,
         neighborhoods,
         members,
@@ -701,11 +710,11 @@ export async function upsertBand(
     const slug = await uniqueSlug(tx, slugify(input.name) || "band");
     const [created] = await tx<Band[]>`
       insert into bands (
-        slug, name, genre, socials, bio, city, neighborhoods, members,
+        slug, name, genre, similar_to, socials, bio, city, neighborhoods, members,
         contact_email, contact_method, photo, thumbnail_url, bandcamp_embed_url,
         bandcamp_embed_height, featured_links
       ) values (
-        ${slug}, ${input.name}, ${genre}, ${socials ? sql.json(socials) : null},
+        ${slug}, ${input.name}, ${genre}, ${similarTo}, ${socials ? sql.json(socials) : null},
         ${input.bio || null}, ${input.city || null},
         ${neighborhoods.length ? sql.json(neighborhoods) : null},
         ${members.length ? sql.json(members) : null}, ${input.contactEmail || null},

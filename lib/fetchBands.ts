@@ -23,6 +23,9 @@ export type Band = {
   name: string;
   slug: string;
   genres: string[];
+  // Band-authored "for fans of" references (other artists they sound like),
+  // split from the comma-joined `similar_to` column; may be empty.
+  similarTo: string[];
   city: string;
   neighborhoods: string[]; // finer-grained areas within the city; may be empty
   members: string[]; // individual people in the band; may be empty
@@ -116,6 +119,10 @@ function fromTwinScene(b: BandRow): Band {
     genres: (b.genre ?? "")
       .split(",")
       .map((g) => g.trim())
+      .filter(Boolean),
+    similarTo: (b.similar_to ?? "")
+      .split(",")
+      .map((s) => s.trim())
       .filter(Boolean),
     city: b.city ?? "",
     neighborhoods: asStringArray(b.neighborhoods),
