@@ -1495,7 +1495,7 @@ export default function SubmitForm({
                           <div className="flex items-center gap-2">
                             <p className="truncate text-sm text-ink">{video.title}</p>
                             <span className="shrink-0 rounded-full border border-ink/15 bg-ink/5 px-1.5 py-0.5 text-[10px] font-medium text-ink/45">
-                              {video.source === "manual" ? "Added by the band" : "Found by UnderCurrentMPLS"}
+                              {video.source === "manual" ? "Added by the band" : "Filmed by UnderCurrentMPLS"}
                             </span>
                             {hidden && (
                               <span className="shrink-0 rounded-full border border-ink/15 bg-ink/5 px-1.5 py-0.5 text-[10px] font-medium text-ink/45">

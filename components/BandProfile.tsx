@@ -203,7 +203,7 @@ function BandVideos({ videos }: SectionProps) {
                   "Added by the band"
                 ) : (
                   <>
-                    Found by{" "}
+                    Filmed by{" "}
                     <a
                       href="https://www.youtube.com/@UnderCurrentMPLS"
                       target="_blank"
