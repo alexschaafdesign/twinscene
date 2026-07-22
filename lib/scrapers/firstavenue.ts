@@ -13,6 +13,13 @@
 // few and parse each card (`.show_list_item`). Cards carry the date via a
 // preceding `#day-YYYY-MM-DD` anchor, so we walk day anchors and cards together
 // in document order and stamp each card with the most recent date seen.
+//
+// Doors/show times are NOT on the calendar cards — they live only on each
+// event's own page, in a `.show_details` block of <h6>label</h6><h2>value</h2>
+// pairs ("Doors Open" → "7PM", "Show Starts" → "6:30PM"). So after parsing the
+// month calendars we fetch each event page once (bounded concurrency) and read
+// the times off it. A detail fetch failing is best-effort: the show still
+// imports, just without times, rather than failing the whole run.
 
 import * as cheerio from "cheerio";
 import type { ScrapedShow } from "./types";
@@ -42,6 +49,11 @@ function isOwnedElsewhere(venue: string): boolean {
 // a few months of lead time keeps the review queue useful without hammering the
 // site (one request per month).
 const MONTHS_AHEAD = 3;
+
+// Each show's times need one more request (its event page). Cap how many of
+// those are in flight at once so we don't hammer the site with a few hundred
+// simultaneous fetches.
+const DETAIL_CONCURRENCY = 6;
 
 // Empty divs like <div id="day-2026-07-1"></div> precede each day's cards and
 // are the only place the full year appears (the card itself shows just
@@ -190,6 +202,75 @@ function parsePage(html: string): ScrapedShow[] {
   return shows;
 }
 
+/**
+ * Normalize First Avenue's time strings ("7PM", "6:30PM") to the "7:00pm" /
+ * "6:30pm" style the other scrapers emit. Returns null for anything unparseable
+ * or empty.
+ */
+function formatTime(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const m = /(\d{1,2})(?::(\d{2}))?\s*([ap])\.?m/i.exec(raw);
+  if (!m) return null;
+  const hour = parseInt(m[1], 10);
+  const minute = m[2] ?? "00";
+  return `${hour}:${minute}${m[3].toLowerCase()}m`;
+}
+
+/**
+ * Pull doors/show times off an event page's `.show_details` block, which lists
+ * <h6>label</h6><h2>value</h2> pairs ("Doors Open", "Show Starts", "Ages").
+ */
+function parseEventTimes(html: string): {
+  doorsTime: string | null;
+  musicTime: string | null;
+} {
+  const $ = cheerio.load(html);
+  let doorsTime: string | null = null;
+  let musicTime: string | null = null;
+
+  $(".show_details h6").each((_, el) => {
+    const label = clean($(el).text()).toLowerCase();
+    const value = clean($(el).next("h2").text());
+    if (label.includes("doors")) doorsTime = formatTime(value);
+    else if (label.includes("show")) musicTime = formatTime(value);
+  });
+
+  return { doorsTime, musicTime };
+}
+
+/** Fetch one event page's times; best-effort — never throws. */
+async function fetchEventTimes(
+  url: string,
+): Promise<{ doorsTime: string | null; musicTime: string | null }> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+      cache: "no-store",
+    });
+    if (!res.ok) return { doorsTime: null, musicTime: null };
+    return parseEventTimes(await res.text());
+  } catch {
+    return { doorsTime: null, musicTime: null };
+  }
+}
+
+/** Run `fn` over `items` with at most `limit` in flight at once. */
+async function mapWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>,
+): Promise<void> {
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      await fn(items[next++]);
+    }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker),
+  );
+}
+
 export async function scrapeFirstAvenue(): Promise<ScrapedShow[]> {
   const pages = await Promise.all(
     monthPageUrls().map(async (url) => {
@@ -206,5 +287,17 @@ export async function scrapeFirstAvenue(): Promise<ScrapedShow[]> {
     }),
   );
 
-  return pages.flat();
+  const shows = pages.flat();
+
+  // Fill in doors/show times from each show's event page (see file header).
+  // Only cards that link to an on-site event page can be enriched; sourceUrl
+  // falls back to the calendar URL for the rest, which we skip.
+  await mapWithConcurrency(shows, DETAIL_CONCURRENCY, async (show) => {
+    if (!show.sourceUrl.includes("/event/")) return;
+    const { doorsTime, musicTime } = await fetchEventTimes(show.sourceUrl);
+    show.doorsTime = doorsTime;
+    show.musicTime = musicTime;
+  });
+
+  return shows;
 }
