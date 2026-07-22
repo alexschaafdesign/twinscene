@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { getMusicianPageData, canEditMusician } from "@/lib/musicians";
 import BackLink from "@/components/BackLink";
+import MessageButton from "@/components/MessageButton";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -71,6 +72,17 @@ export default async function MusicianPage({ params }: Props) {
           )}
         </div>
       </div>
+
+      {/* Message this musician — hidden for the linked user themselves and for
+          admins (they'd reply from their own inbox, not open a new thread). */}
+      {!canEdit && (
+        <MessageButton
+          recipientType="musician"
+          recipientId={musician.id}
+          label={`Message ${musician.name}`}
+          loggedIn={!!currentUser}
+        />
+      )}
 
       <div>
         <h2 className="text-xl font-medium">Bands</h2>

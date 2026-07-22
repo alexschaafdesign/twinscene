@@ -19,6 +19,7 @@ import { canApproveMemberClaim, listPendingClaimsForBand } from "@/lib/bandMembe
 import { getHighConfidenceBandGenres } from "@/lib/bandGenres";
 import BandProfile, { editHref } from "@/components/BandProfile";
 import ClaimOwnershipButton from "@/components/ClaimOwnershipButton";
+import MessageButton from "@/components/MessageButton";
 import { iconProps, locationLabel } from "@/components/band-shared";
 import { FollowBandButton } from "@/components/band-shared-client";
 import BackLink from "@/components/BackLink";
@@ -107,6 +108,17 @@ export default async function BandProfilePage({ params }: Props) {
           for already-owned bands stays inside BandProfile. */}
       {!canEdit && !hasOwner && <ClaimOwnershipButton loggedIn={!!user} />}
       <FollowBandButton slug={slug} initialFollowing={initialFollowing} loggedIn={!!user} />
+
+      {/* Message the band — hidden for its own editors/admins (you don't
+          message an inbox you manage; you reply from it). */}
+      {!canEdit && bandRow && (
+        <MessageButton
+          recipientType="band"
+          recipientId={bandRow.id}
+          label="Message this band"
+          loggedIn={!!user}
+        />
+      )}
 
       {canEdit && (
         <Link

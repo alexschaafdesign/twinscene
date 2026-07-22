@@ -174,6 +174,14 @@ export default function AccountMenu({
               >
                 Your profile
               </Link>
+              <Link
+                href="/profile/messages"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="block px-4 py-2 text-[#E8E0D0]/80 transition hover:bg-[#E8E0D0]/10 hover:text-[#E8E0D0]"
+              >
+                Messages
+              </Link>
               {user.username && (
                 <Link
                   href={`/u/${user.username}`}
