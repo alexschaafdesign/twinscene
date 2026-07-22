@@ -14,8 +14,12 @@ export interface VideoRow {
   video_url: string;
   published_date: string | null;
   match_score: number | null;
-  status: "auto" | "review" | "created" | "manual";
+  status: "auto" | "review" | "created" | "manual" | "birdhaus";
   created_at: string;
+  /** For 'birdhaus' rows, the Birdhaus show page the credit line links to
+   * ("Recorded at The Birdhaus"). Null for every other source. Set by
+   * lib/importBirdhausVideos.ts. */
+  source_url: string | null;
   /** Set/cleared via setVideosHidden — a reversible alternative to deleting
    * the row, so a band can pull a scraper-matched video off their profile
    * without losing it for good (migration 0044). */
@@ -28,7 +32,9 @@ export interface VideoRow {
 
 // 'review' rows are unconfirmed scraper matches (medium-confidence title
 // parsing) awaiting a human look — never shown on a band's live profile.
-const VISIBLE_STATUSES = ["auto", "manual"] as const;
+// 'birdhaus' rows are pulled from Birdhaus's own DB (already human-curated
+// there), so they're live like 'auto'/'manual'.
+const VISIBLE_STATUSES = ["auto", "manual", "birdhaus"] as const;
 
 /** Videos to actually render on a band's profile page, by slug. */
 export async function getVisibleVideosBySlug(slug: string): Promise<VideoRow[]> {

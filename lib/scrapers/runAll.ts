@@ -14,6 +14,9 @@ import {
   type PressStarResult,
 } from "@/lib/scrapers/starPress";
 import { reconcileAllCompleteLists, type ReconcileReport } from "@/lib/scrapers/reconcile";
+import { importBirdhausVideos, type ImportBirdhausVideosResult } from "@/lib/importBirdhausVideos";
+import { revalidateTag } from "next/cache";
+import { CACHE_TAGS } from "@/lib/cacheTags";
 
 // A pointer to one imported show, enough for the admin dashboard to render it
 // and link straight to /shows/[id]. `id` is null only when the import request
@@ -59,7 +62,9 @@ export type ScrapeProgressEvent =
   | { type: "press_start" }
   | { type: "press"; pressStars: PressStarResult[] }
   | { type: "reconcile_start" }
-  | { type: "reconcile"; reconcile: ReconcileReport[] };
+  | { type: "reconcile"; reconcile: ReconcileReport[] }
+  | { type: "birdhaus_videos_start" }
+  | { type: "birdhaus_videos"; birdhausVideos: ImportBirdhausVideosResult };
 
 export type ScrapeProgressSink = (event: ScrapeProgressEvent) => void;
 
@@ -83,6 +88,9 @@ export type DigestSummary = {
   // age suggestions applied to shows we have + a count of ones we're missing.
   // Also runAllScrapers-only.
   reconcile?: ReconcileReport[];
+  // Birdhaus's band-tagged live-set videos pulled onto matching band profiles
+  // (lib/importBirdhausVideos.ts). Reads a separate DB; runAllScrapers-only.
+  birdhausVideos?: ImportBirdhausVideosResult;
 };
 
 // Cap how many imports are in flight at once and retry a few times on
@@ -160,6 +168,22 @@ export async function runAllScrapers(
     onEvent?.({ type: "reconcile", reconcile: summary.reconcile });
   } catch (err) {
     console.error("reconcileAllCompleteLists failed", err);
+  }
+
+  // Pull Birdhaus's band-tagged live-set videos onto matching band profiles
+  // (lib/importBirdhausVideos.ts). Best-effort like the steps above: it reads a
+  // separate DB (BIRDHAUS_DATABASE_URL) and isn't a scraper, so a failure here
+  // must not fail the run. Invalidate the videos cache only if something changed.
+  try {
+    onEvent?.({ type: "birdhaus_videos_start" });
+    summary.birdhausVideos = await importBirdhausVideos({ confirm: true });
+    // Same immediate-expiry invalidation cachedReads.revalidateVideos() uses;
+    // inlined here to avoid a runAll → cachedReads import cycle that breaks
+    // unstable_cache's type inference at its call sites.
+    if (summary.birdhausVideos.written > 0) revalidateTag(CACHE_TAGS.videos, { expire: 0 });
+    onEvent?.({ type: "birdhaus_videos", birdhausVideos: summary.birdhausVideos });
+  } catch (err) {
+    console.error("importBirdhausVideos failed", err);
   }
 
   return summary;

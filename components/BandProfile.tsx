@@ -171,10 +171,11 @@ function FeaturedLinks({ band }: SectionProps) {
 }
 
 /** Band's YouTube videos — scraper-matched (UnderCurrentMPLS backfill,
- * status 'auto') and/or hand-entered via the edit form (status 'manual').
- * Each renders as a responsive embed with its title as a caption, plus a
- * small per-video credit line so the two sources aren't conflated — a
- * manually-added video isn't from UnderCurrentMPLS. */
+ * status 'auto'), hand-entered via the edit form (status 'manual'), or pulled
+ * from The Birdhaus's own live-set recordings (status 'birdhaus', linked back
+ * to the show it was recorded at). Each renders as a responsive embed with its
+ * title as a caption, plus a small per-video credit line so the sources aren't
+ * conflated. */
 function BandVideos({ videos }: SectionProps) {
   if (videos.length === 0) return null;
 
@@ -201,6 +202,18 @@ function BandVideos({ videos }: SectionProps) {
               <p className="mt-0.5 text-[11px] text-[#E8E0D0]/40">
                 {video.status === "manual" ? (
                   "Added by the band"
+                ) : video.status === "birdhaus" ? (
+                  <>
+                    Recorded at{" "}
+                    <a
+                      href={video.source_url ?? "https://thebirdhaus.org"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline decoration-[#E8E0D0]/25 underline-offset-2 transition hover:text-[#E8E0D0]/70"
+                    >
+                      The Birdhaus
+                    </a>
+                  </>
                 ) : (
                   <>
                     Filmed by{" "}
