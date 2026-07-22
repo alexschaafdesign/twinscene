@@ -580,6 +580,7 @@ export default function BandProfile({
   showClaimEntry = false,
   hasOwner = true,
   pendingMemberClaims = [],
+  bandcampGenres = [],
   layout = DEFAULT_LAYOUT,
   canEdit = false,
   actions,
@@ -610,6 +611,12 @@ export default function BandProfile({
    * viewer canApproveMemberClaim (owner or admin), so the page fetches this
    * conditionally. */
   pendingMemberClaims?: PendingBandMemberClaim[];
+  /** High-confidence canonical genres derived from the band's Bandcamp tags
+   * (band_genres, source='bandcamp' — lib/bandGenres.ts). Distinct from
+   * band.genres (self-reported free text): shown as its own chip row so the
+   * two aren't visually conflated. Isolated display only for now — not wired
+   * into search/filter. */
+  bandcampGenres?: string[];
   /** Section order and visibility. Defaults to the standard arrangement;
    * pass a normalized layout (lib/bandProfileLayout.ts) to vary it. */
   layout?: BandProfileLayout;
@@ -652,6 +659,18 @@ export default function BandProfile({
             <span
               key={g}
               className="rounded-full border border-[#E8E0D0]/20 px-2 py-0.5 text-xs text-[#E8E0D0]/75"
+            >
+              {g}
+            </span>
+          ))}
+        </div>
+      )}
+      {bandcampGenres.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {bandcampGenres.map((g) => (
+            <span
+              key={g}
+              className="rounded-full border border-[#8FD693]/35 px-2 py-0.5 text-xs text-[#8FD693]/90"
             >
               {g}
             </span>

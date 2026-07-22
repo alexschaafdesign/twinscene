@@ -15,6 +15,7 @@ import { listShowStatuses } from "@/lib/showSaves";
 import { getBandMembers } from "@/lib/musicians";
 import { isBandOwner, bandHasOwner } from "@/lib/bandOwnership";
 import { canApproveMemberClaim, listPendingClaimsForBand } from "@/lib/bandMemberClaims";
+import { getHighConfidenceBandGenres } from "@/lib/bandGenres";
 import BandProfile, { editHref } from "@/components/BandProfile";
 import ClaimOwnershipButton from "@/components/ClaimOwnershipButton";
 import { iconProps, locationLabel } from "@/components/band-shared";
@@ -83,6 +84,7 @@ export default async function BandProfilePage({ params }: Props) {
   const canEdit = user && bandRow ? await canEditBand(user, bandRow.id) : false;
   const canApproveClaims = user && bandRow ? await canApproveMemberClaim(user, bandRow.id) : false;
   const pendingMemberClaims = canApproveClaims && bandRow ? await listPendingClaimsForBand(bandRow.id) : [];
+  const bandcampGenres = bandRow ? await getHighConfidenceBandGenres(bandRow.id) : [];
 
   const actions = (
     <>
@@ -160,6 +162,7 @@ export default async function BandProfilePage({ params }: Props) {
         showClaimEntry={!canEdit}
         hasOwner={hasOwner}
         pendingMemberClaims={pendingMemberClaims}
+        bandcampGenres={bandcampGenres}
         layout={band.profileLayout}
         canEdit={canEdit}
         actions={actions}

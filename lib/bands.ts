@@ -4,10 +4,11 @@
 
 import { sql } from "./db.ts";
 import type postgres from "postgres";
-import { resolveBandcampEmbedUrl } from "./bandcamp.ts";
+import { resolveBandcampEmbedUrl, isBandcampUrl } from "./bandcamp.ts";
 import { extractOgImage } from "./ogImage.ts";
 import { reconcileBandMembers } from "./musicians.ts";
 import { notifyBandProfileUpdated } from "./notifications.ts";
+import { triggerBandGenreScrape } from "./bandGenres.ts";
 import type { BandProfileLayout } from "./bandProfileLayout.ts";
 
 // Mirrors the `bands` columns exactly (snake_case), so a `select *` row IS a
@@ -222,6 +223,9 @@ export async function updateBandLinks(
   if (changed.some(Boolean)) {
     await notifyBandProfileUpdated(sql, bandId, ["links"], actorUserId);
   }
+  if (bcChanged && isBandcampUrl(input.bandcampLink)) {
+    triggerBandGenreScrape(bandId, [input.bandcampLink.trim()]);
+  }
   return updated;
 }
 
@@ -300,6 +304,9 @@ export async function updateBandMusic(
 
   if (t !== prevBandcamp.trim()) {
     await notifyBandProfileUpdated(sql, bandId, ["links"], actorUserId);
+  }
+  if (t !== prevBandcamp.trim() && isBandcampUrl(t)) {
+    triggerBandGenreScrape(bandId, [t]);
   }
   return updated;
 }
@@ -420,10 +427,17 @@ export interface UpsertBandResult {
   action: "created" | "updated";
 }
 
-function socialsOf(v: unknown): { instagram: string; website: string; bandcamp: string } {
+function socialsOf(
+  v: unknown,
+): { instagram: string; website: string; bandcamp: string; bandcampLink: string } {
   const o = v && typeof v === "object" ? (v as Record<string, unknown>) : {};
   const str = (x: unknown) => (typeof x === "string" ? x : "");
-  return { instagram: str(o.instagram), website: str(o.website), bandcamp: str(o.bandcamp) };
+  return {
+    instagram: str(o.instagram),
+    website: str(o.website),
+    bandcamp: str(o.bandcamp),
+    bandcampLink: str(o.bandcampLink),
+  };
 }
 
 function featuredLinksOf(v: unknown): FeaturedLink[] {
@@ -561,7 +575,12 @@ export async function upsertBand(
   existingSlug?: string,
   actorUserId?: number,
 ): Promise<UpsertBandResult> {
-  return sql.begin(async (tx) => {
+  // Populated inside the tx below (bandcampLink/bandcamp compared against
+  // whatever was previously stored), read once the tx has committed so the
+  // scrape can't fire ahead of a rollback.
+  let bandcampUrlsToScrape: string[] = [];
+
+  const result = await sql.begin(async (tx) => {
     const existing =
       mode === "correct" && existingSlug
         ? ((await tx<Band[]>`select * from bands where slug = ${existingSlug} limit 1`)[0] ?? null)
@@ -571,6 +590,17 @@ export async function upsertBand(
     const neighborhoods = input.neighborhoods.map((n) => n.trim()).filter(Boolean);
     const members = input.members.map((m) => m.trim()).filter(Boolean);
     const socials = socialsJson(input);
+
+    const prevSocials = socialsOf(existing?.socials);
+    if (
+      input.bandcampLink.trim() !== prevSocials.bandcampLink.trim() &&
+      isBandcampUrl(input.bandcampLink)
+    ) {
+      bandcampUrlsToScrape.push(input.bandcampLink.trim());
+    }
+    if (input.bandcamp.trim() !== prevSocials.bandcamp.trim() && isBandcampUrl(input.bandcamp)) {
+      bandcampUrlsToScrape.push(input.bandcamp.trim());
+    }
 
     const featuredLinks = await resolveFeaturedLinks(
       input.featuredLinks,
@@ -656,4 +686,9 @@ export async function upsertBand(
     await reconcileBandMembers(tx, created.id, members);
     return { band: created, action: "created" as const };
   });
+
+  if (bandcampUrlsToScrape.length > 0) {
+    triggerBandGenreScrape(result.band.id, bandcampUrlsToScrape);
+  }
+  return result;
 }

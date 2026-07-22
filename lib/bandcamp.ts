@@ -14,9 +14,12 @@
 // buildBandcampEmbedUrl() in its own runtime — keep the two in sync when changing
 // the regex or embed shape.
 
-/** True if `url` looks like a bandcamp.com URL (bare or with a subdomain). */
+/** True if `url` looks like a bandcamp.com URL (bare or with a subdomain).
+ * Trailing slash is optional — the "links" section's own placeholder text
+ * asks for a bare "https://yourband.bandcamp.com", so requiring a trailing
+ * `/` silently rejected exactly the shape that field asks for. */
 export function isBandcampUrl(url: string): boolean {
-  return /^https?:\/\/([a-z0-9-]+\.)?bandcamp\.com\//i.test(url.trim());
+  return /^https?:\/\/([a-z0-9-]+\.)?bandcamp\.com(\/|$)/i.test(url.trim());
 }
 
 /**

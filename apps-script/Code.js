@@ -1161,7 +1161,7 @@ function handleDismissedBand_(p) {
  */
 
 function isBandcampUrl_(url) {
-  return /^https?:\/\/([a-z0-9-]+\.)?bandcamp\.com\//i.test(trim_(url));
+  return /^https?:\/\/([a-z0-9-]+\.)?bandcamp\.com(\/|$)/i.test(trim_(url));
 }
 
 /**
