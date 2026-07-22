@@ -186,8 +186,9 @@ export default function ShowsList({
 
   // Shows with at least one LOCAL band on the bill (migration 0059) — matches
   // the "Scene bands" badge. Touring-only shows are deliberately excluded.
+  // (?? bandSlugs: a Show from a pre-0059 persisted cache entry lacks the field.)
   const localBandsCount = useMemo(
-    () => baseShows.filter((s) => s.localBandSlugs.length > 0).length,
+    () => baseShows.filter((s) => (s.localBandSlugs ?? s.bandSlugs).length > 0).length,
     [baseShows],
   );
 
@@ -204,7 +205,7 @@ export default function ShowsList({
       if (venueType && matchVenue(venueDirectory, s.venue)?.type !== venueType) {
         return false;
       }
-      if (localBandsOnly && s.localBandSlugs.length === 0) return false;
+      if (localBandsOnly && (s.localBandSlugs ?? s.bandSlugs).length === 0) return false;
       if (pressRecommendedOnly && s.starredBy.length === 0) return false;
 
       // Search across title, lineup, and venue name.

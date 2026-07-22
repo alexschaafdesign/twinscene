@@ -66,20 +66,22 @@ export const getCachedBandBySlug = unstable_cache(getBandBySlug, ["cached-band-b
 export const getCachedShows = unstable_cache(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- today is a cache-key discriminator only
   (today: string) => fetchShows(),
-  ["cached-shows"],
+  // v2: the cached Show shape gained localBandSlugs (0059); a fresh key forces a
+  // recompute rather than serving pre-0059 entries that lack the field.
+  ["cached-shows-v2"],
   { tags: [CACHE_TAGS.shows], revalidate: HOUR },
 );
-export const getCachedShowById = unstable_cache(fetchShowById, ["cached-show-by-id"], {
+export const getCachedShowById = unstable_cache(fetchShowById, ["cached-show-by-id-v2"], {
   tags: [CACHE_TAGS.shows],
   revalidate: HOUR,
 });
 export const getCachedPastShows = unstable_cache(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- today is a cache-key discriminator only
   (days: number, today: string) => fetchPastShows(days),
-  ["cached-past-shows"],
+  ["cached-past-shows-v2"], // v2: see getCachedShows — Show gained localBandSlugs (0059)
   { tags: [CACHE_TAGS.shows], revalidate: HOUR },
 );
-export const getCachedAllPastShows = unstable_cache(fetchAllPastShows, ["cached-all-past-shows"], {
+export const getCachedAllPastShows = unstable_cache(fetchAllPastShows, ["cached-all-past-shows-v2"], {
   tags: [CACHE_TAGS.shows],
   revalidate: HOUR,
 });

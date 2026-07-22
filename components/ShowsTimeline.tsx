@@ -161,7 +161,10 @@ function ShowBadges({ show }: { show: Show }) {
   // "Scene bands" only when a LOCAL band is on the bill (migration 0059).
   // A show whose matched bands are all touring gets the muted "Touring" badge
   // instead — still visibly in the directory, just not flagged as the scene.
-  const isScene = show.localBandSlugs.length > 0;
+  // Fall back to bandSlugs (all-local) when localBandSlugs is absent — a Show
+  // served from a pre-0059 persisted cache entry won't carry the new field.
+  const localBandSlugs = show.localBandSlugs ?? show.bandSlugs;
+  const isScene = localBandSlugs.length > 0;
   const isTouringOnly = !isScene && show.bandSlugs.length > 0;
   return (
     <>
