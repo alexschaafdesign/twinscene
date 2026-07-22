@@ -19,12 +19,16 @@ export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ conversationId: string }> };
 
+// Rendered server-side (Vercel runs in UTC), so pin the scene's timezone —
+// otherwise an 11:12am Central message reads as "4:12pm". America/Chicago is
+// the app-wide convention (see lib/fetchShows todayInChicago).
 function timestamp(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return new Date(iso).toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: "America/Chicago",
   });
 }
 

@@ -22,7 +22,8 @@ function when(iso: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.round(hrs / 24);
   if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString();
+  // Server renders in UTC; pin Central so the date doesn't slip near midnight.
+  return new Date(iso).toLocaleDateString("en-US", { timeZone: "America/Chicago" });
 }
 
 function initiatorLabel(row: {
