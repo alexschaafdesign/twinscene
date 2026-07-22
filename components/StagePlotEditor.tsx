@@ -87,6 +87,9 @@ export default function StagePlotEditor({
 }) {
   const [name, setName] = useState(initialName);
   const [items, setItems] = useState<Item[]>(() => initialItems.map(toItem));
+  // Live item count for the tap-cascade offset, readable from stable callbacks.
+  const itemCountRef = useRef(items.length);
+  itemCountRef.current = items.length;
   const [inputs, setInputs] = useState<Input[]>(() => initialInputs.map(toInput));
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
   const [draggingUid, setDraggingUid] = useState<string | null>(null);
@@ -94,6 +97,13 @@ export default function StagePlotEditor({
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const dragUidRef = useRef<string | null>(null);
+  // A press-and-drag that STARTED on a palette button but hasn't yet crossed the
+  // movement threshold to become a real placed-item drag. `created` flips true
+  // once we spawn the item so pointerup knows a tap (create-at-default) is no
+  // longer needed.
+  const pendingRef = useRef<
+    { cat: CatalogItem; startX: number; startY: number; created: boolean } | null
+  >(null);
 
   // --- Autosave (debounced) ------------------------------------------------
   // Skip the initial render so opening a plot doesn't immediately re-save it.
@@ -136,14 +146,16 @@ export default function StagePlotEditor({
   }, [name, items, inputs, plotId]);
 
   // --- Canvas placement + dragging ----------------------------------------
-  function addFromPalette(cat: CatalogItem) {
+  // Spawn a catalog item at a fractional canvas position, select it, and seed
+  // its input-list rows. Shared by tap-to-place, keyboard activation, and
+  // drag-from-palette; returns the new uid so a drag can grab it immediately.
+  const placeItem = useCallback((cat: CatalogItem, x: number, y: number): string => {
     const newItem: Item = {
       uid: uid(),
       item_type: cat.key,
       label: null,
-      // Cascade new items slightly so several don't stack exactly.
-      x: 0.5,
-      y: Math.min(0.75, 0.35 + (items.length % 5) * 0.08),
+      x: snap(x),
+      y: snap(y),
       rotation: 0,
       notes: null,
     };
@@ -162,7 +174,18 @@ export default function StagePlotEditor({
         })),
       ]);
     }
-  }
+    return newItem.uid;
+  }, []);
+
+  // Tap / keyboard placement: drop at center-ish, cascading so a run of taps
+  // doesn't stack exactly on one spot. Reads a live count ref so it stays
+  // correct even when called from the captured window pointerup closure.
+  const addFromPalette = useCallback(
+    (cat: CatalogItem) => {
+      placeItem(cat, 0.5, Math.min(0.75, 0.35 + (itemCountRef.current % 5) * 0.08));
+    },
+    [placeItem],
+  );
 
   const pointFraction = useCallback((clientX: number, clientY: number) => {
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -173,8 +196,28 @@ export default function StagePlotEditor({
     };
   }, []);
 
+  // Movement (px) before a press that started on a palette button is treated as
+  // a drag-to-place rather than a tap.
+  const PALETTE_DRAG_THRESHOLD = 6;
+
   useEffect(() => {
     function onMove(e: PointerEvent) {
+      // A palette press that's crossed the threshold spawns its item at the
+      // pointer and hands off to the normal item-drag below.
+      const pending = pendingRef.current;
+      if (pending && !pending.created) {
+        const dx = e.clientX - pending.startX;
+        const dy = e.clientY - pending.startY;
+        if (Math.hypot(dx, dy) >= PALETTE_DRAG_THRESHOLD) {
+          const frac = pointFraction(e.clientX, e.clientY);
+          if (frac) {
+            const newUid = placeItem(pending.cat, frac.x, frac.y);
+            pending.created = true;
+            dragUidRef.current = newUid;
+            setDraggingUid(newUid);
+          }
+        }
+      }
       if (!dragUidRef.current) return;
       const frac = pointFraction(e.clientX, e.clientY);
       if (!frac) return;
@@ -186,6 +229,12 @@ export default function StagePlotEditor({
       );
     }
     function onUp() {
+      // A palette press that never moved is a tap → default placement.
+      const pending = pendingRef.current;
+      if (pending) {
+        if (!pending.created) addFromPalette(pending.cat);
+        pendingRef.current = null;
+      }
       if (dragUidRef.current) {
         dragUidRef.current = null;
         setDraggingUid(null);
@@ -197,7 +246,7 @@ export default function StagePlotEditor({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [pointFraction]);
+  }, [pointFraction, placeItem, addFromPalette]);
 
   function startDrag(e: React.PointerEvent, itemUid: string) {
     e.preventDefault();
@@ -298,8 +347,25 @@ export default function StagePlotEditor({
             <button
               key={cat.key}
               type="button"
-              onClick={() => addFromPalette(cat)}
-              className="flex items-center gap-2 rounded-lg border border-[#E8E0D0]/15 bg-[rgba(232,224,208,0.04)] px-3 py-2 text-xs text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/40 hover:bg-[rgba(232,224,208,0.09)] hover:text-[#E8E0D0]"
+              onPointerDown={(e) => {
+                // Begin a potential drag-to-place. Capture the pointer so a
+                // touch drag off the button doesn't scroll the page, and so we
+                // keep getting move/up even once the finger leaves the button.
+                e.currentTarget.setPointerCapture?.(e.pointerId);
+                pendingRef.current = {
+                  cat,
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  created: false,
+                };
+              }}
+              // Pointer taps are handled in the window pointerup; this fires
+              // only for keyboard activation (Enter/Space → detail 0).
+              onClick={(e) => {
+                if (e.detail === 0) addFromPalette(cat);
+              }}
+              style={{ touchAction: "none" }}
+              className="flex touch-none items-center gap-2 rounded-lg border border-[#E8E0D0]/15 bg-[rgba(232,224,208,0.04)] px-3 py-2 text-xs text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/40 hover:bg-[rgba(232,224,208,0.09)] hover:text-[#E8E0D0]"
             >
               <StageSymbol type={cat.key} size={22} style={{ color: "#E8E0D0", opacity: 0.85 }} />
               {cat.label}
@@ -327,7 +393,7 @@ export default function StagePlotEditor({
 
           {items.length === 0 && (
             <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-sm italic text-[#E8E0D0]/35">
-              Click gear above to drop it here, then drag to arrange.
+              Drag gear from above onto the grid — or tap it to drop it in, then drag to arrange.
             </p>
           )}
 
