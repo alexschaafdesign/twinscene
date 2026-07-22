@@ -20,7 +20,13 @@ import {
   catalogItem,
   type CatalogItem,
 } from "@/lib/stagePlotCatalog";
+import StageSymbol, { symbolSize } from "@/components/StageSymbol";
 import type { StagePlotItem, InputListItem } from "@/lib/stagePlots";
+
+// Placed items snap to a light grid so a plot looks tidy without feeling
+// locked — the visible canvas grid uses the same step.
+const SNAP = 0.025;
+const snap = (v: number) => Math.min(1, Math.max(0, Math.round(v / SNAP) * SNAP));
 
 type Item = {
   uid: string;
@@ -83,6 +89,7 @@ export default function StagePlotEditor({
   const [items, setItems] = useState<Item[]>(() => initialItems.map(toItem));
   const [inputs, setInputs] = useState<Input[]>(() => initialInputs.map(toInput));
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
+  const [draggingUid, setDraggingUid] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -173,11 +180,16 @@ export default function StagePlotEditor({
       if (!frac) return;
       const target = dragUidRef.current;
       setItems((prev) =>
-        prev.map((it) => (it.uid === target ? { ...it, x: frac.x, y: frac.y } : it)),
+        prev.map((it) =>
+          it.uid === target ? { ...it, x: snap(frac.x), y: snap(frac.y) } : it,
+        ),
       );
     }
     function onUp() {
-      dragUidRef.current = null;
+      if (dragUidRef.current) {
+        dragUidRef.current = null;
+        setDraggingUid(null);
+      }
     }
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -190,6 +202,7 @@ export default function StagePlotEditor({
   function startDrag(e: React.PointerEvent, itemUid: string) {
     e.preventDefault();
     dragUidRef.current = itemUid;
+    setDraggingUid(itemUid);
     setSelectedUid(itemUid);
   }
 
@@ -286,9 +299,9 @@ export default function StagePlotEditor({
               key={cat.key}
               type="button"
               onClick={() => addFromPalette(cat)}
-              className="flex items-center gap-1.5 rounded-md border border-[#E8E0D0]/15 bg-[rgba(232,224,208,0.04)] px-2.5 py-1.5 text-xs text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]"
+              className="flex items-center gap-2 rounded-lg border border-[#E8E0D0]/15 bg-[rgba(232,224,208,0.04)] px-3 py-2 text-xs text-[#E8E0D0]/80 transition hover:border-[#E8E0D0]/40 hover:bg-[rgba(232,224,208,0.09)] hover:text-[#E8E0D0]"
             >
-              <span aria-hidden>{cat.icon}</span>
+              <StageSymbol type={cat.key} size={22} style={{ color: "#E8E0D0", opacity: 0.85 }} />
               {cat.label}
             </button>
           ))}
@@ -300,16 +313,28 @@ export default function StagePlotEditor({
         <div
           ref={canvasRef}
           onPointerDown={() => setSelectedUid(null)}
-          className="relative aspect-[3/2] w-full max-w-3xl touch-none select-none overflow-hidden rounded-md border border-[#E8E0D0]/20 bg-[rgba(232,224,208,0.03)]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(232,224,208,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(232,224,208,0.05) 1px, transparent 1px)",
+            backgroundSize: "10% 15%",
+          }}
+          className="relative aspect-[3/2] w-full max-w-3xl touch-none select-none overflow-hidden rounded-xl border border-[#E8E0D0]/20 bg-[rgba(232,224,208,0.03)] shadow-[inset_0_1px_0_rgba(232,224,208,0.06)]"
         >
+          {/* Upstage / backline edge */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 border-b border-dashed border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.03)] py-[3px] text-center text-[9px] uppercase tracking-[0.2em] text-[#E8E0D0]/30">
+            Upstage · Backline
+          </div>
+
           {items.length === 0 && (
             <p className="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center text-sm italic text-[#E8E0D0]/35">
-              Click gear above to place it here, then drag to arrange.
+              Click gear above to drop it here, then drag to arrange.
             </p>
           )}
+
           {items.map((it) => {
             const cat = catalogItem(it.item_type);
             const isSel = it.uid === selectedUid;
+            const isDragging = it.uid === draggingUid;
             return (
               <div
                 key={it.uid}
@@ -321,7 +346,7 @@ export default function StagePlotEditor({
                   startDrag(e, it.uid);
                 }}
                 onKeyDown={(e) => {
-                  const step = e.shiftKey ? 0.05 : 0.02;
+                  const step = e.shiftKey ? 0.05 : SNAP;
                   if (e.key === "ArrowLeft") { e.preventDefault(); nudge(it.uid, -step, 0); }
                   else if (e.key === "ArrowRight") { e.preventDefault(); nudge(it.uid, step, 0); }
                   else if (e.key === "ArrowUp") { e.preventDefault(); nudge(it.uid, 0, -step); }
@@ -331,25 +356,36 @@ export default function StagePlotEditor({
                 style={{
                   left: `${it.x * 100}%`,
                   top: `${it.y * 100}%`,
-                  transform: `translate(-50%, -50%) rotate(${it.rotation}deg)`,
+                  transform: `translate(-50%, -50%) scale(${isDragging ? 1.08 : 1})`,
+                  zIndex: isDragging ? 30 : isSel ? 20 : 10,
+                  transition: isDragging ? "none" : "transform 120ms ease",
                 }}
-                className={`absolute flex cursor-grab flex-col items-center rounded-md border px-2 py-1 text-center active:cursor-grabbing ${
+                className={`group absolute flex cursor-grab flex-col items-center rounded-lg px-1.5 py-1 text-[#E8E0D0] outline-none active:cursor-grabbing ${
                   isSel
-                    ? "border-[#E8E0D0] bg-[rgba(232,224,208,0.16)]"
-                    : "border-[#E8E0D0]/30 bg-[rgba(232,224,208,0.08)]"
-                }`}
+                    ? "bg-[rgba(232,224,208,0.10)] ring-1 ring-[#E8B84B]/70"
+                    : "hover:bg-[rgba(232,224,208,0.06)] focus-visible:ring-1 focus-visible:ring-[#E8E0D0]/40"
+                } ${isDragging ? "shadow-xl shadow-black/40" : ""}`}
               >
-                <span className="text-lg leading-none" aria-hidden>
-                  {cat.icon}
+                <span
+                  className="inline-block leading-none"
+                  style={{ transform: `rotate(${it.rotation}deg)` }}
+                >
+                  <StageSymbol type={it.item_type} size={symbolSize(it.item_type)} />
                 </span>
-                <span className="mt-0.5 max-w-[6rem] truncate text-[10px] leading-tight text-[#E8E0D0]/85">
+                <span className="mt-1 max-w-[7rem] truncate text-[10px] font-medium leading-tight text-[#E8E0D0]/85">
                   {it.label || cat.label}
                 </span>
               </div>
             );
           })}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-dashed border-[#E8E0D0]/20 py-0.5 text-center text-[10px] uppercase tracking-widest text-[#E8E0D0]/40">
-            Front of stage · Audience
+
+          {/* Front of stage / audience edge — warm accent so orientation reads
+              at a glance. */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0">
+            <div className="h-px w-full bg-gradient-to-r from-transparent via-[#E8B84B]/60 to-transparent" />
+            <div className="bg-gradient-to-t from-[#E8B84B]/10 to-transparent py-1 text-center text-[9px] uppercase tracking-[0.25em] text-[#E8B84B]/70">
+              Front of stage · Audience
+            </div>
           </div>
         </div>
 
