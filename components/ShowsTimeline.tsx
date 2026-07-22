@@ -225,7 +225,12 @@ export default function ShowsTimeline({
                         <span className="shrink-0">{artwork}</span>
                       );
                     })()}
-                    <div className="min-w-0">
+                    {/* wrap-anywhere (overflow-wrap: anywhere) lets long
+                        unbroken tokens in a title/venue/lineup break so the
+                        card can shrink to a phone's width. break-words is
+                        inert here — inside a flex item it doesn't reduce the
+                        min-content size, so it wouldn't stop the overflow. */}
+                    <div className="min-w-0 wrap-anywhere">
                       <p className="font-medium text-[#E8E0D0]">
                         {show.id ? (
                           <Link href={`/shows/${show.id}`} className="hover:underline">

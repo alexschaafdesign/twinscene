@@ -4,9 +4,9 @@ Goal: make sure page layouts don't overflow / cause horizontal scrolling on a
 phone. Reported symptom: admin and band pages "too wide / had horizontal
 scrolling" on mobile.
 
-Status: **in progress** — admin section swept, one real bug found. Band profile
-clean. Public/band-facing pages (edit form, /u, /venues, home, /shows, /feed,
-/profile/*) not yet swept.
+Status: **complete** — whole app swept, two real overflow bugs found and fixed
+(`/shows` cards, `/admin/review` button row). Everything else clean. See
+"Findings" for the fixes and "Full results" for the per-page sweep.
 
 ## Method (how the audit was run — reproducible)
 
@@ -37,57 +37,53 @@ All values are page-overflow past a 390px viewport, with mobile styles forced.
 
 | Page | Result |
 |------|--------|
-| `/bands/[slug]` (26bats) | clean (63 media rules, 0 overflow) |
-| `/admin` (scrapers) | clean |
-| `/admin/users` | table scrolls inside its `overflow-x-auto` wrapper — page itself OK (see note) |
-| `/admin/reconcile` | clean |
-| `/admin/review` | **OVERFLOW ~36px** — see Finding 1 |
-| `/admin/shows` | clean |
-| `/admin/bands` | clean (no responsive rules; single-column list) |
-| `/admin/venues` | clean |
-| `/admin/activity` | clean |
-| `/admin/graphics` | clean |
-| `/admin/claims` | clean |
-| `/admin/band-member-claims` | clean |
-| `/admin/venue-claims` | clean |
-| `/shows/import` | clean |
+Content pages (`<main>`): `/`, `/shows`, `/feed`, `/venues`, `/venues/[slug]`
+(acadia, 7th-st-entry), `/musicians`, `/bands/[slug]` (26bats), `/submit`,
+`/u/[username]`, `/profile/edit`, `/profile/band`, and every `/admin/*` page
+plus `/shows/import` and `/admin/bands/[slug]/editors` — **all clean after the
+fixes below**. The two that overflowed:
 
-Not yet swept: `/submit` (band edit form), `/u/[username]`, `/venues/[slug]`,
-`/` (home), `/shows`, `/feed`, `/profile/edit`, `/profile/band`,
-`/admin/bands/[slug]/editors`. Also the fixed header (`AccountMenu` +
-`SectionNav`) wasn't checked (audit scoped to `<main>`).
+| Page | Was | Now |
+|------|-----|-----|
+| `/shows` (+ any show list) | show cards **+60px** on long titles | fixed |
+| `/admin/review` | action-button row **+36px** | fixed |
 
-## Findings
+Fixed header (`AccountMenu` + `SectionNav`): clean. `SectionNav` looks like it
+overflows 300px+ on mobile, but that's intentional — its `<ul>` is
+`overflow-x-auto` below `sm` (swipeable tabs, comment in the component), so it
+scrolls internally and never pushes the page.
 
-### Finding 1 — `/admin/review` action-button row overflows ~36px (real)
+## Findings (fixed)
 
-`components/ReviewPanel.tsx:409`
+### Finding 1 — show cards overflowed on long titles/venues — FIXED
 
-```tsx
-<div className="flex shrink-0 flex-wrap items-center gap-2">
-  {/* Keep this one · ✓ Looks good · Edit · Delete */}
-```
+`components/ShowsTimeline.tsx:228` (the shared show card — drives `/shows`, the
+home shows, and band-profile show lists).
 
-The four action buttons live in a `shrink-0` group inside an outer
-`flex flex-wrap justify-between` row (line 376). On a phone the group wraps to
-its own line, but `shrink-0` + `flex-basis:auto` makes it take its full
-max-content width (~376px) instead of wrapping the last button, so it pokes ~36px
-past a 390px screen.
+A show whose title/venue/lineup contained a long unbroken token (e.g. a
+run-together band name) forced the card wider than a phone (~430px vs ~350
+available). The card's text sits in a flex item with `min-w-0`, but the token
+still set the text's min-content width, and the fixed avatar + `shrink-0`
+"Interested" column left no slack.
 
-Likely fix: drop `shrink-0` (let it shrink so `flex-wrap` actually wraps the
-buttons), or make it `w-full sm:w-auto`. Verify the desktop single-row layout
-still looks right after.
+Fix: added `wrap-anywhere` (`overflow-wrap: anywhere`) to the text container.
+`overflow-wrap` is inherited, so it covers title/venue/subtitle/notes at once.
+Note `break-words` (already used elsewhere) does **not** work here — inside a
+flex item it doesn't reduce min-content size; only `anywhere` (or
+`word-break: break-all`) does. Verified in-browser: 430px → 350px.
 
-### Note — `/admin/users` table scrolls horizontally on mobile
+### Finding 2 — `/admin/review` action-button row overflowed ~36px — FIXED
 
-`app/admin/users/page.tsx:77-78` — a 7-column table (~960px natural) wrapped in
-`overflow-x-auto`. The page doesn't overflow (wrapper contains it), but the table
-*itself* scrolls sideways on a phone, which is plausibly what felt "too wide."
-Optional improvement, not a page-overflow bug: e.g. a stacked card layout on
-mobile, or hide lower-priority columns under `sm:`.
+`components/ReviewPanel.tsx:409`. The four action buttons were a `shrink-0`
+group inside an outer `flex flex-wrap justify-between` row. On a phone the group
+wraps to its own line, but `shrink-0` made it hold its full max-content width
+(~376px) instead of letting `flex-wrap` drop the last button. Fix: removed
+`shrink-0` so it shrinks and wraps. Desktop single-row layout unchanged
+(justify-between still spaces them when there's room). Verified: +36px → −50px.
 
-## Next steps
+### Note (not fixed) — `/admin/users` table scrolls horizontally on mobile
 
-1. Sweep the remaining public/band-facing pages with the same method.
-2. Fix Finding 1.
-3. Decide whether the `/admin/users` table warrants a mobile-friendly layout.
+`app/admin/users/page.tsx:77` — a 7-column table (~960px natural) in an
+`overflow-x-auto` wrapper. The page doesn't overflow (wrapper contains it), but
+the table itself scrolls sideways on a phone. Left as-is; a stacked-card or
+column-hiding mobile layout would be a nice-to-have, not an overflow bug.
