@@ -589,6 +589,9 @@ export default function SubmitForm({
   neighborhoodOptions = [],
   memberOptions = [],
   existingBands = [],
+  embedded = false,
+  onCreated,
+  onCancel,
 }: {
   mode?: Mode;
   initialSlug?: string;
@@ -619,6 +622,14 @@ export default function SubmitForm({
   neighborhoodOptions?: string[];
   memberOptions?: string[];
   existingBands?: { name: string; slug: string }[];
+  /** Render inline inside another form (e.g. the Edit Show form's "add a band"
+   * panel) rather than as a standalone page: drops the page heading and the
+   * sidebar preview card, and — instead of showing its own success screen —
+   * hands the freshly-created band back to the parent via onCreated so it can
+   * link it and close the panel. add mode only. */
+  embedded?: boolean;
+  onCreated?: (band: { slug: string; name: string }) => void;
+  onCancel?: () => void;
 }) {
   const isCorrect = mode === "correct";
 
@@ -908,7 +919,7 @@ export default function SubmitForm({
     return e;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     const found = validate();
     setErrors(found);
@@ -989,7 +1000,14 @@ export default function SubmitForm({
       if (!data.success) {
         throw new Error(data.error || "Submission failed");
       }
-      setSubmittedSlug(bandSlug);
+      const savedSlug = typeof data.slug === "string" ? data.slug : bandSlug;
+      setSubmittedSlug(savedSlug);
+      // Embedded: hand the band back to the parent form (which links it and
+      // closes the panel) rather than swapping in the standalone success screen.
+      if (embedded && onCreated) {
+        onCreated({ slug: savedSlug, name: form.bandName.trim() });
+        return;
+      }
       setStatus("success");
     } catch (err) {
       setStatus("error");
@@ -1072,19 +1090,49 @@ export default function SubmitForm({
 
   const aboutYouChip = form.notes.trim() ? "Notes added" : "Empty";
 
-  return (
-    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,42rem)_220px] lg:items-start">
-      <div className="rounded-lg border border-ink/15 bg-paper p-5 sm:p-7">
-        <div className="mb-6">
-          <h1 className="text-2xl font-medium tracking-tight text-ink sm:text-3xl">
-            {heading}
-          </h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink/70">
-            {subhead}
-          </p>
-        </div>
+  // Embedded inside another form (the Edit Show form), a nested <form> would be
+  // invalid HTML and its submit event would bubble up and fire the outer form's
+  // handler too — so embedded renders a plain <div> and submits via the button's
+  // onClick instead.
+  const FormWrapper: React.ElementType = embedded ? "div" : "form";
+  const formWrapperProps = embedded
+    ? { className: "space-y-5" }
+    : { onSubmit: handleSubmit, noValidate: true, className: "space-y-5" };
 
-        <form onSubmit={handleSubmit} noValidate className="space-y-5">
+  return (
+    <div
+      className={
+        embedded
+          ? ""
+          : "grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,42rem)_220px] lg:items-start"
+      }
+    >
+      <div className="rounded-lg border border-ink/15 bg-paper p-5 sm:p-7">
+        {embedded ? (
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold text-ink">Add a band</h2>
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="shrink-0 text-xs text-ink/60 underline underline-offset-2 transition hover:text-ink"
+              >
+                Never mind
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="mb-6">
+            <h1 className="text-2xl font-medium tracking-tight text-ink sm:text-3xl">
+              {heading}
+            </h1>
+            <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink/70">
+              {subhead}
+            </p>
+          </div>
+        )}
+
+        <FormWrapper {...formWrapperProps}>
           <AccordionSection
             id="basics"
             title="The Basics"
@@ -1683,22 +1731,35 @@ export default function SubmitForm({
             </p>
           )}
 
-          <div className="sticky bottom-0 z-20 -mx-5 border-t border-ink/15 bg-paper/95 px-5 py-4 backdrop-blur sm:-mx-7 sm:px-7">
+          {embedded && (
             <button
-              type="submit"
+              type="button"
+              onClick={handleSubmit}
               disabled={submitting}
               className="w-full rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting
-                ? "Submitting…"
-                : isCorrect
-                  ? "Update band"
-                  : "Submit your band"}
+              {submitting ? "Adding…" : "Add band & link to show"}
             </button>
-          </div>
-        </form>
+          )}
+          {!embedded && (
+            <div className="sticky bottom-0 z-20 -mx-5 border-t border-ink/15 bg-paper/95 px-5 py-4 backdrop-blur sm:-mx-7 sm:px-7">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full rounded-md bg-ink px-4 py-2.5 text-sm font-medium text-paper transition hover:bg-ink/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {submitting
+                  ? "Submitting…"
+                  : isCorrect
+                    ? "Update band"
+                    : "Submit your band"}
+              </button>
+            </div>
+          )}
+        </FormWrapper>
       </div>
 
+      {!embedded && (
       <aside className="lg:sticky lg:top-8">
         <p className="mb-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#E8E0D0]/40">
           How this looks in the directory
@@ -1713,6 +1774,7 @@ export default function SubmitForm({
           />
         </div>
       </aside>
+      )}
     </div>
   );
 }

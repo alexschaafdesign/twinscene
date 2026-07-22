@@ -8,6 +8,7 @@ import { fetchBands } from "@/lib/fetchBands";
 import { fetchVenues } from "@/lib/fetchVenues";
 import { getCurrentUser } from "@/lib/auth";
 import { parseDisplayTime } from "@/lib/showTime";
+import { NEIGHBORHOOD_OPTIONS } from "@/lib/neighborhoods";
 
 export const metadata: Metadata = {
   title: "Add a Show — Twin Scene",
@@ -50,6 +51,21 @@ export default async function ShowSubmitPage({
         sensitivity: "base",
       }),
     );
+
+  // Autocomplete/dedupe data for the embedded full add-a-band form (edit
+  // mode's "Add to directory"). Mirrors app/submit/page.tsx so an unlisted
+  // band added from the Edit Show form gets the same genre library, member/
+  // neighborhood suggestions, and duplicate check as the standalone form.
+  const genreOptions = Array.from(
+    new Set(bands.flatMap((b) => b.genres)),
+  ).sort((a, b) => a.localeCompare(b));
+  const neighborhoodOptions = Array.from(
+    new Set([...NEIGHBORHOOD_OPTIONS, ...bands.flatMap((b) => b.neighborhoods)]),
+  ).sort((a, b) => a.localeCompare(b));
+  const memberOptions = Array.from(
+    new Set(bands.flatMap((b) => b.members)),
+  ).sort((a, b) => a.localeCompare(b));
+  const existingBands = bands.map((b) => ({ name: b.name, slug: b.slug }));
 
   // Edit mode: /shows/submit?edit=<id>&… with the show's fields round-tripped
   // from the shows list (see editHref in app/shows/page.tsx).
@@ -103,6 +119,10 @@ export default async function ShowSubmitPage({
         // panel's "Manual scrape required" list does this).
         initialVenue={one(sp.venue)}
         initialBands={prefillBands}
+        genreOptions={genreOptions}
+        neighborhoodOptions={neighborhoodOptions}
+        memberOptions={memberOptions}
+        existingBands={existingBands}
       />
     </main>
   );
