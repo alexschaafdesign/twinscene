@@ -48,15 +48,19 @@ const DAY = 86_400;
 const HOUR = 3_600;
 
 // --- Bands (tag-invalidated on any band edit; daily floor) ---
-export const getCachedBands = unstable_cache(fetchBands, ["cached-bands"], {
+// v2 keys: the Band shape gained `locality` (0059). A fresh key forces a
+// recompute instead of serving pre-0059 entries that lack the field — which
+// otherwise read as all-local (no touring toggle, no per-band Touring tag)
+// until the day-long revalidate. unstable_cache persists across deployments.
+export const getCachedBands = unstable_cache(fetchBands, ["cached-bands-v2"], {
   tags: [CACHE_TAGS.bands],
   revalidate: DAY,
 });
-export const getCachedBandsBySlugs = unstable_cache(fetchBandsBySlugs, ["cached-bands-by-slugs"], {
+export const getCachedBandsBySlugs = unstable_cache(fetchBandsBySlugs, ["cached-bands-by-slugs-v2"], {
   tags: [CACHE_TAGS.bands],
   revalidate: DAY,
 });
-export const getCachedBandBySlug = unstable_cache(getBandBySlug, ["cached-band-by-slug"], {
+export const getCachedBandBySlug = unstable_cache(getBandBySlug, ["cached-band-by-slug-v2"], {
   tags: [CACHE_TAGS.bands],
   revalidate: DAY,
 });

@@ -300,8 +300,22 @@ export default async function ShowDetailPage({
                       />
                     )}
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-[#E8E0D0] group-hover:underline">
-                        {band.name}
+                      <p className="text-sm font-medium text-[#E8E0D0]">
+                        <span className="group-hover:underline">{band.name}</span>
+                        {/* Same logic as the show badge: an explicitly-touring
+                            band is tagged "Touring"; every other matched band
+                            (local, or unclassified → treated as local) gets the
+                            "Scene Band" chip. Unmatched names get nothing (they
+                            render in the no-band branch above). */}
+                        {band.locality === "touring" ? (
+                          <span className="ml-2 rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-[#E8E0D0]/50">
+                            Touring
+                          </span>
+                        ) : (
+                          <span className="ml-2 rounded bg-violet-400/15 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-violet-300">
+                            Scene Band
+                          </span>
+                        )}
                       </p>
                       {band.genres.length > 0 && (
                         <p className="text-xs text-[#E8E0D0]/50">{band.genres.join(", ")}</p>
