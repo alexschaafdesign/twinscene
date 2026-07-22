@@ -29,6 +29,7 @@ import { scrapeTerminal } from "./terminal";
 import { scrapeIndeedBrewing } from "./indeedbrewing";
 import { scrapeFillmore } from "./fillmore";
 import { scrapeAmsterdam } from "./amsterdam";
+import { scrapeEagles34 } from "./eagles34";
 
 export type { ScrapedShow };
 
@@ -155,6 +156,11 @@ export const SCRAPERS: Record<string, Scraper> = {
     id: "amsterdam",
     name: "Amsterdam Bar & Hall",
     scrape: scrapeAmsterdam,
+  },
+  eagles34: {
+    id: "eagles34",
+    name: "Eagles 34",
+    scrape: scrapeEagles34,
   },
 };
 
