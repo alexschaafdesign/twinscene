@@ -85,11 +85,16 @@ function BandSearchSelect({
   selected,
   onAdd,
   onQuickAdd,
+  onAddNew,
 }: {
   bands: BandOption[];
   selected: BandOption[];
   onAdd: (band: BandOption) => void;
+  // Immediate name-only add: create the band and link it in one click.
   onQuickAdd?: (name: string) => Promise<void>;
+  // Richer add: hand the typed name to the parent, which opens a pre-filled
+  // detail form. Takes precedence over onQuickAdd on the "add" entry when set.
+  onAddNew?: (name: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -116,7 +121,7 @@ function BandSearchSelect({
     qLower !== "" &&
     (bands.some((b) => b.name.toLowerCase() === qLower) ||
       selected.some((b) => b.name.toLowerCase() === qLower));
-  const showAdd = !!onQuickAdd && qLower !== "" && !exactExists;
+  const showAdd = (!!onQuickAdd || !!onAddNew) && qLower !== "" && !exactExists;
 
   type Item =
     | { type: "existing"; band: BandOption }
@@ -166,8 +171,18 @@ function BandSearchSelect({
   }
 
   function activate(item: Item) {
-    if (item.type === "existing") choose(item.band);
-    else quickAdd(item.name);
+    if (item.type === "existing") {
+      choose(item.band);
+    } else if (onAddNew) {
+      // Hand the typed name up to open the pre-filled detail form; clear and
+      // close the dropdown so the form takes over.
+      onAddNew(item.name);
+      setQuery("");
+      setHighlight(0);
+      setOpen(false);
+    } else {
+      quickAdd(item.name);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -739,10 +754,21 @@ export default function ShowSubmitForm({
               bands={bands}
               selected={selectedBands}
               onAdd={addBand}
-              // Both modes let the search quick-add a name-only band to the
-              // directory and link it in one step, and both keep the fuller
-              // add-a-band form below for richer band details.
-              onQuickAdd={quickAddBand}
+              // Edit mode routes "Add to directory" into the pre-filled detail
+              // form (genres/location/contact/IG, all optional) — the single
+              // path for adding an unlisted band. Add mode keeps the instant
+              // name-only quick-add, since its detail form folds into the show
+              // submission and only carries one new band.
+              onQuickAdd={isEdit ? undefined : quickAddBand}
+              onAddNew={
+                isEdit
+                  ? (name) => {
+                      setNewBandName(name);
+                      setNewBandError("");
+                      setShowNewBand(true);
+                    }
+                  : undefined
+              }
             />
           </div>
 
@@ -772,13 +798,18 @@ export default function ShowSubmitForm({
           )}
 
           {!showNewBand ? (
-            <button
-              type="button"
-              onClick={() => setShowNewBand(true)}
-              className="mt-3 inline-flex items-center gap-1.5 text-sm text-[#E8E0D0]/70 transition hover:text-[#E8E0D0]"
-            >
-              ＋ This band isn&apos;t listed yet
-            </button>
+            // Edit mode reaches the detail form through the search box's "Add to
+            // directory" (pre-filled), so no standalone button there. Add mode
+            // keeps the button as its explicit "not listed yet" entry point.
+            isEdit ? null : (
+              <button
+                type="button"
+                onClick={() => setShowNewBand(true)}
+                className="mt-3 inline-flex items-center gap-1.5 text-sm text-[#E8E0D0]/70 transition hover:text-[#E8E0D0]"
+              >
+                ＋ This band isn&apos;t listed yet
+              </button>
+            )
           ) : (
             <div className="mt-3 space-y-4 rounded-md bg-[rgba(232,224,208,0.05)] p-4">
               <div className="flex items-center justify-between">
