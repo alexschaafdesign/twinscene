@@ -6,7 +6,7 @@
 // of writing its scraper and registering it here.
 
 import type { ScrapedShow } from "./types";
-import { applyVenueAgeRule } from "./venueAgeRules";
+import { applyVenueAgeRule, getVenueAgeRuleMap } from "./venueAgeRules";
 import { scrapePilllar } from "./pilllar";
 import { scrapeZhora } from "./zhora";
 import { scrapeCloudland } from "./cloudland";
@@ -146,14 +146,22 @@ export const SCRAPERS: Record<string, Scraper> = {
   },
 };
 
-/** Wrap a scraper so its results run through the venue's blanket age policy
- * (lib/scrapers/venueAgeRules.ts) before anyone sees them. Applied by every
- * getter below, so all consumers — cron, on-demand endpoints, the manual import
- * page — get the house rules uniformly without each one remembering to. */
+/** Wrap a scraper so its results run through the venues' blanket age policies
+ * (venue_age_rules table, lib/scrapers/venueAgeRules.ts) before anyone sees
+ * them. Applied by every getter below, so all consumers — cron, on-demand
+ * endpoints, the manual import page — get the house rules uniformly without each
+ * one remembering to. The rules map is a tiny indexed read, loaded once per
+ * scrape call. */
 function withAgeRules(scraper: Scraper): Scraper {
   return {
     ...scraper,
-    scrape: async () => (await scraper.scrape()).map(applyVenueAgeRule),
+    scrape: async () => {
+      const [scraped, rules] = await Promise.all([
+        scraper.scrape(),
+        getVenueAgeRuleMap(),
+      ]);
+      return scraped.map((show) => applyVenueAgeRule(show, rules));
+    },
   };
 }
 
