@@ -55,17 +55,22 @@ export default function AllShowsPanel({
 }) {
   const [items, setItems] = useState(shows);
   const [query, setQuery] = useState("");
+  const [showHidden, setShowHidden] = useState(true);
+
+  const hiddenCount = useMemo(() => items.filter((s) => s.hidden).length, [items]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter(
-      (s) =>
+    return items.filter((s) => {
+      if (!showHidden && s.hidden) return false;
+      if (!q) return true;
+      return (
         s.title.toLowerCase().includes(q) ||
         s.venue.toLowerCase().includes(q) ||
-        s.lineup.toLowerCase().includes(q),
-    );
-  }, [items, query]);
+        s.lineup.toLowerCase().includes(q)
+      );
+    });
+  }, [items, query, showHidden]);
 
   const dateGroups = useMemo(() => {
     const byDate = new Map<string, Show[]>();
@@ -103,6 +108,21 @@ export default function AllShowsPanel({
     await remove(show.id);
   }
 
+  async function handleToggleHidden(show: Show) {
+    const hidden = !show.hidden;
+    const res = await fetch("/api/shows/hide", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: show.id, hidden, secret }),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      window.alert(data.error || (hidden ? "Hide failed" : "Unhide failed"));
+      return;
+    }
+    setItems((prev) => prev.map((s) => (s.id === show.id ? { ...s, hidden } : s)));
+  }
+
   async function handleSaveEdit(id: string, form: EditForm) {
     const res = await fetch("/api/shows/edit", {
       method: "POST",
@@ -134,11 +154,20 @@ export default function AllShowsPanel({
       </header>
 
       <input
-        className={`${INPUT} mb-8`}
+        className={`${INPUT} mb-3`}
         placeholder="Search by title, venue, or lineup…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
+
+      <label className="mb-8 flex items-center gap-2 text-sm text-[#E8E0D0]/60">
+        <input
+          type="checkbox"
+          checked={showHidden}
+          onChange={(e) => setShowHidden(e.target.checked)}
+        />
+        Show archived ({hiddenCount})
+      </label>
 
       {dateGroups.length === 0 && (
         <p className="text-sm text-[#E8E0D0]/55">No shows match.</p>
@@ -156,6 +185,7 @@ export default function AllShowsPanel({
                   key={show.id}
                   show={show}
                   onDelete={() => handleDelete(show)}
+                  onToggleHidden={() => handleToggleHidden(show)}
                   onSaveEdit={(form) => handleSaveEdit(show.id, form)}
                 />
               ))}
@@ -170,10 +200,12 @@ export default function AllShowsPanel({
 function ShowRow({
   show,
   onDelete,
+  onToggleHidden,
   onSaveEdit,
 }: {
   show: Show;
   onDelete: () => void;
+  onToggleHidden: () => void;
   onSaveEdit: (form: EditForm) => Promise<boolean>;
 }) {
   const [editing, setEditing] = useState(false);
@@ -263,6 +295,11 @@ function ShowRow({
           <p className="mt-1 text-xs text-[#E8E0D0]/40">
             {show.source} · {show.eventType || "show"}
           </p>
+          {show.hidden && (
+            <p className="mt-2 inline-block rounded bg-[#E8E0D0]/15 px-2 py-0.5 text-xs text-[#E8E0D0]/80">
+              Archived — hidden from public
+            </p>
+          )}
           {show.confidence === "broken" && (
             <p className="mt-2 inline-block rounded bg-[#E5A0A0]/15 px-2 py-0.5 text-xs text-[#E5A0A0]">
               Hidden from public — check date
@@ -277,6 +314,9 @@ function ShowRow({
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button type="button" className={BTN} onClick={startEdit}>
             Edit
+          </button>
+          <button type="button" className={BTN} onClick={onToggleHidden}>
+            {show.hidden ? "Unhide" : "Hide"}
           </button>
           <button type="button" className={BTN_DANGER} onClick={onDelete}>
             Delete

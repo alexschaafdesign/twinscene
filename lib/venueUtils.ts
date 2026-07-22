@@ -33,6 +33,7 @@ export type Venue = {
   thumbnailUrl: string; // 400px square variant for grid/list cards; "" when none
   shortName: string; // display name for grid cards; "" falls back to `name`
   avatarInitials: string; // manually-set VenueAvatar label (usually initials, but a short word fits too); "" falls back to an auto-derive from `name`
+  hidden: boolean; // admin archive flag (migration 0052); always false in public reads, only the admin panel sees it true
 };
 
 export function slugify(text: string): string {

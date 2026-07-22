@@ -43,6 +43,10 @@ export type Band = {
   // Section order/visibility for the profile page, already normalized — a band
   // that has never customized gets DEFAULT_LAYOUT, so consumers never branch.
   profileLayout: BandProfileLayout;
+  // Admin archive flag (migration 0052). Always false in public reads (they
+  // filter hidden bands out); only the admin panel, which fetches with
+  // includeHidden, ever sees this true.
+  hidden: boolean;
 };
 
 /** Reduce a full URL or "@handle" to just the bare Instagram handle. The table
@@ -133,13 +137,14 @@ function fromTwinScene(b: BandRow): Band {
     added: "",
     updatedAt: isoTimestamp(b.updated_at),
     profileLayout: normalizeLayout(b.profile_layout),
+    hidden: !!b.hidden_at,
   };
 }
 
-export async function fetchBands(): Promise<Band[]> {
+export async function fetchBands({ includeHidden = false }: { includeHidden?: boolean } = {}): Promise<Band[]> {
   // getAllBands() already orders by name; re-sort case-insensitively to preserve
   // the exact ordering guarantee every earlier backing store made.
-  const bands = (await getAllBands()).map(fromTwinScene);
+  const bands = (await getAllBands({ includeHidden })).map(fromTwinScene);
   bands.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
   return bands;
 }

@@ -37,6 +37,11 @@ export interface Venue {
   thumbnail_url: string | null; // 400px square variant of `photo`; null if no photo
   short_name: string | null; // display name for grid cards, e.g. "The Cedar"; falls back to `name`
   avatar_initials: string | null; // usually 2-3 letters for VenueAvatar, but a short word fits too; falls back to an auto-derive from `name`
+  // Reversible archive flag (migration 0052): null = visible; a timestamp = an
+  // admin hid this venue from the public site. Public reads filter it out; admin
+  // reads pass includeHidden. Shows reference venues by name string (no FK), so
+  // hiding a venue never touches its shows.
+  hidden_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -44,19 +49,39 @@ export interface Venue {
 // Alphabetized case-insensitively and ignoring a leading "The " so "The
 // Cedar" files under C, "The Turf Club" under T(urf) rather than under T(he)
 // — mirrors app/shows/submit/page.tsx's venueSortKey for its venue picker.
-export async function getAllVenues(): Promise<Venue[]> {
+// includeHidden: admin callers (the /admin/venues panel, the admin venue route)
+// pass true to see archived rows; every public/cached reader takes the default.
+export async function getAllVenues({ includeHidden = false }: { includeHidden?: boolean } = {}): Promise<Venue[]> {
   // `\\s` (not `\s`) — inside a plain JS template literal `\s` isn't a
   // recognized escape, so JS silently drops the backslash before it reaches
   // Postgres, leaving the regex as a no-op `thes+` that never matches.
   return sql<Venue[]>`
     select * from venues
+    ${includeHidden ? sql`` : sql`where hidden_at is null`}
     order by lower(regexp_replace(name, '^the\\s+', '', 'i')) asc
   `;
 }
 
-export async function getVenueBySlug(slug: string): Promise<Venue | null> {
-  const [row] = await sql<Venue[]>`select * from venues where slug = ${slug} limit 1`;
+export async function getVenueBySlug(
+  slug: string,
+  { includeHidden = false }: { includeHidden?: boolean } = {},
+): Promise<Venue | null> {
+  const [row] = await sql<Venue[]>`
+    select * from venues
+    where slug = ${slug} ${includeHidden ? sql`` : sql`and hidden_at is null`}
+    limit 1
+  `;
   return row ?? null;
+}
+
+// Archive/unarchive a venue (migration 0052). Admin-only at the route layer.
+export async function setVenueHidden(venueId: number, hidden: boolean): Promise<{ success: boolean }> {
+  const rows = await sql`
+    update venues set hidden_at = ${hidden ? sql`now()` : null}, updated_at = now()
+    where id = ${venueId}
+    returning id
+  `;
+  return { success: rows.length > 0 };
 }
 
 export interface VenueSubmissionInput {

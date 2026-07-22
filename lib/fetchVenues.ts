@@ -52,10 +52,11 @@ function toVenue(row: VenueRow): Venue {
     thumbnailUrl: row.thumbnail_url ?? "",
     shortName: row.short_name ?? "",
     avatarInitials: row.avatar_initials ?? "",
+    hidden: !!row.hidden_at,
   };
 }
 
-export async function fetchVenues(): Promise<Venue[]> {
-  const rows = await getAllVenues();
+export async function fetchVenues({ includeHidden = false }: { includeHidden?: boolean } = {}): Promise<Venue[]> {
+  const rows = await getAllVenues({ includeHidden });
   return rows.map(toVenue);
 }

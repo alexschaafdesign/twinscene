@@ -470,6 +470,31 @@ export async function deleteShow(id: string, actor: string): Promise<{ success: 
 }
 
 /**
+ * Reversibly archive/unarchive a show (migration 0052) — the safe alternative
+ * to deleteShow for a row an admin wants off the public site but might want
+ * back. Sets/clears hidden_at (every public read in lib/fetchShows.ts filters
+ * `hidden_at IS NULL`); the row, its history, and its source_key all stay put,
+ * so re-scrapes still upsert it (a hidden scraped show just stays hidden). Logs
+ * a history row like every other show write.
+ */
+export async function setShowHidden(
+  id: string,
+  hidden: boolean,
+  actor: string,
+): Promise<{ success: boolean }> {
+  return sql.begin(async (tx) => {
+    const rows = await tx`
+      UPDATE shows SET hidden_at = ${hidden ? tx`now()` : null}, updated_at = now()
+      WHERE id = ${id}
+      RETURNING id
+    `;
+    if (rows.length === 0) return { success: false };
+    await logHistory(tx, id, hidden ? "hidden" : "unhidden", actor, null);
+    return { success: true };
+  });
+}
+
+/**
  * Attach a directory band slug to the lineup entry matching scrapedName (case-
  * insensitive), or append a new entry if none matches. Mirrors
  * handleShowLinkBand_: touches only the lineup, no edited_at lock, so a

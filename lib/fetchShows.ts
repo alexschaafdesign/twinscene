@@ -36,6 +36,7 @@ export type Show = {
   needsReview: boolean; // data-quality flag (lib/scrapers/reviewFlags.ts) — still shown publicly
   confidence: string; // "ok" | "flag" | "broken" — "broken" rows are held out of fetchShows()
   reviewReasons: string[];
+  hidden: boolean; // migration 0052 — an admin archived this show; held out of every public read
 };
 
 export type StarredNote = { blurb: string; url: string };
@@ -63,6 +64,7 @@ type ShowsQueryRow = {
   needs_review: boolean | null;
   confidence: string | null;
   review_reasons: string[] | null;
+  hidden_at: Date | null;
 };
 
 /** Today's date as "YYYY-MM-DD" in America/Chicago (en-CA yields ISO order). */
@@ -109,12 +111,15 @@ function mapRow(row: ShowsQueryRow): Show {
     needsReview: row.needs_review ?? false,
     confidence: row.confidence ?? "ok",
     reviewReasons: row.review_reasons ?? [],
+    hidden: !!row.hidden_at,
   };
 }
 
 // One show by id, for the per-show page (/shows/[id]). No confidence/date
 // filtering — a direct link to a specific show should resolve even if it's a
-// 'broken'-flagged or already-past row; the page renders whatever exists.
+// 'broken'-flagged or already-past row; the page renders whatever exists. The
+// one exception is hidden_at: an admin-archived show is held out here too, so a
+// hidden show's direct link 404s like any other non-public row.
 export async function fetchShowById(id: string): Promise<Show | null> {
   let rows: ShowsQueryRow[];
   try {
@@ -124,9 +129,9 @@ export async function fetchShowById(id: string): Promise<Show | null> {
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
         genres, age_restriction, description, similar_to,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
-        needs_review, confidence, review_reasons
+        needs_review, confidence, review_reasons, hidden_at
       FROM shows
-      WHERE id = ${id}
+      WHERE id = ${id} AND hidden_at IS NULL
     `;
   } catch (err) {
     console.error("fetchShowById: query failed", err);
@@ -144,9 +149,9 @@ export async function fetchShows(): Promise<Show[]> {
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
         genres, age_restriction, description, similar_to,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
-        needs_review, confidence, review_reasons
+        needs_review, confidence, review_reasons, hidden_at
       FROM shows
-      WHERE confidence IS DISTINCT FROM 'broken'
+      WHERE confidence IS DISTINCT FROM 'broken' AND hidden_at IS NULL
     `;
   } catch (err) {
     console.error("fetchShows: query failed", err);
@@ -194,9 +199,9 @@ export async function fetchPastShows(days: number): Promise<Show[]> {
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
         genres, age_restriction, description, similar_to,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
-        needs_review, confidence, review_reasons
+        needs_review, confidence, review_reasons, hidden_at
       FROM shows
-      WHERE confidence IS DISTINCT FROM 'broken' AND date >= ${startStr} AND date < ${today}
+      WHERE confidence IS DISTINCT FROM 'broken' AND hidden_at IS NULL AND date >= ${startStr} AND date < ${today}
     `;
   } catch (err) {
     console.error("fetchPastShows: query failed", err);
@@ -222,9 +227,9 @@ export async function fetchAllPastShows(): Promise<Show[]> {
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
         genres, age_restriction, description, similar_to,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
-        needs_review, confidence, review_reasons
+        needs_review, confidence, review_reasons, hidden_at
       FROM shows
-      WHERE confidence IS DISTINCT FROM 'broken' AND date < ${today}
+      WHERE confidence IS DISTINCT FROM 'broken' AND hidden_at IS NULL AND date < ${today}
     `;
   } catch (err) {
     console.error("fetchAllPastShows: query failed", err);
@@ -259,7 +264,7 @@ export async function fetchShowsForReview(days: number): Promise<Show[]> {
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
         genres, age_restriction, description, similar_to,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
-        needs_review, confidence, review_reasons
+        needs_review, confidence, review_reasons, hidden_at
       FROM shows
       WHERE date BETWEEN ${start} AND ${end}
     `;
@@ -293,7 +298,7 @@ export async function fetchAllShows(): Promise<Show[]> {
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
         genres, age_restriction, description, similar_to,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
-        needs_review, confidence, review_reasons
+        needs_review, confidence, review_reasons, hidden_at
       FROM shows
       ORDER BY date DESC
     `;
@@ -320,7 +325,7 @@ export async function fetchFlaggedShows(): Promise<Show[]> {
         notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
         genres, age_restriction, description, similar_to,
         ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
-        needs_review, confidence, review_reasons
+        needs_review, confidence, review_reasons, hidden_at
       FROM shows
       WHERE needs_review = true
     `;

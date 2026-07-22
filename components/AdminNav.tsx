@@ -13,6 +13,8 @@ const LINKS: { href: string; label: string }[] = [
   { href: "/admin/graphics", label: "Graphics" },
   { href: "/shows/import", label: "Import" },
   { href: "/admin/shows", label: "Shows" },
+  { href: "/admin/bands", label: "Bands" },
+  { href: "/admin/venues", label: "Venues" },
   { href: "/admin/review", label: "Review" },
   { href: "/admin/reconcile", label: "Reconcile" },
   { href: "/admin/activity", label: "Activity" },

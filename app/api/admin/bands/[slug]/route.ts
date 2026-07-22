@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getCurrentUser, canEditBand } from "@/lib/auth";
-import { getBandBySlug, updateBandCoreFields, toPublicBand } from "@/lib/bands";
+import { getCurrentUser, canEditBand, isAdmin } from "@/lib/auth";
+import { getBandBySlug, updateBandCoreFields, setBandHidden, toPublicBand } from "@/lib/bands";
 import { revalidateBands } from "@/lib/cachedReads";
 
 export const runtime = "nodejs";
@@ -10,9 +10,15 @@ export const dynamic = "force-dynamic";
 // prove the auth gate end to end. Every branch here is server-side: there's
 // no client check this route relies on, and a non-admin (or logged-out)
 // caller is rejected before any write regardless of what the UI shows.
+//
+// Also carries the archive/unarchive action (PATCH { hidden: boolean }). That
+// one is is_admin-ONLY — a band editor may edit their band's text but may not
+// pull it off the public site — so it's gated more tightly than the core-field
+// edit below.
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const band = await getBandBySlug(slug);
+  // includeHidden so an already-archived band is still reachable to unhide.
+  const band = await getBandBySlug(slug, { includeHidden: true });
   if (!band) {
     return NextResponse.json({ success: false, error: "Band not found" }, { status: 404 });
   }
@@ -25,6 +31,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   const body = await request.json().catch(() => null);
   if (!body || typeof body !== "object") {
     return NextResponse.json({ success: false, error: "Invalid body" }, { status: 400 });
+  }
+
+  // Archive/unarchive — admin-only, not delegated to band editors.
+  if (typeof (body as Record<string, unknown>).hidden === "boolean") {
+    if (!isAdmin(user)) {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    }
+    const hidden = (body as { hidden: boolean }).hidden;
+    const result = await setBandHidden(band.id, hidden);
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: "Band not found" }, { status: 404 });
+    }
+    revalidateBands();
+    return NextResponse.json({ success: true, hidden });
   }
 
   const { name, bio, genre, hometown } = body as Record<string, unknown>;

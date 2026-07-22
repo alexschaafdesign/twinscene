@@ -37,6 +37,11 @@ export interface Band {
   // profile page (lib/bandProfileLayout.ts); null means the default layout.
   // Presentation-only, so it's deliberately absent from PUBLIC_BAND_FIELDS.
   profile_layout: unknown;
+  // Reversible archive flag (migration 0052): null = visible; a timestamp = an
+  // admin hid this band from the public site. Internal — deliberately absent
+  // from PUBLIC_BAND_FIELDS. Public reads filter it out; admin reads pass
+  // includeHidden to see hidden rows.
+  hidden_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -91,13 +96,39 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export async function getAllBands(): Promise<Band[]> {
-  return sql<Band[]>`select * from bands order by name asc`;
+// includeHidden: admin callers (the /admin/bands panel, the admin band route)
+// pass true to see archived rows; every public/cached reader takes the default
+// and never sees a hidden band.
+export async function getAllBands({ includeHidden = false }: { includeHidden?: boolean } = {}): Promise<Band[]> {
+  return sql<Band[]>`
+    select * from bands
+    ${includeHidden ? sql`` : sql`where hidden_at is null`}
+    order by name asc
+  `;
 }
 
-export async function getBandBySlug(slug: string): Promise<Band | null> {
-  const [row] = await sql<Band[]>`select * from bands where slug = ${slug} limit 1`;
+export async function getBandBySlug(
+  slug: string,
+  { includeHidden = false }: { includeHidden?: boolean } = {},
+): Promise<Band | null> {
+  const [row] = await sql<Band[]>`
+    select * from bands
+    where slug = ${slug} ${includeHidden ? sql`` : sql`and hidden_at is null`}
+    limit 1
+  `;
   return row ?? null;
+}
+
+// Archive/unarchive a band (migration 0052). Admin-only at the route layer.
+// hidden_at is nullable — null restores it to the public site, a timestamp
+// hides it. Returns whether a row matched.
+export async function setBandHidden(bandId: number, hidden: boolean): Promise<{ success: boolean }> {
+  const rows = await sql`
+    update bands set hidden_at = ${hidden ? sql`now()` : null}, updated_at = now()
+    where id = ${bandId}
+    returning id
+  `;
+  return { success: rows.length > 0 };
 }
 
 export interface BandCoreFieldsInput {
