@@ -59,15 +59,10 @@ export const STAGE_PLOT_CATALOG: CatalogItem[] = [
     key: "drum_kit",
     label: "Drum Kit",
     icon: "🥁",
-    // One canvas icon, several channels — the common minimum a house engineer
-    // expects. Split into separate icons only if a band actually asks.
-    defaultInputs: [
-      { source: "Kick" },
-      { source: "Snare" },
-      { source: "Hi-Hat" },
-      { source: "Overhead L" },
-      { source: "Overhead R" },
-    ],
+    // Just one "Drum Kit" line — venues know how to mic a kit, and there's
+    // often a house kit anyway. The band can break it into per-drum channels
+    // by hand if they want.
+    defaultInputs: [{ source: "Drum Kit" }],
   },
   {
     key: "keys",
