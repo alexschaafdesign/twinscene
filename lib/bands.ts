@@ -128,6 +128,18 @@ export async function getBandBySlug(
   return row ?? null;
 }
 
+export async function getBandById(
+  bandId: number,
+  { includeHidden = false }: { includeHidden?: boolean } = {},
+): Promise<Band | null> {
+  const [row] = await sql<Band[]>`
+    select * from bands
+    where id = ${bandId} ${includeHidden ? sql`` : sql`and hidden_at is null`}
+    limit 1
+  `;
+  return row ?? null;
+}
+
 // Archive/unarchive a band (migration 0052). Admin-only at the route layer.
 // hidden_at is nullable — null restores it to the public site, a timestamp
 // hides it. Returns whether a row matched.

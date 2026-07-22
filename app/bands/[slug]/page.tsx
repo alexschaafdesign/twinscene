@@ -136,6 +136,24 @@ export default async function BandProfilePage({ params }: Props) {
         </Link>
       )}
 
+      {/* Stage plots — an editor-only tool (diagram + input list → PDF for
+          venues). Same canEditBand audience as the Edit link. */}
+      {canEdit && (
+        <Link
+          href={`/bands/${slug}/stage-plots`}
+          className="inline-flex items-center gap-2 text-sm font-medium text-[#E8E0D0] transition hover:text-[#E8E0D0]/80"
+        >
+          {/* ti-layout-board (Tabler) */}
+          <svg {...iconProps} width={15} height={15}>
+            <path d="M4 4m0 1a1 1 0 0 1 1 -1h14a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1z" />
+            <path d="M9 4v16" />
+            <path d="M15 4v8" />
+          </svg>
+          <span className="md:hidden">Stage plots</span>
+          <span className="hidden md:inline">Stage plots</span>
+        </Link>
+      )}
+
       {/* Content editing is in place on the profile itself — editors get a
           per-section Edit pencil (components/EditableProfile.tsx), so there's
           no edit entry point here. Section rearranging is set aside for now;
