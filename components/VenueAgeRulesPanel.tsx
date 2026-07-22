@@ -8,7 +8,10 @@ const BTN =
 const INPUT =
   "rounded-md border border-[#E8E0D0]/20 bg-transparent px-3 py-1.5 text-sm text-[#E8E0D0] transition focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#E8E0D0]";
 
-const RESTRICTIONS = ["21+", "18+", "All Ages"] as const;
+// Quick-pick suggestions offered via a datalist — not a fixed set. The field is
+// freeform, so a venue can carry a full note ("All ages (under 18 with an
+// adult)") that becomes the show's age label verbatim.
+const RESTRICTION_PRESETS = ["21+", "18+", "All Ages"] as const;
 
 export type VenueAgeRuleItem = {
   venueName: string;
@@ -146,6 +149,12 @@ export default function VenueAgeRulesPanel({
         onChange={(e) => setQuery(e.target.value)}
       />
 
+      <datalist id="age-restriction-presets">
+        {RESTRICTION_PRESETS.map((opt) => (
+          <option key={opt} value={opt} />
+        ))}
+      </datalist>
+
       <ul className="divide-y divide-[#E8E0D0]/10">
         {filtered.map((r) => {
           const dirty = isDirty(r);
@@ -155,23 +164,19 @@ export default function VenueAgeRulesPanel({
               key={r.venueName}
               className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-3"
             >
-              <span className="min-w-0 flex-1 truncate text-sm">
+              <span className="min-w-0 truncate text-sm sm:w-40 sm:shrink-0">
                 {r.venueName}
               </span>
 
-              <select
-                className={INPUT}
+              <input
+                list="age-restriction-presets"
+                className={`${INPUT} min-w-0 flex-1`}
                 value={r.restriction}
+                maxLength={120}
+                placeholder="No rule — e.g. 21+ or a note"
                 onChange={(e) => patch(r.venueName, { restriction: e.target.value })}
                 aria-label={`Age restriction for ${r.venueName}`}
-              >
-                <option value="">No rule</option>
-                {RESTRICTIONS.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
+              />
 
               <label className="flex items-center gap-1.5 text-sm text-[#E8E0D0]/60">
                 after

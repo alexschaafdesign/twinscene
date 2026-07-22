@@ -9,14 +9,15 @@ import { sqlTimeOrNull } from "@/lib/showTime";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// The restriction labels the UI offers. Kept in sync with VenueAgeRulesPanel's
-// dropdown; normalizeAge (showGenres.ts) would tidy freeform input, but here we
-// control the source so an allowlist is simpler and safer.
-const RESTRICTIONS = new Set(["21+", "18+", "All Ages"]);
+// The restriction is a freeform label that becomes shows.age_restriction as-is,
+// so a venue can carry a full note ("All ages (under 18 with an adult)"), not
+// just "21+"/"18+"/"All Ages" — the panel offers those three as quick picks but
+// doesn't limit to them. Capped so a stray paste can't write an essay.
+const MAX_RESTRICTION_LEN = 120;
 
 // Admin-only: set or clear a venue's blanket age rule (venue_age_rules, 0056).
 // PUT { venueName, restriction, appliesAfter }:
-//   - restriction one of RESTRICTIONS -> upsert the rule
+//   - restriction non-empty -> upsert the rule (freeform, trimmed + length-capped)
 //   - restriction "" / "none" -> clear it (delete the row)
 //   - appliesAfter "HH:MM" or null/"" -> time gate; null = applies to every show
 // Gated on is_admin server-side (never on hidden UI, per docs/auth-and-db.md).
@@ -32,7 +33,9 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: false, error: "Missing venueName" }, { status: 400 });
   }
 
-  const restriction = typeof body?.restriction === "string" ? body.restriction.trim() : "";
+  const restriction = (typeof body?.restriction === "string" ? body.restriction : "")
+    .replace(/\s+/g, " ")
+    .trim();
 
   // Empty / "none" -> the venue has no rule; remove any existing row.
   if (!restriction || restriction.toLowerCase() === "none") {
@@ -40,8 +43,11 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true, rule: null });
   }
 
-  if (!RESTRICTIONS.has(restriction)) {
-    return NextResponse.json({ success: false, error: "Invalid restriction" }, { status: 400 });
+  if (restriction.length > MAX_RESTRICTION_LEN) {
+    return NextResponse.json(
+      { success: false, error: `Restriction too long (max ${MAX_RESTRICTION_LEN} chars)` },
+      { status: 400 },
+    );
   }
 
   // sqlTimeOrNull validates "HH:MM"; anything empty/garbage becomes null = blanket.
