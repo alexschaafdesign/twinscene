@@ -37,8 +37,13 @@ const USER_AGENT = "TwinScene/1.0 (+https://twinscene.org)";
 // the owning scraper emits, so keep these strings verbatim from this site:
 //   - "The Cedar Cultural Center" — owned by cedar.ts (same string).
 //   - "icehouse MPLS" — owned by icehouse.ts, which emits venue "Icehouse".
+//   - "Amsterdam Bar & Hall" — owned by amsterdam.ts (same string). First Avenue
+//     presents many Amsterdam shows; this keeps the Amsterdam-scraped copy as the
+//     only one (per the venue's own richer data — flyers, doors/show times).
 const VENUES_OWNED_ELSEWHERE = new Set(
-  ["The Cedar Cultural Center", "icehouse MPLS"].map((v) => v.toLowerCase()),
+  ["The Cedar Cultural Center", "icehouse MPLS", "Amsterdam Bar & Hall"].map((v) =>
+    v.toLowerCase(),
+  ),
 );
 
 function isOwnedElsewhere(venue: string): boolean {
