@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { formatShowTime } from "@/lib/showTime";
 
 const CARD = "rounded-md border border-[rgba(232,224,208,0.15)] p-4";
 const BTN =
@@ -25,10 +26,19 @@ type Row = VenueAgeRuleItem & {
   savedAppliesAfter: string;
 };
 
+type Note = { text: string; kind: "ok" | "err" };
+
+/** The committed rule as a one-line human summary, e.g. "21+ · after 8:00pm". */
+function ruleSummary(restriction: string, appliesAfter: string): string {
+  if (!restriction) return "";
+  const after = appliesAfter ? formatShowTime(appliesAfter) : null;
+  return after ? `${restriction} · after ${after}` : restriction;
+}
+
 // Admin: blanket age policies per venue (venue_age_rules, migration 0056). Each
-// row sets a restriction and an optional "only after" start time; the rule tags
-// matching shows as they're scraped. "Apply to existing shows" backfills rows
-// already in the DB (fill-only — never overwrites an existing value). The
+// row shows the venue's currently-saved rule as a badge, then lets you edit it;
+// the rule tags matching shows as they're scraped. "Apply to existing" backfills
+// rows already in the DB (fill-only — never overwrites an existing value). The
 // session-gated API does the real permission check; this UI is presentation.
 export default function VenueAgeRulesPanel({
   venues,
@@ -38,8 +48,9 @@ export default function VenueAgeRulesPanel({
   rules: VenueAgeRuleItem[];
 }) {
   const [query, setQuery] = useState("");
+  const [onlyWithRules, setOnlyWithRules] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [msg, setMsg] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState<Record<string, Note>>({});
 
   const [rows, setRows] = useState<Row[]>(() => {
     const byName = new Map(rules.map((r) => [r.venueName, r]));
@@ -55,21 +66,38 @@ export default function VenueAgeRulesPanel({
     });
   });
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => r.venueName.toLowerCase().includes(q));
-  }, [rows, query]);
-
   const activeCount = useMemo(
     () => rows.filter((r) => r.savedRestriction).length,
     [rows],
   );
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (onlyWithRules && !r.savedRestriction) return false;
+      if (q && !r.venueName.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [rows, query, onlyWithRules]);
+
   function patch(name: string, next: Partial<Row>) {
     setRows((prev) =>
       prev.map((r) => (r.venueName === name ? { ...r, ...next } : r)),
     );
+  }
+
+  // A user edit — patch the field and clear any stale status note for the row.
+  function edit(name: string, next: Partial<Row>) {
+    patch(name, next);
+    setNotes((m) => {
+      if (!m[name]) return m;
+      const { [name]: _drop, ...rest } = m;
+      return rest;
+    });
+  }
+
+  function setNote(name: string, text: string, kind: Note["kind"]) {
+    setNotes((m) => ({ ...m, [name]: { text, kind } }));
   }
 
   const isDirty = (r: Row) =>
@@ -78,7 +106,6 @@ export default function VenueAgeRulesPanel({
 
   async function save(r: Row) {
     setBusy(r.venueName);
-    setMsg((m) => ({ ...m, [r.venueName]: "" }));
     try {
       const res = await fetch("/api/admin/venue-age-rules", {
         method: "PUT",
@@ -91,7 +118,7 @@ export default function VenueAgeRulesPanel({
       });
       const data = await res.json();
       if (!data.success) {
-        setMsg((m) => ({ ...m, [r.venueName]: data.error || "Save failed" }));
+        setNote(r.venueName, data.error || "Save failed", "err");
         return;
       }
       // A cleared rule ("none") drops the after-time too.
@@ -101,7 +128,7 @@ export default function VenueAgeRulesPanel({
         savedRestriction: r.restriction,
         savedAppliesAfter: savedAfter,
       });
-      setMsg((m) => ({ ...m, [r.venueName]: "Saved" }));
+      setNote(r.venueName, r.restriction ? "Rule saved" : "Rule cleared", "ok");
     } finally {
       setBusy(null);
     }
@@ -109,7 +136,6 @@ export default function VenueAgeRulesPanel({
 
   async function backfill(r: Row) {
     setBusy(r.venueName);
-    setMsg((m) => ({ ...m, [r.venueName]: "" }));
     try {
       const res = await fetch("/api/admin/venue-age-rules/backfill", {
         method: "POST",
@@ -118,13 +144,14 @@ export default function VenueAgeRulesPanel({
       });
       const data = await res.json();
       if (!data.success) {
-        setMsg((m) => ({ ...m, [r.venueName]: data.error || "Backfill failed" }));
+        setNote(r.venueName, data.error || "Backfill failed", "err");
         return;
       }
-      setMsg((m) => ({
-        ...m,
-        [r.venueName]: `Tagged ${data.updated} existing show${data.updated === 1 ? "" : "s"}`,
-      }));
+      setNote(
+        r.venueName,
+        `Tagged ${data.updated} existing show${data.updated === 1 ? "" : "s"}`,
+        "ok",
+      );
     } finally {
       setBusy(null);
     }
@@ -132,22 +159,31 @@ export default function VenueAgeRulesPanel({
 
   return (
     <section className={`${CARD} mb-8`}>
-      <header className="mb-1">
+      <header className="mb-3">
         <h2 className="text-lg font-medium tracking-tight">Age rules</h2>
         <p className="mt-1 text-sm text-[#E8E0D0]/60">
-          Blanket age restriction per venue, applied to shows as they&rsquo;re
+          A blanket age restriction per venue, applied to shows as they&rsquo;re
           scraped. Add an &ldquo;after&rdquo; time to restrict only later shows
-          (e.g. White Squirrel: 21+ after 8:00pm). {activeCount} rule
-          {activeCount === 1 ? "" : "s"} set.
+          (e.g. White Squirrel: 21+ after 8:00pm).
         </p>
       </header>
 
-      <input
-        className={`${INPUT} my-3 w-full`}
-        placeholder="Filter venues…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+      <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          className={`${INPUT} w-full sm:flex-1`}
+          placeholder="Filter venues…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        <label className="flex shrink-0 items-center gap-2 text-sm text-[#E8E0D0]/60">
+          <input
+            type="checkbox"
+            checked={onlyWithRules}
+            onChange={(e) => setOnlyWithRules(e.target.checked)}
+          />
+          Only venues with a rule ({activeCount})
+        </label>
+      </div>
 
       <datalist id="age-restriction-presets">
         {RESTRICTION_PRESETS.map((opt) => (
@@ -158,65 +194,90 @@ export default function VenueAgeRulesPanel({
       <ul className="divide-y divide-[#E8E0D0]/10">
         {filtered.map((r) => {
           const dirty = isDirty(r);
-          const note = msg[r.venueName];
+          const note = notes[r.venueName];
+          const working = busy === r.venueName;
+          const summary = ruleSummary(r.savedRestriction, r.savedAppliesAfter);
           return (
-            <li
-              key={r.venueName}
-              className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-3"
-            >
-              <span className="min-w-0 truncate text-sm sm:w-40 sm:shrink-0">
-                {r.venueName}
-              </span>
+            <li key={r.venueName} className="py-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                {/* Venue + the currently-SAVED rule, always visible so an edit
+                    in the fields below never hides what's actually in effect. */}
+                <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-none sm:basis-56">
+                  <span className="truncate text-sm font-medium text-[#E8E0D0]">
+                    {r.venueName}
+                  </span>
+                  {summary ? (
+                    <span className="inline-flex w-fit max-w-full items-center gap-1.5 truncate rounded bg-[#E8E0D0]/12 px-2 py-0.5 text-xs text-[#E8E0D0]">
+                      {summary}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-[#E8E0D0]/40">No rule set</span>
+                  )}
+                </div>
 
-              <input
-                list="age-restriction-presets"
-                className={`${INPUT} min-w-0 flex-1`}
-                value={r.restriction}
-                maxLength={120}
-                placeholder="No rule — e.g. 21+ or a note"
-                onChange={(e) => patch(r.venueName, { restriction: e.target.value })}
-                aria-label={`Age restriction for ${r.venueName}`}
-              />
-
-              <label className="flex items-center gap-1.5 text-sm text-[#E8E0D0]/60">
-                after
+                {/* Editor */}
                 <input
-                  type="time"
-                  className={`${INPUT} disabled:opacity-40`}
-                  value={r.appliesAfter}
-                  disabled={!r.restriction}
-                  onChange={(e) => patch(r.venueName, { appliesAfter: e.target.value })}
-                  aria-label={`Apply only after this time for ${r.venueName}`}
+                  list="age-restriction-presets"
+                  className={`${INPUT} min-w-[10rem] flex-1`}
+                  value={r.restriction}
+                  maxLength={120}
+                  placeholder="No rule — e.g. 21+ or a note"
+                  onChange={(e) => edit(r.venueName, { restriction: e.target.value })}
+                  aria-label={`Age restriction for ${r.venueName}`}
                 />
-              </label>
 
-              <div className="flex items-center gap-2">
-                <button
-                  className={BTN}
-                  disabled={!dirty || busy === r.venueName}
-                  onClick={() => save(r)}
+                <label
+                  className={`flex shrink-0 items-center gap-1.5 text-sm ${
+                    r.restriction ? "text-[#E8E0D0]/60" : "text-[#E8E0D0]/30"
+                  }`}
                 >
-                  Save
-                </button>
-                <button
-                  className={BTN}
-                  disabled={!r.savedRestriction || dirty || busy === r.venueName}
-                  onClick={() => backfill(r)}
-                  title={
-                    dirty
-                      ? "Save the rule first"
-                      : "Tag existing shows that don't have an age yet"
-                  }
-                >
-                  Apply to existing
-                </button>
+                  after
+                  <input
+                    type="time"
+                    className={`${INPUT} disabled:opacity-40`}
+                    value={r.appliesAfter}
+                    disabled={!r.restriction}
+                    onChange={(e) => edit(r.venueName, { appliesAfter: e.target.value })}
+                    aria-label={`Apply only after this time for ${r.venueName}`}
+                  />
+                </label>
+
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    className={BTN}
+                    disabled={!dirty || working}
+                    onClick={() => save(r)}
+                  >
+                    {working ? "…" : "Save"}
+                  </button>
+                  <button
+                    className={BTN}
+                    disabled={!r.savedRestriction || dirty || working}
+                    onClick={() => backfill(r)}
+                    title={
+                      dirty
+                        ? "Save the rule first"
+                        : "Tag existing shows that don't have an age yet"
+                    }
+                  >
+                    Apply to existing
+                  </button>
+                </div>
               </div>
 
-              {note && (
-                <span className="text-xs text-[#E8E0D0]/50 sm:w-32 sm:text-right">
-                  {note}
-                </span>
-              )}
+              {/* Fixed-height status line so a save/backfill message never
+                  reflows the row. Shows dirty state until saved. */}
+              <div className="mt-1 h-4 text-xs">
+                {note ? (
+                  <span
+                    className={note.kind === "err" ? "text-[#E9A6A6]" : "text-[#9FC7A6]"}
+                  >
+                    {note.text}
+                  </span>
+                ) : dirty ? (
+                  <span className="text-[#E8E0D0]/45">Unsaved changes</span>
+                ) : null}
+              </div>
             </li>
           );
         })}
