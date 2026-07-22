@@ -76,9 +76,9 @@ function Field({
  * name; selecting one calls onAdd (the parent keeps the selected list and
  * renders the chips). When `onQuickAdd` is provided and the typed name matches
  * no existing directory band, the dropdown offers an "Add to directory" entry
- * that quick-adds a name-only band and links it (used in edit mode, where the
- * full add-a-band form isn't available). Mirrors the keyboard/mouse behaviour
- * of the genre tag-input on the band form.
+ * that quick-adds a name-only band and links it — the fast path in both modes
+ * when only a name is known; the fuller add-a-band form below covers the rest.
+ * Mirrors the keyboard/mouse behaviour of the genre tag-input on the band form.
  */
 function BandSearchSelect({
   bands,
@@ -317,6 +317,11 @@ export default function ShowSubmitForm({
   const [newBandLocation, setNewBandLocation] = useState("");
   const [newBandContactEmail, setNewBandContactEmail] = useState("");
   const [newBandInstagram, setNewBandInstagram] = useState("");
+  // Edit mode creates the new band eagerly (see addDetailedBand); these back
+  // that button's pending/error state. Add mode folds the fields into the show
+  // submission instead, so they stay unused there.
+  const [addingNewBand, setAddingNewBand] = useState(false);
+  const [newBandError, setNewBandError] = useState("");
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [status, setStatus] = useState<
@@ -423,6 +428,46 @@ export default function ShowSubmitForm({
   }
 
   /**
+   * Edit mode's rich add-a-band. Add mode folds the new-band fields into the
+   * show submission (/api/shows/submit does the band insert), but /api/shows/edit
+   * has no such path — so here we create the band directly via the same
+   * /api/bands/submit "add" flow (with genres/location/contact/instagram, not
+   * just a name like the search box's quick-add), then link it to this show.
+   * Clears the sub-form on success so another band can be added.
+   */
+  async function addDetailedBand() {
+    const trimmed = newBandName.trim();
+    if (!trimmed) {
+      setNewBandError("Enter a band name.");
+      return;
+    }
+    setAddingNewBand(true);
+    setNewBandError("");
+    try {
+      const payload = new FormData();
+      payload.set("mode", "add");
+      payload.set("existingSlug", "");
+      payload.set("bandSlug", slugify(trimmed));
+      payload.set("bandName", trimmed);
+      payload.set("genres", newBandGenres.trim());
+      payload.set("location", newBandLocation.trim());
+      payload.set("contactEmail", newBandContactEmail.trim());
+      payload.set("instagram", newBandInstagram.trim());
+      const res = await fetch("/api/bands/submit", { method: "POST", body: payload });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Couldn't add band");
+      }
+      addBand({ slug: typeof data.slug === "string" ? data.slug : slugify(trimmed), name: trimmed });
+      cancelNewBand();
+    } catch (err) {
+      setNewBandError(err instanceof Error ? err.message : "Couldn't add band");
+    } finally {
+      setAddingNewBand(false);
+    }
+  }
+
+  /**
    * Add a not-yet-listed venue to the directory (the "Other" option), then
    * return the name to stamp on the show. Posts to the same /api/venues/submit
    * "add" flow the venue form uses — login-only, and it upserts by slug, so a
@@ -452,6 +497,7 @@ export default function ShowSubmitForm({
     setNewBandLocation("");
     setNewBandContactEmail("");
     setNewBandInstagram("");
+    setNewBandError("");
   }
 
   function resetForm() {
@@ -690,7 +736,7 @@ export default function ShowSubmitForm({
               selected={selectedBands}
               onAdd={addBand}
               // Both modes let the search quick-add a name-only band to the
-              // directory and link it in one step. Add mode also keeps the full
+              // directory and link it in one step, and both keep the fuller
               // add-a-band form below for richer band details.
               onQuickAdd={quickAddBand}
             />
@@ -721,7 +767,7 @@ export default function ShowSubmitForm({
             </div>
           )}
 
-          {isEdit ? null : !showNewBand ? (
+          {!showNewBand ? (
             <button
               type="button"
               onClick={() => setShowNewBand(true)}
@@ -810,9 +856,29 @@ export default function ShowSubmitForm({
                 />
               </Field>
 
-              <p className="text-xs text-[#E8E0D0]/45">
-                We&apos;ll add this band to the directory too.
-              </p>
+              {isEdit ? (
+                <>
+                  {newBandError && (
+                    <p className="text-xs text-[#E5A0A0]">{newBandError}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={addDetailedBand}
+                    disabled={addingNewBand || !newBandName.trim()}
+                    className="w-full rounded-md border border-[#E8E0D0]/25 px-3.5 py-2 text-sm text-[#E8E0D0] transition hover:border-[#E8E0D0]/50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {addingNewBand ? "Adding…" : "Add band & link to show"}
+                  </button>
+                  <p className="text-xs text-[#E8E0D0]/45">
+                    We&apos;ll add this band to the directory and link it to this
+                    show.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-[#E8E0D0]/45">
+                  We&apos;ll add this band to the directory too.
+                </p>
+              )}
             </div>
           )}
         </div>
