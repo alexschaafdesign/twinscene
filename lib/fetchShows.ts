@@ -17,6 +17,14 @@ export type Show = {
   title: string; // optional editorial event name (subtitle), falling back to the lineup/venue — see lib/showDisplay.ts. The bands-forward heading is the lineup.
   lineup: string; // full lineup, e.g. "shugE, Average Joey, Ditch Pigeon" — the show's marquee/heading
   bandSlugs: string[]; // directory slugs this show links to (0..n)
+  // The subset of bandSlugs whose band is LOCAL (migration 0059) — i.e. not
+  // explicitly 'touring'. An unclassified band counts as local, so this is
+  // bandSlugs minus the explicitly-touring ones. Drives the shows badge: a show
+  // with ≥1 local band is a "Scene bands" show; one whose matched bands are ALL
+  // touring gets the muted "Touring" badge instead. Populated by annotateLocality
+  // on the public read paths; defaults to a copy of bandSlugs (all-local) on
+  // paths that skip annotation, matching the unclassified→local rule.
+  localBandSlugs: string[];
   lineupEntries: LineupEntry[]; // raw name+bandSlug pairs, in order — for the show page, which renders each lineup name alongside its matched band's photo/bio (bandSlugs above is just the flattened slug list)
   eventType: string; // non-band listing label (e.g. "Private Event"), "" for shows
   notes: string;
@@ -81,15 +89,20 @@ function mapRow(row: ShowsQueryRow): Show {
   const lineup = row.lineup ?? [];
   const starredBy = row.starred_by ?? [];
 
+  const bandSlugs = lineup
+    .map((e) => e.bandSlug)
+    .filter((slug): slug is string => !!slug);
+
   return {
     id: row.id,
     date: row.date,
     venue: row.venue_name,
     title: row.title,
     lineup: lineup.map((e) => e.name).join(", "),
-    bandSlugs: lineup
-      .map((e) => e.bandSlug)
-      .filter((slug): slug is string => !!slug),
+    bandSlugs,
+    // Default: every matched band counts as local (the unclassified→local rule),
+    // until annotateLocality refines it on the public read paths.
+    localBandSlugs: [...bandSlugs],
     lineupEntries: lineup,
     eventType: row.event_type ?? "",
     notes: row.notes ?? "",
@@ -115,6 +128,36 @@ function mapRow(row: ShowsQueryRow): Show {
   };
 }
 
+/**
+ * Refine each show's localBandSlugs by looking up which of its matched bands are
+ * explicitly 'touring' (migration 0059) and removing them — so localBandSlugs
+ * ends up as the local (+ unclassified) subset. One query for the whole batch,
+ * keyed on the union of referenced slugs. Best-effort: on failure the shows keep
+ * their all-local default (every matched band treated as local), which is the
+ * safe direction (a scene show never silently loses its badge).
+ */
+async function annotateLocality<T extends Show>(shows: T[]): Promise<T[]> {
+  const slugs = [...new Set(shows.flatMap((s) => s.bandSlugs))];
+  if (slugs.length === 0) return shows;
+
+  let touring = new Set<string>();
+  try {
+    const rows = await sql<{ slug: string }[]>`
+      SELECT slug FROM bands WHERE slug = ANY(${slugs}) AND locality = 'touring'
+    `;
+    touring = new Set(rows.map((r) => r.slug));
+  } catch (err) {
+    console.error("annotateLocality: query failed", err);
+    return shows; // keep the all-local default
+  }
+
+  if (touring.size === 0) return shows; // nothing to strip
+  for (const s of shows) {
+    s.localBandSlugs = s.bandSlugs.filter((slug) => !touring.has(slug));
+  }
+  return shows;
+}
+
 // One show by id, for the per-show page (/shows/[id]). No confidence/date
 // filtering — a direct link to a specific show should resolve even if it's a
 // 'broken'-flagged or already-past row; the page renders whatever exists. The
@@ -137,7 +180,9 @@ export async function fetchShowById(id: string): Promise<Show | null> {
     console.error("fetchShowById: query failed", err);
     return null;
   }
-  return rows[0] ? mapRow(rows[0]) : null;
+  if (!rows[0]) return null;
+  const [show] = await annotateLocality([mapRow(rows[0])]);
+  return show;
 }
 
 export async function fetchShows(): Promise<Show[]> {
@@ -159,10 +204,11 @@ export async function fetchShows(): Promise<Show[]> {
   }
 
   const today = todayInChicago();
-  return rows
+  const shows = rows
     .map(mapRow)
     .filter((show) => show.date && show.date >= today)
     .sort(byDateThenTime);
+  return annotateLocality(shows);
 }
 
 /** Sort by date, then by start time within a day (earliest first), with
@@ -210,7 +256,9 @@ export async function fetchPastShows(days: number): Promise<Show[]> {
     return [];
   }
 
-  return rows.map(mapRow).sort((a, b) => b.date.localeCompare(a.date));
+  return annotateLocality(
+    rows.map(mapRow).sort((a, b) => b.date.localeCompare(a.date)),
+  );
 }
 
 /**
@@ -238,7 +286,9 @@ export async function fetchAllPastShows(): Promise<Show[]> {
     return [];
   }
 
-  return rows.map(mapRow).sort((a, b) => b.date.localeCompare(a.date));
+  return annotateLocality(
+    rows.map(mapRow).sort((a, b) => b.date.localeCompare(a.date)),
+  );
 }
 
 /** Today + the next `days - 1` days, both as "YYYY-MM-DD" (America/Chicago). */

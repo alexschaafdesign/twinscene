@@ -124,6 +124,7 @@ export async function POST(request: NextRequest) {
       genres: splitList(form.get("genres")),
       similarTo: splitList(form.get("similarTo")),
       city: str(form.get("location")).trim(),
+      locality: str(form.get("locality")).trim(),
       neighborhoods: splitList(form.get("neighborhoods")),
       members: splitList(form.get("members")),
       contactEmail: str(form.get("contactEmail")).trim(),

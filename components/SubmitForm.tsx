@@ -29,6 +29,7 @@ const FIELD_SECTION: Record<string, SectionKey> = {
   bandName: "basics",
   genres: "basics",
   location: "basics",
+  locality: "basics",
   website: "musicLinks",
   instagram: "musicLinks",
   bandPhoto: "bioShows",
@@ -67,6 +68,7 @@ type FormState = {
   genres: string;
   similarTo: string; // comma-joined "for fans of" references; parsed like genres
   location: string; // city — persisted to the sheet's LOCATION column
+  locality: string; // "local" | "touring" — scene classification (migration 0059)
   neighborhoods: string; // comma-joined; parsed into a list like genres
   members: string; // comma-joined band member names; parsed into a list
   contactEmail: string;
@@ -575,6 +577,7 @@ export default function SubmitForm({
   initialGenres = "",
   initialSimilarTo = "",
   initialLocation = "",
+  initialLocality = "local",
   initialNeighborhoods = "",
   initialMembers = "",
   initialContactEmail = "",
@@ -601,6 +604,7 @@ export default function SubmitForm({
   initialGenres?: string;
   initialSimilarTo?: string;
   initialLocation?: string;
+  initialLocality?: string;
   initialNeighborhoods?: string;
   initialMembers?: string;
   initialContactEmail?: string;
@@ -641,6 +645,7 @@ export default function SubmitForm({
     genres: initialGenres,
     similarTo: initialSimilarTo,
     location: initialLocation,
+    locality: initialLocality === "touring" ? "touring" : "local",
     neighborhoods: initialNeighborhoods,
     members: initialMembers,
     contactEmail: initialContactEmail,
@@ -1296,6 +1301,38 @@ export default function SubmitForm({
                   className={`${inputClass} mt-2`}
                 />
               )}
+            </Field>
+
+            <Field
+              label="Scene"
+              htmlFor="locality"
+              hint="Local Twin Cities acts show in the directory by default; touring/out-of-town acts are grouped separately behind a toggle."
+            >
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { value: "local", label: "Local" },
+                    { value: "touring", label: "Touring / out of town" },
+                  ] as const
+                ).map(({ value, label }) => {
+                  const active = form.locality === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, locality: value }))}
+                      aria-pressed={active}
+                      className={`rounded-md border px-3 py-1.5 text-sm transition ${
+                        active
+                          ? "border-ink bg-ink text-paper"
+                          : "border-ink/25 text-ink/70 hover:border-ink/60"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             </Field>
 
             <Field

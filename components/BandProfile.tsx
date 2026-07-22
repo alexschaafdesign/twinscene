@@ -59,6 +59,8 @@ export function editHref(band: Band): string {
     genres: band.genres.join(", "),
     similarTo: band.similarTo.join(", "),
     location: band.city, // the sheet's LOCATION column holds the city
+    // Reflect the current classification; unclassified ("") reads as local.
+    locality: band.locality === "touring" ? "touring" : "local",
     neighborhoods: band.neighborhoods.join(", "),
     members: band.members.join(", "),
     contactEmail: band.contactEmail,

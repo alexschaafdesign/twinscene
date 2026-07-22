@@ -34,6 +34,31 @@ export default function AllBandsPanel({ bands }: { bands: Band[] }) {
     });
   }, [items, query, showHidden]);
 
+  // Classify a band local/touring (migration 0059). Clicking the already-active
+  // value clears it back to unclassified (null → treated as local). Drives the
+  // directory's default view and the shows "Scene bands" vs "Touring" badge.
+  async function setLocality(band: Band, value: "local" | "touring") {
+    const next = band.locality === value ? null : value;
+    setBusy(band.slug);
+    try {
+      const res = await fetch(`/api/admin/bands/${encodeURIComponent(band.slug)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locality: next }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        window.alert(data.error || "Update failed");
+        return;
+      }
+      setItems((prev) =>
+        prev.map((b) => (b.slug === band.slug ? { ...b, locality: next ?? "" } : b)),
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function toggleHidden(band: Band) {
     const hidden = !band.hidden;
     setBusy(band.slug);
@@ -98,6 +123,26 @@ export default function AllBandsPanel({ bands }: { bands: Band[] }) {
                 )}
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-2">
+                {/* Local / touring classifier. Neither highlighted = unclassified
+                    (shows as local by default). Click the active one to clear. */}
+                <div className="flex items-center gap-0.5 rounded-md border border-[#E8E0D0]/20 p-0.5">
+                  {(["local", "touring"] as const).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setLocality(band, value)}
+                      disabled={busy === band.slug}
+                      aria-pressed={band.locality === value}
+                      className={`rounded px-2.5 py-1 text-xs capitalize transition disabled:opacity-40 ${
+                        band.locality === value
+                          ? "bg-[#E8E0D0] text-[#2A2420]"
+                          : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
+                      }`}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
                 <a href={`/bands/${band.slug}`} className={BTN} target="_blank" rel="noreferrer">
                   View
                 </a>

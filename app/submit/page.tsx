@@ -97,6 +97,7 @@ export default async function SubmitPage({
         initialGenres={param("genres")}
         initialSimilarTo={param("similarTo")}
         initialLocation={param("location")}
+        initialLocality={param("locality") || "local"}
         initialNeighborhoods={param("neighborhoods")}
         initialMembers={param("members")}
         initialContactEmail={param("contactEmail")}

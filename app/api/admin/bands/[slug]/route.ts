@@ -47,7 +47,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ success: true, hidden });
   }
 
-  const { name, bio, genre, hometown } = body as Record<string, unknown>;
+  const fields = body as Record<string, unknown>;
+  const { name, bio, genre, hometown } = fields;
   const updated = await updateBandCoreFields(
     band.id,
     {
@@ -55,6 +56,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       bio: typeof bio === "string" ? bio : undefined,
       genre: typeof genre === "string" ? genre : undefined,
       hometown: typeof hometown === "string" ? hometown : undefined,
+      // Present key (string | null) → set/clear; absent → left untouched.
+      // updateBandCoreFields normalizes anything but 'local'/'touring' to null.
+      locality: "locality" in fields ? (fields.locality as string | null) : undefined,
     },
     user?.id,
   );

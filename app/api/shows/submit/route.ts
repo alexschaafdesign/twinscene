@@ -86,6 +86,9 @@ export async function POST(request: NextRequest) {
         genres: splitList(form.get("newBandGenres")),
         similarTo: [],
         city: str(form.get("newBandLocation")).trim(),
+        // No scene field on the show-submit mini-form — leave unclassified
+        // (shows as local by default; an admin can flag touring later).
+        locality: "",
         neighborhoods: [],
         members: [],
         contactEmail: str(form.get("newBandContactEmail")).trim(),

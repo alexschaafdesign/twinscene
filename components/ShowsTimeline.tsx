@@ -158,13 +158,22 @@ function groupByVenue(shows: Show[], venues: Venue[]): VenueGroup[] {
 
 /** The scene / press badges that trail a show's heading, shared by both views. */
 function ShowBadges({ show }: { show: Show }) {
-  const isScene = show.bandSlugs.length > 0;
+  // "Scene bands" only when a LOCAL band is on the bill (migration 0059).
+  // A show whose matched bands are all touring gets the muted "Touring" badge
+  // instead — still visibly in the directory, just not flagged as the scene.
+  const isScene = show.localBandSlugs.length > 0;
+  const isTouringOnly = !isScene && show.bandSlugs.length > 0;
   return (
     <>
       {show.starredBy.length > 0 && <span className="ml-1.5 text-amber-400">★</span>}
       {isScene && (
         <span className="ml-2 rounded bg-violet-400/15 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-violet-300">
           Scene bands
+        </span>
+      )}
+      {isTouringOnly && (
+        <span className="ml-2 rounded bg-[#E8E0D0]/10 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-[#E8E0D0]/50">
+          Touring
         </span>
       )}
       {show.eventType && (

@@ -27,6 +27,10 @@ export type Band = {
   // split from the comma-joined `similar_to` column; may be empty.
   similarTo: string[];
   city: string;
+  // Local-vs-touring designation (migration 0059). "" = unclassified, which the
+  // directory and shows badges both treat as local (only an explicit "touring"
+  // is filtered out of the default view / demoted from the "Scene bands" badge).
+  locality: "local" | "touring" | "";
   neighborhoods: string[]; // finer-grained areas within the city; may be empty
   members: string[]; // individual people in the band; may be empty
   contactEmail: string; // public contact address, shown on the profile
@@ -125,6 +129,7 @@ function fromTwinScene(b: BandRow): Band {
       .map((s) => s.trim())
       .filter(Boolean),
     city: b.city ?? "",
+    locality: b.locality === "touring" ? "touring" : b.locality === "local" ? "local" : "",
     neighborhoods: asStringArray(b.neighborhoods),
     members: asStringArray(b.members),
     contactEmail: b.contact_email ?? "",

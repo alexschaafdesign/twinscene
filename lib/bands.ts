@@ -29,6 +29,12 @@ export interface Band {
   photo: string | null; // full absolute URL (Birdhaus image host); null if none
   thumbnail_url: string | null; // 400px square variant of `photo` (bands/thumb/<slug>.jpg); null if no photo
   city: string | null;
+  // Local-vs-touring designation (migration 0059): 'local' | 'touring' | null.
+  // null = unclassified, treated as LOCAL everywhere (directory default view +
+  // the shows "Scene bands" badge) so an unclassified band never silently drops
+  // out of the local view. Internal — deliberately absent from PUBLIC_BAND_FIELDS
+  // (a directory-presentation concern, not part of the cross-project bands API).
+  locality: string | null;
   neighborhoods: unknown; // jsonb — string[] of finer-grained areas; null if none
   bandcamp_embed_url: string | null; // resolved Bandcamp EmbeddedPlayer URL
   bandcamp_embed_height: number | null; // iframe height in px for that embed
@@ -139,6 +145,14 @@ export interface BandCoreFieldsInput {
   bio?: string;
   genre?: string;
   hometown?: string;
+  // 'local' | 'touring' | null (clears the classification). Anything else is
+  // rejected below so the column stays a clean enum.
+  locality?: string | null;
+}
+
+/** Coerce an arbitrary input to the locality enum: 'local' | 'touring' | null. */
+export function normalizeLocality(value: unknown): "local" | "touring" | null {
+  return value === "local" || value === "touring" ? value : null;
 }
 
 // Minimal admin-only edit path — updates just the plain-text core fields,
@@ -154,12 +168,20 @@ export async function updateBandCoreFields(
   const existing = current[0];
   if (!existing) throw new Error(`updateBandCoreFields: no band with id ${bandId}`);
 
+  // locality is `undefined` when the caller isn't touching it (keep existing);
+  // an explicit value (including null, to clear) is normalized to the enum.
+  const locality =
+    input.locality === undefined
+      ? existing.locality
+      : normalizeLocality(input.locality);
+
   const [updated] = await sql<Band[]>`
     update bands set
       name = ${input.name ?? existing.name},
       bio = ${input.bio ?? existing.bio},
       genre = ${input.genre ?? existing.genre},
       hometown = ${input.hometown ?? existing.hometown},
+      locality = ${locality},
       updated_at = now()
     where id = ${bandId}
     returning *
@@ -442,6 +464,9 @@ export interface BandSubmissionInput {
   genres: string[];
   similarTo: string[]; // "for fans of" references, stored comma-joined
   city: string;
+  // 'local' | 'touring' — anything else (incl. "") leaves the existing value
+  // untouched on a correction, or null on a fresh add. See upsertBand.
+  locality: string;
   neighborhoods: string[];
   members: string[];
   contactEmail: string;
@@ -625,6 +650,13 @@ export async function upsertBand(
 
     const genre = input.genres.map((g) => g.trim()).filter(Boolean).join(", ") || null;
     const similarTo = input.similarTo.map((s) => s.trim()).filter(Boolean).join(", ") || null;
+    // Only an explicit valid value changes locality; anything else preserves the
+    // existing classification (or leaves a fresh add unclassified → null), so a
+    // correction that doesn't carry the field can't wipe an admin's flag.
+    const locality =
+      input.locality === "local" || input.locality === "touring"
+        ? input.locality
+        : (existing?.locality ?? null);
     const neighborhoods = input.neighborhoods.map((n) => n.trim()).filter(Boolean);
     const members = input.members.map((m) => m.trim()).filter(Boolean);
     const socials = socialsJson(input);
@@ -672,6 +704,7 @@ export async function upsertBand(
           socials = ${socials ? sql.json(socials) : null},
           bio = ${input.bio || null},
           city = ${input.city || null},
+          locality = ${locality},
           neighborhoods = ${neighborhoods.length ? sql.json(neighborhoods) : null},
           members = ${members.length ? sql.json(members) : null},
           contact_email = ${input.contactEmail || null},
@@ -710,12 +743,12 @@ export async function upsertBand(
     const slug = await uniqueSlug(tx, slugify(input.name) || "band");
     const [created] = await tx<Band[]>`
       insert into bands (
-        slug, name, genre, similar_to, socials, bio, city, neighborhoods, members,
+        slug, name, genre, similar_to, socials, bio, city, locality, neighborhoods, members,
         contact_email, contact_method, photo, thumbnail_url, bandcamp_embed_url,
         bandcamp_embed_height, featured_links
       ) values (
         ${slug}, ${input.name}, ${genre}, ${similarTo}, ${socials ? sql.json(socials) : null},
-        ${input.bio || null}, ${input.city || null},
+        ${input.bio || null}, ${input.city || null}, ${locality},
         ${neighborhoods.length ? sql.json(neighborhoods) : null},
         ${members.length ? sql.json(members) : null}, ${input.contactEmail || null},
         ${input.contactMethod || null}, ${photo}, ${thumbnailUrl}, ${embed.embedUrl || null},

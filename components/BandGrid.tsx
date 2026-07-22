@@ -201,6 +201,10 @@ export default function BandGrid({
   // Empty = no genre filter (the "All" pill).
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [location, setLocation] = useState("All");
+  // Twin Scene is the local scene directory, so touring acts (matched off show
+  // lineups) are hidden by default; this reveals them combined with locals.
+  // An unclassified band (locality === "") counts as local and always shows.
+  const [showTouring, setShowTouring] = useState(false);
   const [upcomingShowsOnly, setUpcomingShowsOnly] = useState(false);
   const [hasVideosOnly, setHasVideosOnly] = useState(false);
   // Neighborhood sub-filter (multi-select), scoped to the chosen city bucket.
@@ -292,6 +296,13 @@ export default function BandGrid({
     setSelectedNeighborhoods([]);
   }
 
+  // How many touring bands the toggle would reveal — surfaced on the control so
+  // it's clear there's more behind it (and hidden entirely when there are none).
+  const touringCount = useMemo(
+    () => bands.filter((b) => b.locality === "touring").length,
+    [bands],
+  );
+
   const upcomingShowSlugSet = useMemo(
     () => new Set(bandsWithUpcomingShows ?? []),
     [bandsWithUpcomingShows],
@@ -309,6 +320,10 @@ export default function BandGrid({
       selectedNeighborhoods.map((n) => n.toLowerCase()),
     );
     return bands.filter((band) => {
+      // Local-only by default: hide explicitly-touring bands unless the toggle
+      // is on. Unclassified ("") is treated as local, so it always shows.
+      if (!showTouring && band.locality === "touring") return false;
+
       // Upcoming shows toggle
       if (upcomingShowsOnly && !upcomingShowSlugSet.has(band.slug)) {
         return false;
@@ -362,6 +377,7 @@ export default function BandGrid({
     upcomingShowSlugSet,
     hasVideosOnly,
     videoSlugSet,
+    showTouring,
   ]);
 
   // Apply the chosen ordering. `filtered` preserves the incoming alphabetical
@@ -378,7 +394,7 @@ export default function BandGrid({
 
   // Key changes whenever filters or sort change, remounting the grid to replay
   // the fade.
-  const gridKey = `${query}|${selectedGenres.join(",")}|${location}|${selectedNeighborhoods.join(",")}|${upcomingShowsOnly}|${hasVideosOnly}|${sort}`;
+  const gridKey = `${query}|${selectedGenres.join(",")}|${location}|${selectedNeighborhoods.join(",")}|${upcomingShowsOnly}|${hasVideosOnly}|${showTouring}|${sort}`;
 
   function surpriseMe() {
     if (sorted.length === 0) return;
@@ -660,6 +676,31 @@ export default function BandGrid({
       </div>
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
+          {/* Local vs. touring. Default view is local-only (Twin Scene is the
+              local scene directory); this reveals touring acts combined in.
+              Hidden when there are no touring bands to reveal. */}
+          {touringCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowTouring((v) => !v)}
+              aria-pressed={showTouring}
+              className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition ${
+                showTouring
+                  ? "border-[#E8E0D0]/70 bg-[#E8E0D0]/10 text-[#E8E0D0]"
+                  : "border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60"
+              }`}
+            >
+              {/* ti-route (Tabler) */}
+              <svg {...iconProps} width={14} height={14}>
+                <circle cx="6" cy="19" r="2" />
+                <circle cx="18" cy="5" r="2" />
+                <path d="M12 19h4.5a3.5 3.5 0 0 0 0 -7h-8a3.5 3.5 0 0 1 0 -7h3.5" />
+              </svg>
+              Show touring bands
+              <span className="text-[#E8E0D0]/45">({touringCount})</span>
+            </button>
+          )}
+
           {/* Sort order */}
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-[#E8E0D0]/45">Sort</span>
@@ -744,7 +785,7 @@ export default function BandGrid({
       </div>
 
       <p className="mb-4 text-center text-xs text-[#E8E0D0]/55">
-        Showing {sorted.length} of {bands.length} bands
+        Showing {sorted.length} of {showTouring ? bands.length : bands.length - touringCount} bands
       </p>
 
       {sorted.length === 0 ? (
