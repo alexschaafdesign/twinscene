@@ -14,6 +14,7 @@ import {
   View,
   Text,
   Svg,
+  G,
   Path,
   Rect,
   Circle,
@@ -210,10 +211,22 @@ function symbolPaths(type: string) {
   }
 }
 
-function PdfSymbol({ type, size }: { type: string; size: number }) {
+function PdfSymbol({
+  type,
+  size,
+  rotation,
+}: {
+  type: string;
+  size: number;
+  rotation: number;
+}) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      {symbolPaths(type)}
+      {rotation ? (
+        <G transform={`rotate(${rotation} 12 12)`}>{symbolPaths(type)}</G>
+      ) : (
+        symbolPaths(type)
+      )}
     </Svg>
   );
 }
@@ -237,7 +250,7 @@ function StagePlotDoc({
         <View style={styles.diagram}>
           {items.map((it) => {
             const label = it.label?.trim() || catalogItem(it.item_type).label;
-            const size = symbolSize(it.item_type);
+            const size = symbolSize(it.item_type) * (it.scale || 1);
             const left = Math.min(
               Math.max(it.x * CONTENT_W - ITEM_BOX / 2, 0),
               CONTENT_W - ITEM_BOX,
@@ -248,7 +261,7 @@ function StagePlotDoc({
             );
             return (
               <View key={it.id} style={[styles.item, { left, top }]}>
-                <PdfSymbol type={it.item_type} size={size} />
+                <PdfSymbol type={it.item_type} size={size} rotation={it.rotation} />
                 <Text style={styles.itemLabel}>{label}</Text>
               </View>
             );

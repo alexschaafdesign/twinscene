@@ -30,6 +30,7 @@ export interface StagePlotItem {
   x: number; // 0..1 fraction of canvas width
   y: number; // 0..1 fraction of canvas height
   rotation: number;
+  scale: number; // multiplier on the symbol's natural size; 0.5..2.5
   notes: string | null;
   position: number;
 }
@@ -102,7 +103,7 @@ export async function getPlotDetail(plotId: number): Promise<StagePlotDetail | n
 
   const items = await sql<StagePlotItem[]>`
     select id, item_type, label, x::float8 as x, y::float8 as y,
-           rotation, notes, position
+           rotation, scale::float8 as scale, notes, position
     from stage_plot_items
     where stage_plot_id = ${plotId}
     order by position asc, id asc
@@ -144,6 +145,7 @@ export interface NormalizedContent {
     x: number;
     y: number;
     rotation: number;
+    scale: number;
     notes: string | null;
     position: number;
   }[];
@@ -173,6 +175,16 @@ function intOrNull(v: unknown, min: number, max: number): number | null {
   return Math.min(max, Math.max(min, Math.round(n)));
 }
 
+// Item size multiplier: clamp to the editor's handle range, default 1 for any
+// missing/garbage value (and for rows written before the scale column existed).
+const SCALE_MIN = 0.5;
+const SCALE_MAX = 2.5;
+function clampScale(v: unknown): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(SCALE_MAX, Math.max(SCALE_MIN, n));
+}
+
 /**
  * Turn an untrusted autosave body into rows safe to persist. Unknown item_type
  * keys are dropped (they'd never render), coordinates clamp to 0..1, strings
@@ -195,6 +207,7 @@ export function normalizeContent(raw: unknown): NormalizedContent {
       x: clamp01(it.x),
       y: clamp01(it.y),
       rotation: intOrNull(it.rotation, 0, 359) ?? 0,
+      scale: clampScale(it.scale),
       notes: str(it.notes, MAX_TEXT),
       position: i,
     });
@@ -239,6 +252,7 @@ export async function saveContent(plotId: number, content: NormalizedContent): P
           "x",
           "y",
           "rotation",
+          "scale",
           "notes",
           "position",
         )}

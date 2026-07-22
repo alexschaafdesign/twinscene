@@ -28,6 +28,13 @@ import type { StagePlotItem, InputListItem } from "@/lib/stagePlots";
 const SNAP = 0.025;
 const snap = (v: number) => Math.min(1, Math.max(0, Math.round(v / SNAP) * SNAP));
 
+// Resize/rotate limits for the on-canvas handles. Scale multiplies the symbol's
+// natural size; rotation snaps to 15° steps so items stay squared-ish.
+const SCALE_MIN = 0.5;
+const SCALE_MAX = 2.5;
+const ROTATE_SNAP = 15;
+const clampScale = (v: number) => Math.min(SCALE_MAX, Math.max(SCALE_MIN, v));
+
 type Item = {
   uid: string;
   item_type: string;
@@ -35,6 +42,7 @@ type Item = {
   x: number;
   y: number;
   rotation: number;
+  scale: number;
   notes: string | null;
 };
 
@@ -59,6 +67,7 @@ function toItem(row: StagePlotItem): Item {
     x: row.x,
     y: row.y,
     rotation: row.rotation,
+    scale: row.scale ?? 1,
     notes: row.notes,
   };
 }
@@ -96,14 +105,25 @@ export default function StagePlotEditor({
   const [saveState, setSaveState] = useState<SaveState>("idle");
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
-  const dragUidRef = useRef<string | null>(null);
-  // A press-and-drag that STARTED on a palette button but hasn't yet crossed the
-  // movement threshold to become a real placed-item drag. `created` flips true
-  // once we spawn the item so pointerup knows a tap (create-at-default) is no
-  // longer needed.
-  const pendingRef = useRef<
-    { cat: CatalogItem; startX: number; startY: number; created: boolean } | null
-  >(null);
+  // The in-progress direct-manipulation gesture on a placed item, or null.
+  // `move` tracks the pointer; `rotate`/`resize` measure against the item's
+  // center (in px, captured at gesture start) so the maths stays simple.
+  type Gesture =
+    | { mode: "move"; uid: string }
+    | { mode: "rotate"; uid: string; cx: number; cy: number }
+    | {
+        mode: "resize";
+        uid: string;
+        cx: number;
+        cy: number;
+        startDist: number;
+        startScale: number;
+      };
+  const gestureRef = useRef<Gesture | null>(null);
+  // A press that STARTED on a palette button but hasn't yet entered the canvas
+  // to become a placed-item drag. `created` flips true once we spawn the item,
+  // so pointerup knows a tap (create-at-default) is no longer needed.
+  const pendingRef = useRef<{ cat: CatalogItem; created: boolean } | null>(null);
 
   // --- Autosave (debounced) ------------------------------------------------
   // Skip the initial render so opening a plot doesn't immediately re-save it.
@@ -127,6 +147,7 @@ export default function StagePlotEditor({
               x: it.x,
               y: it.y,
               rotation: it.rotation,
+              scale: it.scale,
               notes: it.notes,
             })),
             inputs: inputs.map((row) => ({
@@ -157,6 +178,7 @@ export default function StagePlotEditor({
       x: snap(x),
       y: snap(y),
       rotation: 0,
+      scale: 1,
       notes: null,
     };
     setItems((prev) => [...prev, newItem]);
@@ -196,37 +218,62 @@ export default function StagePlotEditor({
     };
   }, []);
 
-  // Movement (px) before a press that started on a palette button is treated as
-  // a drag-to-place rather than a tap.
-  const PALETTE_DRAG_THRESHOLD = 6;
-
   useEffect(() => {
     function onMove(e: PointerEvent) {
-      // A palette press that's crossed the threshold spawns its item at the
-      // pointer and hands off to the normal item-drag below.
+      // A palette drag spawns its item only once the pointer actually enters
+      // the canvas — spawning earlier would clamp it to the canvas edge (the
+      // pointer is still up over the palette), making the tile "jump" to the
+      // border before your cursor gets there. A press that never enters the
+      // canvas stays a tap, handled in onUp.
       const pending = pendingRef.current;
       if (pending && !pending.created) {
-        const dx = e.clientX - pending.startX;
-        const dy = e.clientY - pending.startY;
-        if (Math.hypot(dx, dy) >= PALETTE_DRAG_THRESHOLD) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        const inside =
+          !!rect &&
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom;
+        if (inside) {
           const frac = pointFraction(e.clientX, e.clientY);
           if (frac) {
             const newUid = placeItem(pending.cat, frac.x, frac.y);
             pending.created = true;
-            dragUidRef.current = newUid;
+            gestureRef.current = { mode: "move", uid: newUid };
             setDraggingUid(newUid);
           }
         }
       }
-      if (!dragUidRef.current) return;
-      const frac = pointFraction(e.clientX, e.clientY);
-      if (!frac) return;
-      const target = dragUidRef.current;
-      setItems((prev) =>
-        prev.map((it) =>
-          it.uid === target ? { ...it, x: snap(frac.x), y: snap(frac.y) } : it,
-        ),
-      );
+
+      const g = gestureRef.current;
+      if (!g) return;
+
+      if (g.mode === "move") {
+        const frac = pointFraction(e.clientX, e.clientY);
+        if (!frac) return;
+        setItems((prev) =>
+          prev.map((it) =>
+            it.uid === g.uid ? { ...it, x: snap(frac.x), y: snap(frac.y) } : it,
+          ),
+        );
+      } else if (g.mode === "rotate") {
+        // Angle from the item's center to the pointer. +90 so the handle
+        // (which sits directly above the item) reads 0°; snap to a coarse step.
+        const raw =
+          (Math.atan2(e.clientY - g.cy, e.clientX - g.cx) * 180) / Math.PI + 90;
+        const deg = ((Math.round(raw / ROTATE_SNAP) * ROTATE_SNAP % 360) + 360) % 360;
+        setItems((prev) =>
+          prev.map((it) => (it.uid === g.uid ? { ...it, rotation: deg } : it)),
+        );
+      } else {
+        // resize: scale in proportion to how far the pointer is from center
+        // relative to where the drag began.
+        const dist = Math.hypot(e.clientX - g.cx, e.clientY - g.cy);
+        const scale = clampScale((g.startScale * dist) / (g.startDist || 1));
+        setItems((prev) =>
+          prev.map((it) => (it.uid === g.uid ? { ...it, scale } : it)),
+        );
+      }
     }
     function onUp() {
       // A palette press that never moved is a tap → default placement.
@@ -235,8 +282,8 @@ export default function StagePlotEditor({
         if (!pending.created) addFromPalette(pending.cat);
         pendingRef.current = null;
       }
-      if (dragUidRef.current) {
-        dragUidRef.current = null;
+      if (gestureRef.current) {
+        gestureRef.current = null;
         setDraggingUid(null);
       }
     }
@@ -248,11 +295,47 @@ export default function StagePlotEditor({
     };
   }, [pointFraction, placeItem, addFromPalette]);
 
-  function startDrag(e: React.PointerEvent, itemUid: string) {
+  // Item center in client (px) coords — the pivot for rotate/resize maths.
+  function itemCenterPx(it: Item): { cx: number; cy: number } | null {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    return { cx: rect.left + it.x * rect.width, cy: rect.top + it.y * rect.height };
+  }
+
+  function startMove(e: React.PointerEvent, itemUid: string) {
     e.preventDefault();
-    dragUidRef.current = itemUid;
+    gestureRef.current = { mode: "move", uid: itemUid };
     setDraggingUid(itemUid);
     setSelectedUid(itemUid);
+  }
+
+  function startRotate(e: React.PointerEvent, it: Item) {
+    e.preventDefault();
+    e.stopPropagation();
+    const center = itemCenterPx(it);
+    if (!center) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    gestureRef.current = { mode: "rotate", uid: it.uid, ...center };
+    setDraggingUid(it.uid);
+    setSelectedUid(it.uid);
+  }
+
+  function startResize(e: React.PointerEvent, it: Item) {
+    e.preventDefault();
+    e.stopPropagation();
+    const center = itemCenterPx(it);
+    if (!center) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    const startDist = Math.hypot(e.clientX - center.cx, e.clientY - center.cy);
+    gestureRef.current = {
+      mode: "resize",
+      uid: it.uid,
+      ...center,
+      startDist,
+      startScale: it.scale,
+    };
+    setDraggingUid(it.uid);
+    setSelectedUid(it.uid);
   }
 
   function nudge(itemUid: string, dx: number, dy: number) {
@@ -352,12 +435,7 @@ export default function StagePlotEditor({
                 // touch drag off the button doesn't scroll the page, and so we
                 // keep getting move/up even once the finger leaves the button.
                 e.currentTarget.setPointerCapture?.(e.pointerId);
-                pendingRef.current = {
-                  cat,
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  created: false,
-                };
+                pendingRef.current = { cat, created: false };
               }}
               // Pointer taps are handled in the window pointerup; this fires
               // only for keyboard activation (Enter/Space → detail 0).
@@ -401,15 +479,19 @@ export default function StagePlotEditor({
             const cat = catalogItem(it.item_type);
             const isSel = it.uid === selectedUid;
             const isDragging = it.uid === draggingUid;
+            // The 1.08 "lift" pop is for repositioning only — during a
+            // rotate/resize the symbol is already changing, so don't fight it.
+            const isMoving = isDragging && gestureRef.current?.mode === "move";
+            const size = symbolSize(it.item_type) * it.scale;
             return (
               <div
                 key={it.uid}
                 role="button"
                 tabIndex={0}
-                aria-label={`${it.label || cat.label}, drag to move`}
+                aria-label={`${it.label || cat.label}. Drag to move; arrow keys nudge, [ and ] resize, r rotates.`}
                 onPointerDown={(e) => {
                   e.stopPropagation();
-                  startDrag(e, it.uid);
+                  startMove(e, it.uid);
                 }}
                 onKeyDown={(e) => {
                   const step = e.shiftKey ? 0.05 : SNAP;
@@ -417,12 +499,15 @@ export default function StagePlotEditor({
                   else if (e.key === "ArrowRight") { e.preventDefault(); nudge(it.uid, step, 0); }
                   else if (e.key === "ArrowUp") { e.preventDefault(); nudge(it.uid, 0, -step); }
                   else if (e.key === "ArrowDown") { e.preventDefault(); nudge(it.uid, 0, step); }
+                  else if (e.key === "[") { e.preventDefault(); updateItem(it.uid, { scale: clampScale(it.scale - 0.1) }); }
+                  else if (e.key === "]") { e.preventDefault(); updateItem(it.uid, { scale: clampScale(it.scale + 0.1) }); }
+                  else if (e.key === "r" || e.key === "R") { e.preventDefault(); updateItem(it.uid, { rotation: (it.rotation + (e.shiftKey ? -ROTATE_SNAP : ROTATE_SNAP) + 360) % 360 }); }
                   else if (e.key === "Backspace" || e.key === "Delete") { e.preventDefault(); removeItem(it.uid); }
                 }}
                 style={{
                   left: `${it.x * 100}%`,
                   top: `${it.y * 100}%`,
-                  transform: `translate(-50%, -50%) scale(${isDragging ? 1.08 : 1})`,
+                  transform: `translate(-50%, -50%) scale(${isMoving ? 1.08 : 1})`,
                   zIndex: isDragging ? 30 : isSel ? 20 : 10,
                   transition: isDragging ? "none" : "transform 120ms ease",
                 }}
@@ -433,10 +518,45 @@ export default function StagePlotEditor({
                 } ${isDragging ? "shadow-xl shadow-black/40" : ""}`}
               >
                 <span
-                  className="inline-block leading-none"
-                  style={{ transform: `rotate(${it.rotation}deg)` }}
+                  className="relative inline-block leading-none"
+                  style={{ width: size, height: size }}
                 >
-                  <StageSymbol type={it.item_type} size={symbolSize(it.item_type)} />
+                  <span
+                    className="absolute inset-0 inline-block leading-none"
+                    style={{ transform: `rotate(${it.rotation}deg)` }}
+                  >
+                    <StageSymbol type={it.item_type} size={size} />
+                  </span>
+
+                  {/* Direct-manipulation handles — only on the selected item.
+                      They sit on the (un-rotated) symbol box so they stay put
+                      as the glyph spins. */}
+                  {isSel && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Rotate"
+                        title="Drag to rotate"
+                        onPointerDown={(e) => startRotate(e, it)}
+                        style={{ touchAction: "none" }}
+                        className="absolute left-1/2 top-0 flex h-4 w-4 -translate-x-1/2 -translate-y-6 cursor-grab items-center justify-center rounded-full border border-[#E8B84B]/70 bg-[#1a1a1a] text-[9px] leading-none text-[#E8B84B] active:cursor-grabbing"
+                      >
+                        ⟳
+                      </button>
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute left-1/2 top-0 h-4 w-px -translate-x-1/2 -translate-y-2 bg-[#E8B84B]/40"
+                      />
+                      <button
+                        type="button"
+                        aria-label="Resize"
+                        title="Drag to resize"
+                        onPointerDown={(e) => startResize(e, it)}
+                        style={{ touchAction: "none" }}
+                        className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-nwse-resize rounded-sm border border-[#E8B84B]/70 bg-[#1a1a1a]"
+                      />
+                    </>
+                  )}
                 </span>
                 <span className="mt-1 max-w-[7rem] truncate text-[10px] font-medium leading-tight text-[#E8E0D0]/85">
                   {it.label || cat.label}
@@ -476,17 +596,45 @@ export default function StagePlotEditor({
                 maxLength={500}
               />
             </label>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-[#E8E0D0]/60">Rotation</span>
-              <button
-                type="button"
-                className={smallBtn}
-                onClick={() =>
-                  updateItem(selected.uid, { rotation: (selected.rotation + 45) % 360 })
-                }
-              >
-                Rotate 45° ({selected.rotation}°)
-              </button>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#E8E0D0]/60">Rotation</span>
+                <button
+                  type="button"
+                  className={smallBtn}
+                  onClick={() =>
+                    updateItem(selected.uid, { rotation: (selected.rotation + 45) % 360 })
+                  }
+                >
+                  Rotate 45° ({selected.rotation}°)
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#E8E0D0]/60">Size</span>
+                <button
+                  type="button"
+                  aria-label="Smaller"
+                  className={smallBtn}
+                  onClick={() =>
+                    updateItem(selected.uid, { scale: clampScale(selected.scale - 0.1) })
+                  }
+                >
+                  −
+                </button>
+                <span className="w-10 text-center text-xs tabular-nums text-[#E8E0D0]/70">
+                  {Math.round(selected.scale * 100)}%
+                </span>
+                <button
+                  type="button"
+                  aria-label="Bigger"
+                  className={smallBtn}
+                  onClick={() =>
+                    updateItem(selected.uid, { scale: clampScale(selected.scale + 0.1) })
+                  }
+                >
+                  +
+                </button>
+              </div>
             </div>
             <label className="block text-xs text-[#E8E0D0]/60">
               Notes
@@ -580,8 +728,10 @@ export default function StagePlotEditor({
       </div>
 
       <p className="text-xs text-[#E8E0D0]/40">
-        Changes save automatically. Use the arrow keys to nudge a selected item; Shift for bigger
-        steps. The channel numbering shown in the PDF falls back to row order when the “#” is blank.
+        Changes save automatically. Select an item, then drag the ⟳ handle to rotate or the corner
+        handle to resize — or use the arrow keys to nudge (Shift for bigger steps), “[” / “]” to
+        resize, and “r” to rotate. The channel numbering shown in the PDF falls back to row order
+        when the “#” is blank.
       </p>
     </div>
   );
