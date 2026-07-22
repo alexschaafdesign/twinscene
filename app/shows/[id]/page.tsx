@@ -150,14 +150,29 @@ export default async function ShowDetailPage({
         ) : null}
 
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-medium text-[#E8E0D0]">
-            {showHeading(show)}
-            {show.eventType && (
-              <span className="ml-2 rounded bg-[#E8B84B]/15 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-[#E8B84B]">
-                {show.eventType}
-              </span>
-            )}
-          </h1>
+          <div className="flex items-start justify-between gap-4">
+            <h1 className="min-w-0 text-2xl font-medium text-[#E8E0D0]">
+              {showHeading(show)}
+              {show.eventType && (
+                <span className="ml-2 rounded bg-[#E8B84B]/15 px-1.5 py-0.5 align-middle text-[10px] font-medium uppercase tracking-wide text-[#E8B84B]">
+                  {show.eventType}
+                </span>
+              )}
+            </h1>
+            {/* Star sits top-right of the show, matching the list rows so its
+                position is consistent site-wide — and larger here so it reads
+                as the primary "track this show" action. */}
+            <div className="shrink-0">
+              <ShowStatusButtons
+                showId={show.id}
+                isPast={isPast}
+                initialStatus={status}
+                loggedIn={!!user}
+                returnTo={`/shows/${show.id}`}
+                starSize={30}
+              />
+            </div>
+          </div>
           {showSubtitle(show) && (
             <p className="mt-1 text-base text-[#E8E0D0]/75">{showSubtitle(show)}</p>
           )}
@@ -225,8 +240,8 @@ export default async function ShowDetailPage({
 
           {show.notes && <p className="mt-3 text-sm text-[#E8E0D0]/60">{show.notes}</p>}
 
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            {ticketHref && (
+          {ticketHref && (
+            <div className="mt-5">
               <a
                 href={ensureUrl(ticketHref)}
                 target="_blank"
@@ -235,15 +250,8 @@ export default async function ShowDetailPage({
               >
                 Tickets / info →
               </a>
-            )}
-            <ShowStatusButtons
-              showId={show.id}
-              isPast={isPast}
-              initialStatus={status}
-              loggedIn={!!user}
-              returnTo={`/shows/${show.id}`}
-            />
-          </div>
+            </div>
+          )}
 
           {isAdmin(user) && (
             <Link

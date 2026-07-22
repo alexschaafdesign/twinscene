@@ -16,13 +16,14 @@ const starInactive = `${starBtn} text-[#E8E0D0]/45 hover:bg-[#E8E0D0]/5 hover:te
 const starActive = `${starBtn} text-[#8FD693] hover:bg-[#8FD693]/10`;
 
 /** Star glyph — outline when not interested, filled when interested. Tabler
- * ti-star path; fill toggles between none and currentColor. */
-function StarIcon({ filled }: { filled: boolean }) {
+ * ti-star path; fill toggles between none and currentColor. `size` scales it up
+ * for prominent placements (e.g. the show detail header). */
+function StarIcon({ filled, size = 22 }: { filled: boolean; size?: number }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      width={22}
-      height={22}
+      width={size}
+      height={size}
       fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth={1.6}
@@ -51,6 +52,7 @@ export function ShowStatusButtons({
   returnTo,
   onStatusChange,
   showGoing = false,
+  starSize = 22,
 }: {
   showId: string;
   isPast: boolean;
@@ -65,6 +67,9 @@ export function ShowStatusButtons({
    * past shows). Existing "going" rows in the DB are untouched; this only
    * hides the control. */
   showGoing?: boolean;
+  /** Pixel size of the "Interested" star icon. Larger for prominent placements
+   * like the show detail header; defaults to the compact list-row size. */
+  starSize?: number;
 }) {
   const [status, setStatus] = useState<ShowStatus | null>(initialStatus);
   const [pending, setPending] = useState(false);
@@ -140,7 +145,7 @@ export function ShowStatusButtons({
         title="Interested — log in to track this show"
         className={starInactive}
       >
-        <StarIcon filled={false} />
+        <StarIcon filled={false} size={starSize} />
       </Link>
     );
   }
@@ -196,7 +201,7 @@ export function ShowStatusButtons({
         title={status === "interested" ? "Interested — tap to remove" : "Mark interested"}
         className={status === "interested" ? starActive : starInactive}
       >
-        <StarIcon filled={status === "interested"} />
+        <StarIcon filled={status === "interested"} size={starSize} />
       </button>
       {showGoing && (
         <button
