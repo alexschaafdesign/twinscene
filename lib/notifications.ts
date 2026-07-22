@@ -97,14 +97,19 @@ export async function notifyShowChanged(
 // timestamp track the latest message. Runs inside sendMessage's transaction, so
 // a notification never survives a rolled-back message. `body` is the raw message
 // text; the stored snippet is a truncated, POV-independent preview.
+// Returns the user ids that got a FRESH notification row — i.e. the thread
+// wasn't already unread for them, so the upsert INSERTed rather than coalesced.
+// (`xmax = 0` is true only for a row this statement inserted; a conflicting
+// row that got UPDATEd carries a non-zero xmax.) The email layer emails exactly
+// these — a reply into an already-unread thread coalesces and sends no email.
 export async function notifyNewMessage(
   exec: QueryExecutor,
   conversationId: string,
   senderUserId: number,
   body: string,
-): Promise<void> {
+): Promise<number[]> {
   const snippet = body.trim().slice(0, SNIPPET_MAX);
-  await exec`
+  const rows = await exec<{ user_id: number; inserted: boolean }[]>`
     insert into notifications (user_id, type, conversation_id, data)
     select recipients.user_id, 'new_message', ${conversationId}, ${exec.json({ snippet })}
     from (
@@ -127,7 +132,9 @@ export async function notifyNewMessage(
     on conflict (user_id, conversation_id)
       where type = 'new_message' and read_at is null
     do update set created_at = now(), data = excluded.data
+    returning user_id, (xmax = 0) as inserted
   `;
+  return rows.filter((r) => r.inserted).map((r) => r.user_id);
 }
 
 // --- Read side -------------------------------------------------------------

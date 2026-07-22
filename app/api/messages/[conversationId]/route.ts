@@ -62,6 +62,7 @@ export async function POST(
   // recipient side replies AS the band/musician. getThreadForUser resolves the
   // role (initiator wins if the viewer is somehow both).
   const { replyAs } = await getThreadForUser(conversation, user);
+  const origin = request.nextUrl.origin;
   const message =
     replyAs.kind === "identity"
       ? await sendMessage({
@@ -70,8 +71,9 @@ export async function POST(
           senderAsType: replyAs.type,
           senderAsId: replyAs.id,
           body,
+          origin,
         })
-      : await sendMessage({ conversationId, sender: user, body });
+      : await sendMessage({ conversationId, sender: user, body, origin });
 
   // Sending is implicitly reading — stamp the sender's read marker.
   await markConversationRead({ conversationId, userId: user.id });

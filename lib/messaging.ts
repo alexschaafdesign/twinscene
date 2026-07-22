@@ -12,6 +12,7 @@ import { sql } from "./db.ts";
 import { canEditBand, type User } from "./auth.ts";
 import { canEditMusician } from "./musicians.ts";
 import { notifyNewMessage } from "./notifications.ts";
+import { dispatchNewMessageEmails } from "./messageEmail.ts";
 
 export type RecipientType = "band" | "musician";
 
@@ -105,12 +106,16 @@ export async function sendMessage({
   senderAsType,
   senderAsId,
   body,
+  origin,
 }: {
   conversationId: string;
   sender: User;
   senderAsType?: RecipientType | null;
   senderAsId?: number | null;
   body: string;
+  // Request origin, for absolute links in the notification email. Optional —
+  // dispatchNewMessageEmails falls back to the canonical prod host.
+  origin?: string;
 }): Promise<Message> {
   const trimmed = body.trim();
   if (!trimmed) throw new Error("Message body is empty");
@@ -126,7 +131,7 @@ export async function sendMessage({
     }
   }
 
-  return sql.begin(async (tx) => {
+  const { message, emailRecipientIds } = await sql.begin(async (tx) => {
     const [message] = await tx<Message[]>`
       insert into messages (conversation_id, sender_user_id, sender_as_type, sender_as_id, body)
       values (
@@ -143,9 +148,29 @@ export async function sendMessage({
     `;
     // Fan out in-app notifications to the other viewers of this thread. Same
     // transaction, so a notification never outlives a rolled-back message.
-    await notifyNewMessage(tx, conversationId, sender.id, trimmed);
-    return message;
+    // Returns whoever got a FRESH (non-coalesced) notification — the ones we
+    // also email.
+    const emailRecipientIds = await notifyNewMessage(tx, conversationId, sender.id, trimmed);
+    return { message, emailRecipientIds };
   });
+
+  // Email dispatch happens AFTER commit (never inside the DB transaction — it's
+  // a network call) and is fully best-effort: a Resend failure must not fail
+  // the message send.
+  if (emailRecipientIds.length > 0) {
+    try {
+      await dispatchNewMessageEmails({
+        conversationId,
+        recipientIds: emailRecipientIds,
+        snippet: trimmed,
+        origin,
+      });
+    } catch (err) {
+      console.error("messaging: new-message email dispatch failed", err);
+    }
+  }
+
+  return message;
 }
 
 export interface InboxRow {

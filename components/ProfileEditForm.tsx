@@ -23,6 +23,7 @@ export interface ProfileEditUser {
   show_status: boolean;
   show_followed_bands: boolean;
   show_attended_shows: boolean;
+  notify_email_messages: boolean;
   home_address: string | null;
 }
 
@@ -34,11 +35,15 @@ function VisibilityToggle({
   description,
   value,
   onChange,
+  onLabel = "Visible",
+  offLabel = "Hidden",
 }: {
   label: string;
   description: string;
   value: boolean;
   onChange: (value: boolean) => void;
+  onLabel?: string;
+  offLabel?: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-4 rounded-md border border-[#E8E0D0]/15 px-3.5 py-2.5">
@@ -56,7 +61,7 @@ function VisibilityToggle({
             : "border-[#E8E0D0]/25 text-[#E8E0D0]/50 hover:text-[#E8E0D0]"
         }`}
       >
-        {value ? "Visible" : "Hidden"}
+        {value ? onLabel : offLabel}
       </button>
     </div>
   );
@@ -80,6 +85,7 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
   const [showStatus, setShowStatus] = useState(user.show_status);
   const [showFollowedBands, setShowFollowedBands] = useState(user.show_followed_bands);
   const [showAttendedShows, setShowAttendedShows] = useState(user.show_attended_shows);
+  const [notifyEmailMessages, setNotifyEmailMessages] = useState(user.notify_email_messages);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user.image_url);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [homeAddress, setHomeAddress] = useState(user.home_address ?? "");
@@ -152,6 +158,7 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
           showStatus,
           showFollowedBands,
           showAttendedShows,
+          notifyEmailMessages,
           homeAddress,
         }),
       });
@@ -359,6 +366,18 @@ export default function ProfileEditForm({ user }: { user: ProfileEditUser }) {
           </div>
         </div>
       )}
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-sm text-[#E8E0D0]/80">Notifications</span>
+        <VisibilityToggle
+          label="Email me about new messages"
+          description="When a band or musician you manage — or someone you've messaged — sends you a message."
+          value={notifyEmailMessages}
+          onChange={setNotifyEmailMessages}
+          onLabel="On"
+          offLabel="Off"
+        />
+      </div>
 
       {fieldError.general && <p className="text-sm text-[#F5A3A3]">{fieldError.general}</p>}
 

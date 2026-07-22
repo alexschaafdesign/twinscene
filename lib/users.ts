@@ -20,7 +20,12 @@ type QueryExecutor = postgres.Sql | postgres.TransactionSql;
  * raw hash must never leave the server's auth paths. Runtime key-strip with a
  * cast because `returning *` rows aren't statically typed with the column. */
 export function scrubUser(row: object): User {
-  const { password_hash, ...rest } = row as Record<string, unknown>;
+  // Also drop unsubscribe_token (migration 0055): a per-user secret that backs
+  // the no-login email-unsubscribe link. Like password_hash, it should never
+  // ride along in the User object the app passes around / hands to clients —
+  // the email dispatcher reads it with its own targeted query instead.
+  const { password_hash, unsubscribe_token, ...rest } = row as Record<string, unknown>;
+  void unsubscribe_token;
   return { ...rest, has_password: password_hash != null } as unknown as User;
 }
 
@@ -189,6 +194,7 @@ export interface ProfileUpdate {
   show_status?: boolean;
   show_followed_bands?: boolean;
   show_attended_shows?: boolean;
+  notify_email_messages?: boolean;
   // Saved home location. The route handler geocodes home_address before
   // calling us; we just persist the trio (or clear all three when the user
   // removes their address). home_lat/home_lng are null when geocoding failed.
@@ -231,6 +237,7 @@ export async function updateProfile(userId: number, update: ProfileUpdate): Prom
       | "username"
       | "bio"
       | "profile_public"
+      | "notify_email_messages"
       | "home_address"
       | "home_lat"
       | "home_lng"
@@ -242,6 +249,7 @@ export async function updateProfile(userId: number, update: ProfileUpdate): Prom
   if (username !== undefined) fields.username = username;
   if (bio !== undefined) fields.bio = bio;
   if (update.profile_public !== undefined) fields.profile_public = update.profile_public;
+  if (update.notify_email_messages !== undefined) fields.notify_email_messages = update.notify_email_messages;
   if (update.home_address !== undefined) fields.home_address = update.home_address;
   if (update.home_lat !== undefined) fields.home_lat = update.home_lat;
   if (update.home_lng !== undefined) fields.home_lng = update.home_lng;
@@ -267,6 +275,24 @@ export async function updateProfile(userId: number, update: ProfileUpdate): Prom
     }
     throw err;
   }
+}
+
+/** One-click, no-login unsubscribe from message emails (migration 0055). The
+ * token in the email footer identifies the user; redeeming it flips
+ * notify_email_messages off. Idempotent and safe to hit repeatedly (e.g. an
+ * email client prefetching the link). Returns the user's display name on
+ * success, or null if the token matches no one — the page shows a generic
+ * result either way, so a bad/expired-looking token leaks nothing. */
+export async function unsubscribeMessageEmails(token: string): Promise<{ name: string | null } | null> {
+  // Guard against a non-uuid token reaching the query (uuid = text comparison
+  // would error); the column is uuid so only a well-formed value can match.
+  if (!/^[0-9a-f-]{36}$/i.test(token)) return null;
+  const [user] = await sql<{ name: string | null }[]>`
+    update users set notify_email_messages = false
+    where unsubscribe_token = ${token}
+    returning name
+  `;
+  return user ?? null;
 }
 
 /** Sets (or clears, with an empty/whitespace string) the caller's own status.

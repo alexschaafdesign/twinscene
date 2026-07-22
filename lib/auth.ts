@@ -45,6 +45,9 @@ export interface User {
   // password_hash column is scrubbed out of every User the app hands around
   // (see scrubUser in lib/users.ts) — it never leaves lib/auth.ts's auth paths.
   has_password: boolean;
+  // Email me when I receive a new message (migration 0055). Default on;
+  // toggled from /profile/edit or the one-click unsubscribe link in the email.
+  notify_email_messages: boolean;
 }
 
 // Either the top-level `sql` or a `tx` from `sql.begin` — postgres.js's Sql

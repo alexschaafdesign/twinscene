@@ -31,6 +31,7 @@ export default async function ProfileEditPage() {
           show_status: user.show_status,
           show_followed_bands: user.show_followed_bands,
           show_attended_shows: user.show_attended_shows,
+          notify_email_messages: user.notify_email_messages,
           home_address: user.home_address,
         }}
       />

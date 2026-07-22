@@ -34,6 +34,7 @@ export async function PATCH(request: NextRequest) {
     show_status?: boolean;
     show_followed_bands?: boolean;
     show_attended_shows?: boolean;
+    notify_email_messages?: boolean;
     home_address?: string | null;
     home_lat?: number | null;
     home_lng?: number | null;
@@ -46,6 +47,7 @@ export async function PATCH(request: NextRequest) {
   if (typeof body.showStatus === "boolean") update.show_status = body.showStatus;
   if (typeof body.showFollowedBands === "boolean") update.show_followed_bands = body.showFollowedBands;
   if (typeof body.showAttendedShows === "boolean") update.show_attended_shows = body.showAttendedShows;
+  if (typeof body.notifyEmailMessages === "boolean") update.notify_email_messages = body.notifyEmailMessages;
 
   // Home address: geocode on save so shows can be sorted by distance. An empty
   // string clears the saved location (address + coords). A non-empty address

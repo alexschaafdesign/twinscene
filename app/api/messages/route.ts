@@ -62,7 +62,12 @@ export async function POST(request: NextRequest) {
   });
 
   // The initiator always speaks as themselves (sender_as_type null).
-  await sendMessage({ conversationId: conversation.id, sender: user, body });
+  await sendMessage({
+    conversationId: conversation.id,
+    sender: user,
+    body,
+    origin: request.nextUrl.origin,
+  });
 
   return NextResponse.json({ success: true, conversationId: conversation.id });
 }
