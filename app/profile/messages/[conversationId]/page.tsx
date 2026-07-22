@@ -7,8 +7,10 @@ import {
   getThreadForUser,
   markConversationRead,
 } from "@/lib/messaging";
+import { isBlocked } from "@/lib/messageBlocks";
 import BackLink from "@/components/BackLink";
 import MessageReplyForm from "@/components/MessageReplyForm";
+import BlockToggle from "@/components/BlockToggle";
 
 export const metadata: Metadata = {
   title: "Message — Twin Scene",
@@ -54,6 +56,13 @@ export default async function ThreadPage({ params }: Props) {
 
   const viewerSide = thread.replyAs.kind === "identity" ? "recipient" : "initiator";
 
+  // Recipient side can block the initiator; look up the current block state so
+  // the control renders in the right position (block vs unblock).
+  const initiatorBlocked =
+    viewerSide === "recipient" && thread.initiator
+      ? await isBlocked(conversation.recipient_type, conversation.recipient_id, thread.initiator.id)
+      : false;
+
   // Plain identity name for the reply attribution ("as Yellow Ostrich").
   const identityName =
     conversation.recipient_type === "band"
@@ -78,6 +87,15 @@ export default async function ThreadPage({ params }: Props) {
           <p className="mt-1 text-sm text-[#E8E0D0]/50">
             Sent to <span className="text-[#E8E0D0]/75">{thread.tag}</span>
           </p>
+        )}
+        {viewerSide === "recipient" && thread.initiator && (
+          <div className="mt-2">
+            <BlockToggle
+              conversationId={conversationId}
+              personName={initiatorName}
+              initialBlocked={initiatorBlocked}
+            />
+          </div>
         )}
       </div>
 

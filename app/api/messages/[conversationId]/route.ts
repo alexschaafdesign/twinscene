@@ -8,6 +8,8 @@ import {
   markConversationRead,
   type Conversation,
 } from "@/lib/messaging";
+import { allowMessageSend } from "@/lib/messageRateLimit";
+import { isBlocked } from "@/lib/messageBlocks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -58,10 +60,32 @@ export async function POST(
     return NextResponse.json({ success: false, error: "Message can't be empty" }, { status: 400 });
   }
 
+  // Rate limit every sender (initiator or recipient side) before any work.
+  if (!(await allowMessageSend(user.id))) {
+    return NextResponse.json(
+      { success: false, error: "You're sending messages too fast. Try again in a few minutes." },
+      { status: 429 },
+    );
+  }
+
   // How this viewer speaks: the initiator replies as themselves; anyone on the
   // recipient side replies AS the band/musician. getThreadForUser resolves the
   // role (initiator wins if the viewer is somehow both).
   const { replyAs } = await getThreadForUser(conversation, user);
+
+  // A blocked initiator can't send further messages into the thread. Only the
+  // initiator side is gated — the recipient side (who does the blocking) can
+  // always reply and unblock.
+  if (
+    replyAs.kind === "self" &&
+    (await isBlocked(conversation.recipient_type, conversation.recipient_id, user.id))
+  ) {
+    return NextResponse.json(
+      { success: false, error: "This profile isn't accepting messages from you." },
+      { status: 403 },
+    );
+  }
+
   const origin = request.nextUrl.origin;
   const message =
     replyAs.kind === "identity"

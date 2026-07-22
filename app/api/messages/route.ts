@@ -3,14 +3,15 @@ import { getCurrentUser, canEditBand } from "@/lib/auth";
 import { sql } from "@/lib/db";
 import { canEditMusician } from "@/lib/musicians";
 import { getOrCreateConversation, sendMessage, type RecipientType } from "@/lib/messaging";
+import { allowMessageSend } from "@/lib/messageRateLimit";
+import { isBlocked } from "@/lib/messageBlocks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // Start (or continue) a conversation with a band or musician and post the first
-// message. Any signed-in user may message any band/musician — there is NO
-// blocking / rate-limiting / reporting yet. KNOWN GAP: revisit before any public
-// push that would drive strangers to message bands at volume.
+// message. Guarded by a per-sender rate limit and per-identity blocking
+// (slice 4); reporting/moderation is still a later slice.
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
   if (!user) {
@@ -30,6 +31,15 @@ export async function POST(request: NextRequest) {
   }
   if (!body) {
     return NextResponse.json({ success: false, error: "Message can't be empty" }, { status: 400 });
+  }
+
+  // Rate limit before doing any work — counts even rejected-below attempts, so
+  // hammering the endpoint keeps tripping the cap rather than resetting it.
+  if (!(await allowMessageSend(user.id))) {
+    return NextResponse.json(
+      { success: false, error: "You're sending messages too fast. Try again in a few minutes." },
+      { status: 429 },
+    );
   }
 
   // Confirm the recipient actually exists (avoid dangling conversations).
@@ -52,6 +62,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { success: false, error: "You can't message a profile you manage" },
       { status: 400 },
+    );
+  }
+
+  // Blocked by this identity → can't start or continue a conversation with it.
+  if (await isBlocked(recipientType, recipientId, user.id)) {
+    return NextResponse.json(
+      { success: false, error: "This profile isn't accepting messages from you." },
+      { status: 403 },
     );
   }
 
