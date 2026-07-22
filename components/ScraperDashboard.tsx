@@ -18,6 +18,7 @@ type HistoricalDigest = {
   total?: number;
   added?: number;
   updated?: number;
+  unchanged?: number;
   skipped?: number;
   failed?: number;
   flagged?: number;
@@ -60,6 +61,7 @@ const BTN_PRIMARY =
 const GREEN = "#8FD08F";
 const RED = "#E5A0A0";
 const AMBER = "#E8B84B";
+const BLUE = "#8FB8D0"; // "updated" — an existing show whose details changed
 
 /** Human one-liner for a completed venue result. */
 function formatResult(d: HistoricalDigest): string {
@@ -67,12 +69,16 @@ function formatResult(d: HistoricalDigest): string {
   if (d.added == null) {
     return `${d.total ?? 0} scraped, ${d.autoImported ?? 0} imported`;
   }
-  const duplicates = (d.updated ?? 0) + (d.skipped ?? 0);
-  const parts = [
-    `${d.total ?? 0} scraped`,
-    `${d.added} added`,
-    `${duplicates} duplicate${duplicates === 1 ? "" : "s"}`,
-  ];
+  // Logs from before the updated/unchanged split only have `updated` (which
+  // then meant "existing row re-written"), so fall back to the old grouping for
+  // them; newer logs count genuine changes as `updated` and no-ops as `unchanged`.
+  const hasUnchanged = d.unchanged != null;
+  const duplicates = hasUnchanged
+    ? (d.unchanged ?? 0) + (d.skipped ?? 0)
+    : (d.updated ?? 0) + (d.skipped ?? 0);
+  const parts = [`${d.total ?? 0} scraped`, `${d.added} added`];
+  if (hasUnchanged && (d.updated ?? 0) > 0) parts.push(`${d.updated} updated`);
+  parts.push(`${duplicates} duplicate${duplicates === 1 ? "" : "s"}`);
   if (d.failed) parts.push(`${d.failed} failed`);
   if (d.flagged) parts.push(`${d.flagged} flagged`);
   return parts.join(" · ");
@@ -535,6 +541,7 @@ export default function ScraperDashboard({
   const live = useMemo(() => {
     let scraped = 0;
     let added = 0;
+    let updated = 0;
     let duplicates = 0;
     let flagged = 0;
     let failed = 0;
@@ -544,7 +551,8 @@ export default function ScraperDashboard({
       if (!d) continue;
       scraped += d.total;
       added += d.added;
-      duplicates += (d.updated ?? 0) + (d.skipped ?? 0);
+      updated += d.updated ?? 0;
+      duplicates += (d.unchanged ?? 0) + (d.skipped ?? 0);
       flagged += d.flagged;
       failed += d.failed;
       newBands += d.newBandsFound.length;
@@ -553,13 +561,14 @@ export default function ScraperDashboard({
       return {
         scraped,
         added: summary.totalAdded,
-        duplicates: summary.totalUpdated + summary.totalSkipped,
+        updated: summary.totalUpdated,
+        duplicates: (summary.totalUnchanged ?? 0) + summary.totalSkipped,
         flagged: summary.totalFlagged,
         failed: summary.totalFailed,
         newBands: summary.totalNewBands,
       };
     }
-    return { scraped, added, duplicates, flagged, failed, newBands };
+    return { scraped, added, updated, duplicates, flagged, failed, newBands };
   }, [venues, summary]);
 
   // Every flagged / failed / newly-added show across venues, for drill-down.
@@ -567,12 +576,14 @@ export default function ScraperDashboard({
     const flaggedS: ShowRef[] = [];
     const failedS: ShowRef[] = [];
     const addedS: ShowRef[] = [];
+    const updatedS: ShowRef[] = [];
     for (const v of Object.values(venues)) {
       const d = v.digest;
       if (!d) continue;
       for (const s of d.flaggedShows ?? []) flaggedS.push(s);
       for (const s of d.failedShows ?? []) failedS.push(s);
       for (const s of d.addedShows ?? []) addedS.push(s);
+      for (const s of d.updatedShows ?? []) updatedS.push(s);
     }
     const byDate = (a: ShowRef, b: ShowRef) =>
       (a.date || "9999").localeCompare(b.date || "9999");
@@ -580,6 +591,7 @@ export default function ScraperDashboard({
       flagged: flaggedS.sort(byDate),
       failed: failedS.sort(byDate),
       added: addedS.sort(byDate),
+      updated: updatedS.sort(byDate),
     };
   }, [venues]);
 
@@ -598,7 +610,7 @@ export default function ScraperDashboard({
                     ? "Finalizing — reconciling against Crawl Space…"
                     : `Running — ${doneCount} of ${total} venues done`
                 : summary
-                  ? `Finished — ${live.added} added, ${live.flagged} to review`
+                  ? `Finished — ${live.added} added, ${live.updated} updated, ${live.flagged} to review`
                   : `${total} venues · scrapes every source, imports, then press picks + complete-list reconcile`}
             </p>
           </div>
@@ -634,9 +646,14 @@ export default function ScraperDashboard({
                 }}
               />
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-4 sm:grid-cols-6">
+            <div className="mt-4 grid grid-cols-3 gap-4 sm:grid-cols-4 lg:grid-cols-7">
               <Stat label="Scraped" value={live.scraped} />
               <Stat label="Added" value={live.added} accent={GREEN} />
+              <Stat
+                label="Updated"
+                value={live.updated}
+                accent={live.updated ? BLUE : undefined}
+              />
               <Stat label="Duplicates" value={live.duplicates} />
               <Stat
                 label="To review"
@@ -694,13 +711,20 @@ export default function ScraperDashboard({
               </span>
             );
           } else if (d) {
-            const dup = (d.updated ?? 0) + (d.skipped ?? 0);
+            const dup = (d.unchanged ?? 0) + (d.skipped ?? 0);
             const quiet =
-              d.added === 0 && dup === 0 && d.flagged === 0 && d.failed === 0;
+              d.added === 0 &&
+              (d.updated ?? 0) === 0 &&
+              dup === 0 &&
+              d.flagged === 0 &&
+              d.failed === 0;
             body = (
               <div className="flex flex-wrap gap-1.5">
                 <span className="text-[#E8E0D0]/40">{d.total} scraped</span>
                 {d.added > 0 && <Chip label={`+${d.added}`} color={GREEN} />}
+                {(d.updated ?? 0) > 0 && (
+                  <Chip label={`${d.updated} updated`} color={BLUE} />
+                )}
                 {dup > 0 && <Chip label={`${dup} dup`} />}
                 {d.flagged > 0 && (
                   <Chip label={`${d.flagged} review`} color={AMBER} />
@@ -832,6 +856,31 @@ export default function ScraperDashboard({
               emptyHint=""
               tone={GREEN}
               actions={["delete"]}
+              resolved={resolved}
+              rowState={rowState}
+              onAct={actOnShow}
+              onSetRow={setRow}
+            />
+          </div>
+        </details>
+      )}
+
+      {/* Updated across all venues — existing shows whose details changed,
+          each with the field-level diff that triggered the update. Collapsed. */}
+      {attention.updated.length > 0 && (
+        <details className={`${CARD} mt-6`}>
+          <summary className="cursor-pointer text-sm font-medium text-[#E8E0D0]">
+            Updated ({attention.updated.length})
+          </summary>
+          <p className="mt-1 text-xs text-[#E8E0D0]/45">
+            Shows we already had where this run changed a detail (date, time,
+            venue, lineup, tickets, type, or age).
+          </p>
+          <div className="mt-3">
+            <ShowList
+              shows={attention.updated}
+              emptyHint=""
+              tone={BLUE}
               resolved={resolved}
               rowState={rowState}
               onAct={actOnShow}

@@ -44,6 +44,9 @@ export async function autoImportShow(
   // to a flagged show and say why it was flagged.
   id?: string;
   reviewReasons?: string[];
+  // Field-level "old → new" notes when outcome is "updated" — what the re-scrape
+  // actually changed, for the digest's Updated drill-down.
+  changes?: string[];
   error?: string;
 }> {
   const title = show.title || show.headliner || show.allBands[0] || "";
@@ -105,6 +108,7 @@ export async function autoImportShow(
       confidence,
       id: typeof data.id === "string" ? data.id : undefined,
       reviewReasons,
+      changes: Array.isArray(data.changes) ? (data.changes as string[]) : undefined,
     };
   } catch (err) {
     return {

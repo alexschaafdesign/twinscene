@@ -35,16 +35,18 @@ export type ScraperDigest = {
   name: string;
   total: number; // shows scraped
   added: number; // brand-new shows inserted
-  updated: number; // shows we already had, re-written from this scrape
+  updated: number; // shows we already had where a meaningful field actually changed
+  unchanged: number; // shows we already had that this scrape didn't change
   skipped: number; // shows we already had but left alone (human-edited/locked)
   failed: number; // imports that errored after retries
-  autoImported: number; // added + updated (rows actually written) — kept for back-compat
+  autoImported: number; // added + updated (rows with a real change) — kept for back-compat
   flagged: number; // imported but data-quality-flagged (lib/scrapers/reviewFlags.ts); still public
   queued: number; // always 0 now that everything imports — kept for back-compat until Phase 3's /admin/review lands
   newBandsFound: string[]; // scraped band names that matched nothing ('none')
   // The actual shows behind the counts, for dashboard drill-down. Optional so
   // digests from before this change (and rejected-scraper rows) parse fine.
   addedShows?: ShowRef[]; // brand-new rows, in scrape order
+  updatedShows?: ShowRef[]; // existing rows that changed, `reasons` = the field-level diff
   flaggedShows?: ShowRef[]; // imported but data-quality-flagged, with reasons
   failedShows?: ShowRef[]; // imports that errored past their retries
   error?: string;
@@ -73,6 +75,7 @@ export type DigestSummary = {
   scrapers: ScraperDigest[];
   totalAdded: number;
   totalUpdated: number;
+  totalUnchanged: number;
   totalSkipped: number;
   totalFailed: number;
   totalAutoImported: number;
@@ -269,6 +272,7 @@ export async function runScrapers(
         total: 0,
         added: 0,
         updated: 0,
+        unchanged: 0,
         skipped: 0,
         failed: 0,
         autoImported: 0,
@@ -276,6 +280,7 @@ export async function runScrapers(
         queued: 0,
         newBandsFound: [],
         addedShows: [],
+        updatedShows: [],
         flaggedShows: [],
         failedShows: [],
         error:
@@ -298,12 +303,14 @@ export async function runScrapers(
     // not an import.
     let added = 0;
     let updated = 0;
+    let unchanged = 0;
     let skipped = 0;
     let failed = 0;
     let flagged = 0;
-    // The actual shows behind the added / flagged / failed counts, for the
-    // dashboard's drill-down. A short display ref per show — not the full row.
+    // The actual shows behind the added / updated / flagged / failed counts, for
+    // the dashboard's drill-down. A short display ref per show — not the full row.
     const addedShows: ShowRef[] = [];
+    const updatedShows: ShowRef[] = [];
     const flaggedShows: ShowRef[] = [];
     const failedShows: ShowRef[] = [];
     const refOf = (show: MatchedShow) => ({
@@ -341,6 +348,10 @@ export async function runScrapers(
           addedShows.push({ ...base, id: o.id ?? null });
         } else if (o.outcome === "updated") {
           updated++;
+          // reasons = the field-level "old → new" diff behind this update.
+          updatedShows.push({ ...base, id: o.id ?? null, reasons: o.changes ?? [] });
+        } else if (o.outcome === "unchanged") {
+          unchanged++;
         } else if (o.outcome === "skipped") {
           skipped++;
         } else {
@@ -373,6 +384,7 @@ export async function runScrapers(
       total: shows.length,
       added,
       updated,
+      unchanged,
       skipped,
       failed,
       autoImported,
@@ -380,6 +392,7 @@ export async function runScrapers(
       queued: 0,
       newBandsFound,
       addedShows,
+      updatedShows,
       flaggedShows,
       failedShows,
     };
@@ -392,6 +405,7 @@ export async function runScrapers(
     scrapers: digest,
     totalAdded: digest.reduce((n, s) => n + s.added, 0),
     totalUpdated: digest.reduce((n, s) => n + s.updated, 0),
+    totalUnchanged: digest.reduce((n, s) => n + s.unchanged, 0),
     totalSkipped: digest.reduce((n, s) => n + s.skipped, 0),
     totalFailed: digest.reduce((n, s) => n + s.failed, 0),
     totalAutoImported: digest.reduce((n, s) => n + s.autoImported, 0),

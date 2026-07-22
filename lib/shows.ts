@@ -17,7 +17,7 @@ import type postgres from "postgres";
 import { sql } from "@/lib/db";
 import { todayInChicago } from "@/lib/fetchShows";
 import { notifyBandOnNewShow, notifyShowChanged } from "@/lib/notifications";
-import { parseDisplayTime, sqlTimeOrNull } from "@/lib/showTime";
+import { parseDisplayTime, sqlTimeOrNull, formatShowTime } from "@/lib/showTime";
 import { normalizeGenres, normalizeAge } from "@/lib/showGenres";
 
 type TransactionSql = postgres.TransactionSql;
@@ -158,16 +158,128 @@ export type ScrapedShowInput = {
 
 /**
  * The disposition of an upsert, so callers (the scrape digest) can report
- * "N added, N updated, N already had" rather than one opaque "imported" count:
+ * "N added, N updated, N unchanged, N already had" rather than one opaque
+ * "imported" count:
  * - "created": no row existed for this source_key; a new show was inserted.
- * - "updated": a row existed and was replaced by the fresh scrape.
+ * - "updated": a row existed AND a meaningful field actually changed (see
+ *   diffScrapedShow) — the caller gets `changes`, a field-level "old → new" list.
+ * - "unchanged": a row existed but no meaningful field differs from this scrape.
+ *   The row is still re-written (so a rotated flyer etc. stays fresh) but it's
+ *   reported as a no-op so the digest's "Updated" bucket only counts real edits.
  * - "skipped": either a row existed and is edited_at-locked (a human edit won
  *   and the scrape was discarded), or the source_key was rejected via
  *   /admin/review "Delete" and is tombstoned in rejected_show_sources — either
  *   way, a human already made a call on this row and a re-scrape must not
  *   undo it.
  */
-export type UpsertOutcome = "created" | "updated" | "skipped";
+export type UpsertOutcome = "created" | "updated" | "unchanged" | "skipped";
+
+/** The stored fields a re-scrape is diffed against (SELECTed pre-formatted so
+ * dates/times compare as strings, no timezone/precision surprises). */
+type ExistingShowFields = {
+  venue_name: string | null;
+  title: string | null;
+  date_str: string | null; // to_char(date, 'YYYY-MM-DD')
+  ticket_url: string | null;
+  lineup: unknown; // jsonb array of { name, bandSlug }
+  doors_str: string | null; // to_char(doors_time, 'HH24:MI')
+  music_str: string | null;
+  event_type: string | null;
+  age_restriction: string | null;
+};
+
+/** Flatten a stored/resolved lineup to a comma-joined name list for comparison
+ * and display. Tolerant of the jsonb shape ({ name, bandSlug }) and of bare
+ * strings. */
+function lineupNames(lineup: unknown): string {
+  if (!Array.isArray(lineup)) return "";
+  return lineup
+    .map((e) =>
+      e && typeof e === "object"
+        ? String((e as { name?: unknown }).name ?? "")
+        : String(e ?? ""),
+    )
+    .filter(Boolean)
+    .join(", ");
+}
+
+/**
+ * Compare a fresh scrape against the stored row and return a human-readable
+ * "field: old → new" line per meaningful change — what the scraper digest shows
+ * under its Updated bucket. Only booking-relevant fields count: date, venue,
+ * title, doors/show time, ticket link, event type, age, and lineup. Flyer URL,
+ * description, genres, and free-text notes/prices are deliberately excluded —
+ * they churn (rotating CDN poster URLs, marketing copy, out-of-band genre
+ * suggestions) without representing a real change to the show. An empty result
+ * means "unchanged" for reporting purposes.
+ */
+function diffScrapedShow(
+  existing: ExistingShowFields,
+  next: {
+    venue: string;
+    title: string;
+    date: string;
+    ticketUrl: string | null;
+    lineup: LineupEntry[];
+    doorsTime: string | null; // 24h "HH:MM" (post parseDisplayTime)
+    musicTime: string | null;
+    eventType: string | null;
+    ageRestriction: string | null; // normalized; null = source gave none
+  },
+): string[] {
+  const changes: string[] = [];
+  const norm = (v: string | null | undefined) => (v ?? "").trim();
+  const cmp = (
+    label: string,
+    oldV: string | null | undefined,
+    newV: string | null | undefined,
+  ) => {
+    const o = norm(oldV);
+    const n = norm(newV);
+    if (o !== n) changes.push(`${label}: ${o || "—"} → ${n || "—"}`);
+  };
+
+  cmp("date", existing.date_str, next.date);
+  cmp("venue", existing.venue_name, next.venue);
+  cmp("title", existing.title, next.title);
+
+  // Times: compare the stored 24h "HH:MM" against the incoming one, but render
+  // the friendly "7:00pm" form in the note.
+  if (norm(existing.doors_str) !== norm(next.doorsTime)) {
+    changes.push(
+      `doors: ${formatShowTime(existing.doors_str) || "—"} → ${formatShowTime(next.doorsTime) || "—"}`,
+    );
+  }
+  if (norm(existing.music_str) !== norm(next.musicTime)) {
+    changes.push(
+      `show: ${formatShowTime(existing.music_str) || "—"} → ${formatShowTime(next.musicTime) || "—"}`,
+    );
+  }
+
+  // Ticket URLs are long and noisy — note that they moved without dumping both.
+  if (norm(existing.ticket_url) !== norm(next.ticketUrl)) {
+    changes.push("ticket link changed");
+  }
+
+  cmp("type", existing.event_type, next.eventType);
+
+  // Age only counts when this scrape actually carries one: a null incoming age
+  // never overwrites the stored value (the upsert COALESCEs it), so it's no change.
+  if (
+    next.ageRestriction != null &&
+    norm(existing.age_restriction) !== norm(next.ageRestriction)
+  ) {
+    changes.push(`age: ${norm(existing.age_restriction) || "—"} → ${norm(next.ageRestriction)}`);
+  }
+
+  const oldLineup = lineupNames(existing.lineup);
+  const newLineup = lineupNames(next.lineup);
+  if (oldLineup.toLowerCase() !== newLineup.toLowerCase()) {
+    changes.push(`lineup: ${oldLineup || "—"} → ${newLineup || "—"}`);
+  }
+
+  return changes;
+}
 
 /**
  * Upsert a scraped/admin-confirmed show by source_key. Mirrors
@@ -182,7 +294,7 @@ export type UpsertOutcome = "created" | "updated" | "skipped";
 export async function upsertScrapedShow(
   input: ScrapedShowInput,
   actor: string,
-): Promise<{ outcome: UpsertOutcome; id: string | null }> {
+): Promise<{ outcome: UpsertOutcome; id: string | null; changes?: string[] }> {
   // Resolved outside the transaction — these are HTTP calls to Birdhaus, not
   // DB work, so they shouldn't hold a Postgres connection open. Wasted on the
   // rare row that turns out to be edited-locked/rejected below, which is fine.
@@ -196,7 +308,13 @@ export async function upsertScrapedShow(
       return { outcome: "skipped", id: null };
     }
     const existing = await tx`
-      SELECT id, edited_at FROM shows WHERE source_key = ${input.sourceKey} FOR UPDATE
+      SELECT id, edited_at, venue_name, title,
+             to_char(date, 'YYYY-MM-DD') AS date_str,
+             ticket_url, lineup,
+             to_char(doors_time, 'HH24:MI') AS doors_str,
+             to_char(music_time, 'HH24:MI') AS music_str,
+             event_type, age_restriction
+      FROM shows WHERE source_key = ${input.sourceKey} FOR UPDATE
     `;
     if (existing.length > 0 && existing[0].edited_at) {
       return { outcome: "skipped", id: existing[0].id };
@@ -207,6 +325,28 @@ export async function upsertScrapedShow(
     const doorsTime = parseDisplayTime(input.doorsTime);
     const genres = normalizeGenres(input.genres);
     const ageRestriction = normalizeAge(input.ageRestriction);
+
+    // What actually changed vs. the stored row (empty for a brand-new show, or
+    // when a re-scrape carries nothing new). Drives the created/updated/unchanged
+    // outcome and the digest's "what changed" note.
+    const changes = wasExisting
+      ? diffScrapedShow(existing[0] as unknown as ExistingShowFields, {
+          venue: input.venue,
+          title: input.title,
+          date: input.date,
+          ticketUrl: input.link || null,
+          lineup,
+          doorsTime,
+          musicTime,
+          eventType: input.eventType || null,
+          ageRestriction,
+        })
+      : [];
+    const outcome: UpsertOutcome = !wasExisting
+      ? "created"
+      : changes.length > 0
+        ? "updated"
+        : "unchanged";
 
     // Once a human has reviewed a row (reviewed_at set, Phase 3's "looks good"),
     // a re-scrape must not resurrect flags they already cleared — leave
@@ -249,13 +389,20 @@ export async function upsertScrapedShow(
       RETURNING id
     `;
 
-    await logHistory(
-      tx,
-      rows[0].id,
-      wasExisting ? "updated" : "created",
-      actor,
-      { venue: input.venue, title: input.title, date: input.date, lineup },
-    );
+    // Log created/updated, but not a no-op "unchanged" re-scrape — otherwise the
+    // history table fills nightly with entries for shows nothing actually changed
+    // on. An "updated" row records the field-level diff so the change is auditable.
+    if (outcome !== "unchanged") {
+      await logHistory(
+        tx,
+        rows[0].id,
+        outcome, // "created" | "updated"
+        actor,
+        outcome === "updated"
+          ? { venue: input.venue, title: input.title, date: input.date, lineup, changes }
+          : { venue: input.venue, title: input.title, date: input.date, lineup },
+      );
+    }
 
     // Notify followers of any linked band on a newly-created upcoming show.
     // Only on "created": re-scrapes of an existing row re-run resolveLineupBandSlugs
@@ -265,7 +412,7 @@ export async function upsertScrapedShow(
     if (!wasExisting && isUpcoming(input.date)) {
       await notifyBandOnNewShow(tx, rows[0].id, linkedSlugs(lineup));
     }
-    return { outcome: wasExisting ? "updated" : "created", id: rows[0].id };
+    return { outcome, id: rows[0].id, changes };
   });
 }
 
