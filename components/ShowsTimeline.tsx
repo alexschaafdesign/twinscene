@@ -57,11 +57,6 @@ function GenericVenueThumb({ venue, size = THUMB_PX }: { venue: string; size?: n
   );
 }
 
-/** Prefix a bare URL with https:// so hrefs from the sheet always resolve. */
-function ensureUrl(value: string): string {
-  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
-}
-
 /** Build the /shows/submit edit link, round-tripping the show's fields. */
 function editHref(show: Show): string {
   const params = new URLSearchParams({
@@ -409,12 +404,10 @@ function VenueBlock({
   // A single-show block keeps its flyer art as the avatar; multi-show blocks
   // use the venue's identity so the block reads as the venue, not one show.
   const single = group.shows.length === 1 ? group.shows[0] : null;
-  // The avatar links to the one show (single) or the venue page (multi).
-  const artHref = single?.id
-    ? `/shows/${single.id}`
-    : group.venue
-      ? `/venues/${group.venue.slug}`
-      : null;
+  // The avatar links only to the one show in a single-show block; a multi-show
+  // block groups several shows, so its art has no single detail page to point
+  // at (and we no longer link out to the venue page from here).
+  const artHref = single?.id ? `/shows/${single.id}` : null;
   // A fixed square, aligned to the top with the venue name — keeps every
   // block's artwork the same dimensions (a full-height stretch cropped posters
   // into inconsistent tall strips).
@@ -436,13 +429,7 @@ function VenueBlock({
       <div className="min-w-0 flex-1">
         <div className="mb-1">
           <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] font-semibold uppercase tracking-wide text-[#E8E0D0]/85 wrap-anywhere">
-            {group.venue ? (
-              <Link href={`/venues/${group.venue.slug}`} className="hover:underline">
-                {group.name}
-              </Link>
-            ) : (
-              group.name
-            )}
+            {group.name}
             {miles != null && (
               <span className="rounded-full bg-[#9FD3A0]/15 px-1.5 py-0.5 text-[10px] font-medium normal-case text-[#9FD3A0]">
                 {formatMiles(miles)}
@@ -486,12 +473,21 @@ function CompactRow({
   const time = compactTime(showStartTime(show));
   return (
     <li
-      className={`flex items-start gap-2.5 rounded-md py-1 pl-1 pr-1 ${
+      className={`relative flex items-start gap-2.5 rounded-md py-1 pl-1 pr-1 ${
         isPress
           ? "border-l-2 border-amber-400/60 bg-amber-400/[0.05]"
           : "border-l-2 border-transparent"
-      }`}
+      } ${show.id ? "transition hover:bg-[#E8E0D0]/[0.04]" : ""}`}
     >
+      {/* Whole-row click target → the show detail page. Raised controls (the
+          star) sit above it, so it never swallows their clicks. */}
+      {show.id && (
+        <Link
+          href={`/shows/${show.id}`}
+          aria-label={showHeading(show)}
+          className="absolute inset-0 z-0"
+        />
+      )}
       {/* Time + lineup share a baseline-aligned row so the time sits on the
           lineup's first line; the status button stays top-aligned (outer li). */}
       <div className="flex min-w-0 flex-1 items-baseline gap-2.5">
@@ -511,16 +507,7 @@ function CompactRow({
         </div>
         <div className="min-w-0 flex-1 wrap-anywhere">
           <p className="text-sm leading-snug">
-            {show.id ? (
-              <Link
-                href={`/shows/${show.id}`}
-                className="font-medium text-[#E8E0D0] hover:underline"
-              >
-                {showHeading(show)}
-              </Link>
-            ) : (
-              <span className="font-medium text-[#E8E0D0]">{showHeading(show)}</span>
-            )}
+            <span className="font-medium text-[#E8E0D0]">{showHeading(show)}</span>
             <ShowBadges show={show} />
           </p>
           {showSubtitle(show) && (
@@ -529,7 +516,7 @@ function CompactRow({
         </div>
       </div>
       {show.id && (
-        <div className="shrink-0">
+        <div className="relative z-10 shrink-0">
           <ShowStatusButtons
             showId={show.id}
             isPast={show.date < today}
@@ -565,12 +552,21 @@ function UltraRow({
   const miles = show.id ? distances?.[show.id] : undefined;
   return (
     <li
-      className={`flex items-start gap-3 px-3 py-1.5 ${
+      className={`relative flex items-start gap-3 px-3 py-1.5 ${
         isPress
           ? "border-l-2 border-amber-400/60 bg-amber-400/[0.04]"
           : "border-l-2 border-transparent"
-      }`}
+      } ${show.id ? "transition hover:bg-[#E8E0D0]/[0.04]" : ""}`}
     >
+      {/* Whole-row click target → the show detail page. Sits under the star
+          control (which is raised above it) so the star still toggles. */}
+      {show.id && (
+        <Link
+          href={`/shows/${show.id}`}
+          aria-label={showHeading(show)}
+          className="absolute inset-0 z-0"
+        />
+      )}
       <div className="flex min-w-0 flex-1 items-baseline gap-3">
         <div className="w-12 shrink-0 text-right tabular-nums">
           {time ? (
@@ -587,16 +583,7 @@ function UltraRow({
           )}
         </div>
         <p className="min-w-0 flex-1 text-sm leading-snug wrap-anywhere">
-          {show.id ? (
-            <Link
-              href={`/shows/${show.id}`}
-              className="font-medium text-[#E8E0D0] hover:underline"
-            >
-              {showHeading(show)}
-            </Link>
-          ) : (
-            <span className="font-medium text-[#E8E0D0]">{showHeading(show)}</span>
-          )}
+          <span className="font-medium text-[#E8E0D0]">{showHeading(show)}</span>
           <ShowBadges show={show} />
           {show.venue && (
             <span className="text-[#E8E0D0]/50">
@@ -612,7 +599,7 @@ function UltraRow({
         </p>
       </div>
       {show.id && (
-        <div className="shrink-0">
+        <div className="relative z-10 shrink-0">
           <ShowStatusButtons
             showId={show.id}
             isPast={show.date < today}
@@ -654,31 +641,30 @@ function ComfortableCard({
         isPressRecommended
           ? "border-amber-400/40 bg-amber-400/[0.06]"
           : "border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.04)]"
-      }`}
+      } ${show.id ? "transition hover:border-[#E8E0D0]/25" : ""}`}
     >
+      {/* Whole-card click target → the show detail page. The star buttons and
+          the edit pencil are raised above it so they stay independently
+          clickable. */}
+      {show.id && (
+        <Link
+          href={`/shows/${show.id}`}
+          aria-label={showHeading(show)}
+          className="absolute inset-0 z-0 rounded-md"
+        />
+      )}
       <div className="flex items-start justify-between gap-x-4 gap-y-2">
         <div className="flex min-w-0 flex-1 items-start gap-3">
-          {(show.flyerUrl || show.venue) &&
-            (show.id ? (
-              <Link href={`/shows/${show.id}`} className="shrink-0" aria-label={showHeading(show)}>
-                <ShowThumb show={show} venues={venues} size={CARD_THUMB} />
-              </Link>
-            ) : (
-              <span className="shrink-0">
-                <ShowThumb show={show} venues={venues} size={CARD_THUMB} />
-              </span>
-            ))}
+          {(show.flyerUrl || show.venue) && (
+            <span className="shrink-0">
+              <ShowThumb show={show} venues={venues} size={CARD_THUMB} />
+            </span>
+          )}
           {/* wrap-anywhere lets long unbroken tokens break so the card can
               shrink to a phone's width. */}
           <div className="min-w-0 wrap-anywhere">
             <p className="text-base font-semibold leading-snug text-[#E8E0D0]">
-              {show.id ? (
-                <Link href={`/shows/${show.id}`} className="hover:underline">
-                  {showHeading(show)}
-                </Link>
-              ) : (
-                showHeading(show)
-              )}
+              {showHeading(show)}
               <ShowBadges show={show} />
             </p>
             {showSubtitle(show) && (
@@ -742,19 +728,7 @@ function ComfortableCard({
             {pressNotes(show.starredBy, show.starredNotes, press).map((note) => (
               <div key={note.id} className="mt-2">
                 <p className="text-xs font-medium text-amber-400">
-                  ★ Recommended by{" "}
-                  {note.url ? (
-                    <a
-                      href={ensureUrl(note.url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline decoration-amber-400/50 underline-offset-2 hover:text-amber-300"
-                    >
-                      {note.name}
-                    </a>
-                  ) : (
-                    note.name
-                  )}
+                  ★ Recommended by {note.name}
                 </p>
                 {note.blurb && (
                   <p className="mt-0.5 text-xs leading-relaxed text-[#E8E0D0]/60">
@@ -763,19 +737,9 @@ function ComfortableCard({
                 )}
               </div>
             ))}
-            {show.link && (
-              <a
-                href={ensureUrl(show.link)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 inline-block rounded-md border border-[#E8E0D0]/40 px-3 py-1.5 text-xs font-medium text-[#E8E0D0]/90 transition hover:bg-[#E8E0D0] hover:text-[#2A2420]"
-              >
-                Tickets / info →
-              </a>
-            )}
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-2">
+        <div className="relative z-10 flex shrink-0 flex-col items-end gap-2">
           {show.id && (
             <ShowStatusButtons
               showId={show.id}
@@ -791,7 +755,7 @@ function ComfortableCard({
         <Link
           href={editHref(show)}
           aria-label="Edit show"
-          className="absolute bottom-2 right-2 text-[#E8E0D0]/40 transition hover:text-[#E8E0D0]/80"
+          className="absolute bottom-2 right-2 z-10 text-[#E8E0D0]/40 transition hover:text-[#E8E0D0]/80"
         >
           {/* ti-pencil (Tabler) */}
           <svg {...iconProps} width={15} height={15}>
