@@ -6,6 +6,7 @@
 // of writing its scraper and registering it here.
 
 import type { ScrapedShow } from "./types";
+import { applyVenueAgeRule } from "./venueAgeRules";
 import { scrapePilllar } from "./pilllar";
 import { scrapeZhora } from "./zhora";
 import { scrapeCloudland } from "./cloudland";
@@ -145,21 +146,37 @@ export const SCRAPERS: Record<string, Scraper> = {
   },
 };
 
+/** Wrap a scraper so its results run through the venue's blanket age policy
+ * (lib/scrapers/venueAgeRules.ts) before anyone sees them. Applied by every
+ * getter below, so all consumers — cron, on-demand endpoints, the manual import
+ * page — get the house rules uniformly without each one remembering to. */
+function withAgeRules(scraper: Scraper): Scraper {
+  return {
+    ...scraper,
+    scrape: async () => (await scraper.scrape()).map(applyVenueAgeRule),
+  };
+}
+
 export function getScraper(id: string): Scraper | null {
-  return SCRAPERS[id] ?? null;
+  const scraper = SCRAPERS[id];
+  return scraper ? withAgeRules(scraper) : null;
 }
 
 export function getAllScrapers(): Scraper[] {
-  return Object.values(SCRAPERS);
+  return Object.values(SCRAPERS).map(withAgeRules);
 }
 
 /** Scrapers the Vercel cron runs — everything except localOnly venues, whose
  * sites block datacenter IPs and must be scraped locally from a residential IP. */
 export function getCronScrapers(): Scraper[] {
-  return Object.values(SCRAPERS).filter((s) => !s.localOnly);
+  return Object.values(SCRAPERS)
+    .filter((s) => !s.localOnly)
+    .map(withAgeRules);
 }
 
 /** localOnly venues — run these from a residential IP via `npm run scrape:local`. */
 export function getLocalOnlyScrapers(): Scraper[] {
-  return Object.values(SCRAPERS).filter((s) => s.localOnly);
+  return Object.values(SCRAPERS)
+    .filter((s) => s.localOnly)
+    .map(withAgeRules);
 }
