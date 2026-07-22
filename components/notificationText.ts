@@ -4,14 +4,23 @@
 // compatible with lib/notifications' NotificationItem.
 
 export interface NotificationView {
-  type: "band_show" | "band_update" | "show_changed";
-  data: { changed?: string[] } | null;
+  type: "band_show" | "band_update" | "show_changed" | "new_message";
+  data: { changed?: string[]; snippet?: string } | null;
   band_slug: string | null;
   band_name: string | null;
   show_id: string | null;
   show_title: string | null;
   show_date: string | null;
   venue_name: string | null;
+  // 'new_message' fields (null/false for other types). See lib/notifications
+  // NotificationItem for how these are resolved.
+  conversation_id: string | null;
+  conv_recipient_type: "band" | "musician" | null;
+  conv_band_name: string | null;
+  conv_musician_name: string | null;
+  conv_initiator_name: string | null;
+  conv_initiator_username: string | null;
+  conv_viewer_is_initiator: boolean;
 }
 
 // "bio" → "bio", "members" → "lineup", etc. — the fan-facing label per changed field.
@@ -71,6 +80,25 @@ export function describeNotification(n: NotificationView): { text: string; href:
       const at = n.venue_name ? ` at ${n.venue_name}` : "";
       const tail = what ? ` — ${what} changed` : " was updated";
       return { text: `${show}${at}${tail}`, href: n.show_id ? `/shows/${n.show_id}` : "/shows" };
+    }
+    case "new_message": {
+      // Bare band/musician name — reads better than the "Musician: X" inbox tag.
+      const identity =
+        (n.conv_recipient_type === "band" ? n.conv_band_name : n.conv_musician_name) ||
+        (n.conv_recipient_type === "musician" ? "a musician" : "a band");
+      const initiator =
+        n.conv_initiator_name ||
+        (n.conv_initiator_username ? `@${n.conv_initiator_username}` : "someone");
+      const snippet = n.data?.snippet ? `: “${n.data.snippet}”` : "";
+      // The initiator only ever hears from the recipient side; the recipient
+      // side always hears about the thread with the initiator.
+      const lead = n.conv_viewer_is_initiator
+        ? `New message from ${identity}`
+        : `${initiator} messaged ${identity}`;
+      return {
+        text: `${lead}${snippet}`,
+        href: n.conversation_id ? `/profile/messages/${n.conversation_id}` : "/profile/messages",
+      };
     }
   }
 }

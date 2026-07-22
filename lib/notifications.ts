@@ -13,7 +13,10 @@ import { sql } from "./db.ts";
 
 type QueryExecutor = postgres.Sql | postgres.TransactionSql;
 
-export type NotificationType = "band_show" | "band_update" | "show_changed";
+export type NotificationType = "band_show" | "band_update" | "show_changed" | "new_message";
+
+// Longest message preview stored in a notification's data.snippet.
+const SNIPPET_MAX = 140;
 
 // --- Fan-out (write side) --------------------------------------------------
 
@@ -86,12 +89,53 @@ export async function notifyShowChanged(
   `;
 }
 
+// A message was sent in a conversation. Fans out to everyone who can see that
+// conversation EXCEPT the sender: the human initiator (conversation_participants)
+// plus the recipient side — every editor of the addressed band, or the linked
+// musician's user. Idempotent-ish via the (user, conversation) unread coalesce
+// index: a burst of replies collapses into one unread ping whose snippet +
+// timestamp track the latest message. Runs inside sendMessage's transaction, so
+// a notification never survives a rolled-back message. `body` is the raw message
+// text; the stored snippet is a truncated, POV-independent preview.
+export async function notifyNewMessage(
+  exec: QueryExecutor,
+  conversationId: string,
+  senderUserId: number,
+  body: string,
+): Promise<void> {
+  const snippet = body.trim().slice(0, SNIPPET_MAX);
+  await exec`
+    insert into notifications (user_id, type, conversation_id, data)
+    select recipients.user_id, 'new_message', ${conversationId}, ${exec.json({ snippet })}
+    from (
+      select user_id
+        from conversation_participants
+        where conversation_id = ${conversationId}
+      union
+      select be.user_id
+        from band_editors be
+        join conversations c on c.id = ${conversationId}
+        where c.recipient_type = 'band' and be.band_id = c.recipient_id
+      union
+      select m.user_id
+        from musicians m
+        join conversations c on c.id = ${conversationId}
+        where c.recipient_type = 'musician' and m.id = c.recipient_id
+          and m.user_id is not null
+    ) recipients
+    where recipients.user_id <> ${senderUserId}
+    on conflict (user_id, conversation_id)
+      where type = 'new_message' and read_at is null
+    do update set created_at = now(), data = excluded.data
+  `;
+}
+
 // --- Read side -------------------------------------------------------------
 
 export interface NotificationItem {
   id: number;
   type: NotificationType;
-  data: { changed?: string[] } | null;
+  data: { changed?: string[]; snippet?: string } | null;
   read_at: string | null;
   created_at: string;
   band_slug: string | null;
@@ -100,7 +144,23 @@ export interface NotificationItem {
   show_title: string | null;
   show_date: string | null;
   venue_name: string | null;
+  // 'new_message' fields — resolved from the conversation. conv_recipient_type
+  // is null for every other notification type. conv_viewer_is_initiator marks
+  // whether THIS recipient is the human who started the thread (they see "from
+  // {band/musician}") vs. on the recipient side (they see "{initiator} messaged
+  // {band/musician}").
+  conversation_id: string | null;
+  conv_recipient_type: RecipientTypeLabel | null;
+  conv_band_name: string | null;
+  conv_musician_name: string | null;
+  conv_initiator_name: string | null;
+  conv_initiator_username: string | null;
+  conv_viewer_is_initiator: boolean;
 }
+
+// Mirror of lib/messaging RecipientType, redeclared to avoid a lib→lib import
+// cycle (messaging imports notifications for the fan-out).
+type RecipientTypeLabel = "band" | "musician";
 
 export async function getUnreadCount(userId: number): Promise<number> {
   const [row] = await sql<{ count: string }[]>`
@@ -129,10 +189,33 @@ export async function listNotifications(
       shows.id          as show_id,
       shows.title       as show_title,
       to_char(shows.date, 'YYYY-MM-DD') as show_date,
-      shows.venue_name  as venue_name
+      shows.venue_name  as venue_name,
+      notifications.conversation_id,
+      conv.recipient_type as conv_recipient_type,
+      conv_band.name      as conv_band_name,
+      conv_musician.name  as conv_musician_name,
+      conv_initiator.name     as conv_initiator_name,
+      conv_initiator.username as conv_initiator_username,
+      (conv_viewer.user_id is not null) as conv_viewer_is_initiator
     from notifications
     left join bands on bands.id = notifications.band_id
     left join shows on shows.id = notifications.show_id
+    left join conversations conv on conv.id = notifications.conversation_id
+    left join bands conv_band
+      on conv.recipient_type = 'band' and conv_band.id = conv.recipient_id
+    left join musicians conv_musician
+      on conv.recipient_type = 'musician' and conv_musician.id = conv.recipient_id
+    left join lateral (
+      select u.name, u.username
+      from conversation_participants p
+      join users u on u.id = p.user_id
+      where p.conversation_id = conv.id
+      order by p.created_at asc
+      limit 1
+    ) conv_initiator on true
+    left join conversation_participants conv_viewer
+      on conv_viewer.conversation_id = conv.id
+      and conv_viewer.user_id = notifications.user_id
     where notifications.user_id = ${userId}
     order by notifications.created_at desc
     limit ${limit}

@@ -11,6 +11,7 @@
 import { sql } from "./db.ts";
 import { canEditBand, type User } from "./auth.ts";
 import { canEditMusician } from "./musicians.ts";
+import { notifyNewMessage } from "./notifications.ts";
 
 export type RecipientType = "band" | "musician";
 
@@ -140,6 +141,9 @@ export async function sendMessage({
     await tx`
       update conversations set last_message_at = now() where id = ${conversationId}
     `;
+    // Fan out in-app notifications to the other viewers of this thread. Same
+    // transaction, so a notification never outlives a rolled-back message.
+    await notifyNewMessage(tx, conversationId, sender.id, trimmed);
     return message;
   });
 }
