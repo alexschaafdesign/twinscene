@@ -59,36 +59,58 @@ function spreadOverlaps(venues: MappableVenue[]): PlacedVenue[] {
   return placed;
 }
 
-/** Compact 1-3 char label for a pin. Venues can carry a wordy avatar label
- * (e.g. "Acadia") that overflows a pin, so anything longer falls back to the
- * always-short auto-initials ("AC"). */
+/** The pin's text: the venue's avatar label in full ("Green Room"), or the
+ * auto-derived initials ("AC") when no avatar label is set. The pill sizes to
+ * fit, so long labels are shown whole rather than truncated. */
 function pinLabel(venue: Venue): string {
-  const raw = venue.avatarInitials || autoInitials(venue.name);
-  return raw.length <= 3 ? raw : autoInitials(venue.name);
+  return venue.avatarInitials || autoInitials(venue.name);
 }
 
-/** A colored teardrop pin with the venue's initials, mirroring VenueAvatar's
- * per-slug hue so the map reads as the same directory. Built as an L.divIcon
- * so there are no marker image assets to configure. */
+// Basic HTML-escape for the label, since it goes into a divIcon html string.
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
+}
+
+const PILL_HEIGHT = 26; // px, the rounded label body
+const BEAK_HEIGHT = 7; // px, the little downward tail whose tip marks the spot
+
+/** A colored label pill with the venue's avatar title, mirroring VenueAvatar's
+ * per-slug hue so the map reads as the same directory. The pill auto-sizes to
+ * the label; a downward beak points at the exact location. Built as an
+ * L.divIcon so there are no marker image assets to configure. */
 function pinIcon(venue: MappableVenue): L.DivIcon {
   const hue = hueForSlug(venue.slug);
+  const bg = `hsl(${hue} 60% 50%)`;
+  const label = escapeHtml(pinLabel(venue));
+  // Approximate the rendered width so Leaflet's marker box matches the pill
+  // (keeps hit-testing and centering correct). Generous per-char estimate +
+  // padding so real labels never clip; the ellipsis is only a safety net.
+  const width = Math.max(34, Math.round(label.length * 8) + 20);
+  const height = PILL_HEIGHT + BEAK_HEIGHT;
+
   return L.divIcon({
     className: "", // drop Leaflet's default styling; we bring our own
-    html: `<div style="
-      display:flex;align-items:center;justify-content:center;
-      width:38px;height:38px;border-radius:50% 50% 50% 0;
-      transform:rotate(-45deg);
-      background:hsl(${hue} 60% 50%);
-      border:3px solid #F5EFE2;
-      box-shadow:0 2px 8px rgba(0,0,0,0.55);
-    "><span style="
-      transform:rotate(45deg);
-      color:#fff;font:700 13px/1 system-ui,sans-serif;
-      text-shadow:0 1px 1px rgba(0,0,0,0.35);
-    ">${pinLabel(venue)}</span></div>`,
-    iconSize: [38, 38],
-    iconAnchor: [19, 38], // tip of the teardrop
-    popupAnchor: [0, -36],
+    html: `<div style="position:relative;width:100%;height:100%;">
+      <div style="
+        display:flex;align-items:center;justify-content:center;
+        width:100%;height:${PILL_HEIGHT}px;box-sizing:border-box;padding:0 9px;
+        border-radius:7px;background:${bg};border:2px solid #F5EFE2;
+        box-shadow:0 2px 8px rgba(0,0,0,0.55);
+        color:#fff;font:700 12px/1 system-ui,sans-serif;
+        text-shadow:0 1px 1px rgba(0,0,0,0.35);
+      "><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span></div>
+      <span style="
+        position:absolute;left:50%;top:${PILL_HEIGHT}px;transform:translateX(-50%);
+        width:0;height:0;
+        border-left:6px solid transparent;border-right:6px solid transparent;
+        border-top:${BEAK_HEIGHT}px solid ${bg};
+      "></span>
+    </div>`,
+    iconSize: [width, height],
+    iconAnchor: [width / 2, height], // beak tip marks the location
+    popupAnchor: [0, -height + 2],
   });
 }
 
