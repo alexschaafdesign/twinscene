@@ -54,7 +54,7 @@ export default async function VenueProfilePage({ params }: Props) {
   const { venues, venue } = await getVenue(slug);
   if (!venue) notFound();
 
-  const [shows, pastShows] = await Promise.all([getCachedShows(), getCachedAllPastShows()]);
+  const [shows, pastShows] = await Promise.all([getCachedShows(todayInChicago()), getCachedAllPastShows()]);
   const press = await fetchPress();
   const venueShows = shows.filter(
     (s) => matchVenue(venues, s.venue)?.slug === venue.slug,

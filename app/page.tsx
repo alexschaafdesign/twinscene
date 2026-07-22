@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCachedBands, getCachedShows, getCachedSlugsWithVideos } from "@/lib/cachedReads";
+import { todayInChicago } from "@/lib/fetchShows";
 import { getCurrentUser } from "@/lib/auth";
 import { listFollowedSlugs } from "@/lib/bandFollows";
 import BandGrid from "@/components/BandGrid";
@@ -18,7 +19,7 @@ export default async function Home() {
   // here means it has something upcoming.
   const [bands, shows, bandsWithVideos, user] = await Promise.all([
     getCachedBands(),
-    getCachedShows(),
+    getCachedShows(todayInChicago()),
     getCachedSlugsWithVideos(),
     getCurrentUser(),
   ]);

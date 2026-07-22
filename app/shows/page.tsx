@@ -17,9 +17,10 @@ export const metadata: Metadata = {
 const PAST_SHOWS_DAYS = 30;
 
 export default async function ShowsPage() {
+  const today = todayInChicago();
   const [shows, pastShows, venues, press, user] = await Promise.all([
-    getCachedShows(),
-    getCachedPastShows(PAST_SHOWS_DAYS),
+    getCachedShows(today),
+    getCachedPastShows(PAST_SHOWS_DAYS, today),
     getCachedVenues(),
     fetchPress(),
     getCurrentUser(),
@@ -47,7 +48,7 @@ export default async function ShowsPage() {
         pastShows={pastShows}
         venues={venues}
         press={press}
-        today={todayInChicago()}
+        today={today}
         statuses={statuses}
         loggedIn={!!user}
         home={home}

@@ -66,7 +66,7 @@ export default async function BandProfilePage({ params }: Props) {
   const band = await getBand(slug);
   if (!band) notFound();
 
-  const shows = await getCachedShows();
+  const shows = await getCachedShows(todayInChicago());
   const press = await fetchPress();
   const bandShows = shows.filter((s) => s.bandSlugs.includes(slug));
   const videos = await getCachedVisibleVideosBySlug(slug);

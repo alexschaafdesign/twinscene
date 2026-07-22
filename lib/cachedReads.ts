@@ -12,8 +12,14 @@
 // Freshness: each wrapper carries a category tag (lib/cacheTags.ts); the write
 // routes call the matching revalidate* helper below after a successful mutation,
 // so an edit is reflected immediately. The `revalidate` floors are a safety net
-// if a tag call is ever missed — short for shows because fetchShows() filters by
-// today's date and must drop past shows even absent a write.
+// if a tag call is ever missed.
+//
+// The shows wrappers additionally take today's Chicago date as a cache-key
+// discriminator (the functions still compute it internally — the arg only shapes
+// the key). Because fetchShows()/fetchPastShows() filter by today's date, their
+// result is only valid for the current day; folding the date into the key makes
+// the cache miss and refetch the instant the Chicago date ticks past midnight,
+// instead of serving yesterday's upcoming shows until the hourly floor expires.
 //
 // IMPORTANT: only display/read code (app pages, read-only routes) should import
 // from here. Write routes and admin views deliberately keep calling the RAW
@@ -55,19 +61,24 @@ export const getCachedBandBySlug = unstable_cache(getBandBySlug, ["cached-band-b
   revalidate: DAY,
 });
 
-// --- Shows (hourly floor: fetchShows/fetchShowById filter by today's date) ---
-export const getCachedShows = unstable_cache(fetchShows, ["cached-shows"], {
-  tags: [CACHE_TAGS.shows],
-  revalidate: HOUR,
-});
+// --- Shows (keyed on today's date so the list rolls over at Chicago midnight;
+//     hourly floor as the within-day safety net) ---
+export const getCachedShows = unstable_cache(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- today is a cache-key discriminator only
+  (today: string) => fetchShows(),
+  ["cached-shows"],
+  { tags: [CACHE_TAGS.shows], revalidate: HOUR },
+);
 export const getCachedShowById = unstable_cache(fetchShowById, ["cached-show-by-id"], {
   tags: [CACHE_TAGS.shows],
   revalidate: HOUR,
 });
-export const getCachedPastShows = unstable_cache(fetchPastShows, ["cached-past-shows"], {
-  tags: [CACHE_TAGS.shows],
-  revalidate: HOUR,
-});
+export const getCachedPastShows = unstable_cache(
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- today is a cache-key discriminator only
+  (days: number, today: string) => fetchPastShows(days),
+  ["cached-past-shows"],
+  { tags: [CACHE_TAGS.shows], revalidate: HOUR },
+);
 export const getCachedAllPastShows = unstable_cache(fetchAllPastShows, ["cached-all-past-shows"], {
   tags: [CACHE_TAGS.shows],
   revalidate: HOUR,
