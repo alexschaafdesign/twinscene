@@ -660,32 +660,17 @@ export default function StagePlotEditor({
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px] border-collapse text-sm">
+            <table className="w-full min-w-[360px] border-collapse text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-wide text-[#E8E0D0]/45">
-                  <th className="w-12 py-2 pr-2 font-medium">#</th>
                   <th className="py-2 pr-2 font-medium">Source</th>
                   <th className="py-2 pr-2 font-medium">Notes</th>
                   <th className="w-10 py-2" />
                 </tr>
               </thead>
               <tbody>
-                {inputs.map((row, i) => (
+                {inputs.map((row) => (
                   <tr key={row.uid} className="border-t border-[#E8E0D0]/10">
-                    <td className="py-1.5 pr-2">
-                      <input
-                        type="number"
-                        value={row.channel_number ?? ""}
-                        placeholder={String(i + 1)}
-                        onChange={(e) =>
-                          updateInput(row.uid, {
-                            channel_number:
-                              e.target.value === "" ? null : Number(e.target.value),
-                          })
-                        }
-                        className={`w-12 ${field}`}
-                      />
-                    </td>
                     <td className="py-1.5 pr-2">
                       <input
                         value={row.source}
@@ -722,8 +707,7 @@ export default function StagePlotEditor({
 
       <p className="text-xs text-[#E8E0D0]/40">
         Changes save automatically. Select an item, then drag any corner handle to resize it — or
-        use the arrow keys to nudge (Shift for bigger steps) and “[” / “]” to resize. The channel
-        numbering shown in the PDF falls back to row order when the “#” is blank.
+        use the arrow keys to nudge (Shift for bigger steps) and “[” / “]” to resize.
       </p>
     </div>
   );

@@ -28,6 +28,14 @@ export function symbolSize(type: string): number {
   return SYMBOL_SIZE[type] ?? 36;
 }
 
+// Keep the rendered stroke roughly constant across symbol sizes. The 24-unit
+// viewBox scales strokes with the symbol, so without this a big symbol (drum
+// kit at 60px) draws a ~4px stroke while a mic at 30px sits near ~2px, making
+// the big ones look chunky. Solve strokeWidth so the on-screen stroke lands on
+// a target regardless of size.
+const STROKE_PX = 2.3;
+export const strokeWidthFor = (size: number) => (STROKE_PX * 24) / size;
+
 function paths(type: string) {
   switch (type) {
     case "vocal_mic":
@@ -152,7 +160,7 @@ export default function StageSymbol({
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.7}
+      strokeWidth={strokeWidthFor(size)}
       strokeLinecap="round"
       strokeLinejoin="round"
       style={style}

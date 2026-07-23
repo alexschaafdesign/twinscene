@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
 function formatDate(d: Date): string {
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
-    month: "long",
+    month: "short",
     day: "numeric",
   }).format(d);
 }
@@ -109,11 +109,16 @@ function formatDate(d: Date): string {
 // The editor's stage-plot symbols (components/StageSymbol.tsx), ported to
 // react-pdf's SVG primitives — same shapes, drawn in ink instead of currentColor
 // so the printed diagram matches what the band arranged on screen.
-const SW = 1.3;
-const stroke = { stroke: INK, strokeWidth: SW, fill: "none" as const };
 const solid = { fill: INK };
 
-function symbolPaths(type: string) {
+// Match the editor (components/StageSymbol): keep the printed stroke roughly
+// constant across symbol sizes, so a big drum kit doesn't draw a much heavier
+// line than a mic. Solve strokeWidth against the 24-unit viewBox for a target.
+const STROKE_PT = 1.6;
+const strokeWidthFor = (size: number) => (STROKE_PT * 24) / size;
+
+function symbolPaths(type: string, strokeWidth: number) {
+  const stroke = { stroke: INK, strokeWidth, fill: "none" as const };
   switch (type) {
     case "vocal_mic":
       return (
@@ -226,12 +231,13 @@ function PdfSymbol({
   size: number;
   rotation: number;
 }) {
+  const sw = strokeWidthFor(size);
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       {rotation ? (
-        <G transform={`rotate(${rotation} 12 12)`}>{symbolPaths(type)}</G>
+        <G transform={`rotate(${rotation} 12 12)`}>{symbolPaths(type, sw)}</G>
       ) : (
-        symbolPaths(type)
+        symbolPaths(type, sw)
       )}
     </Svg>
   );
@@ -250,7 +256,9 @@ function StagePlotDoc({
       <Page size="LETTER" style={styles.page}>
         <Text style={styles.bandName}>{bandName}</Text>
         <Text style={styles.plotName}>{plot.name}</Text>
-        <Text style={styles.meta}>Stage plot · generated {formatDate(new Date())}</Text>
+        <Text style={styles.meta}>
+          Stage plot from Twin Scene · generated {formatDate(new Date())}
+        </Text>
 
         <Text style={styles.sectionLabel}>Stage diagram</Text>
         <View style={styles.diagram}>
@@ -286,13 +294,11 @@ function StagePlotDoc({
         ) : (
           <View>
             <View style={styles.headRow}>
-              <Text style={[styles.cell, styles.headCell, styles.cCh]}>#</Text>
               <Text style={[styles.cell, styles.headCell, styles.cSource]}>Source</Text>
               <Text style={[styles.cell, styles.headCell, styles.cNotes]}>Notes</Text>
             </View>
-            {inputs.map((row, i) => (
+            {inputs.map((row) => (
               <View key={row.id} style={styles.row} wrap={false}>
-                <Text style={[styles.cell, styles.cCh]}>{row.channel_number ?? i + 1}</Text>
                 <Text style={[styles.cell, styles.cSource]}>{row.source}</Text>
                 <Text style={[styles.cell, styles.cNotes]}>{row.notes ?? ""}</Text>
               </View>
