@@ -1,8 +1,10 @@
+import { Fragment } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { fetchAdminUsers, type AdminUserRow } from "@/lib/fetchUsers";
 import UserAdminToggle from "@/components/UserAdminToggle";
+import UserGrantsManager from "@/components/UserGrantsManager";
 
 export const metadata: Metadata = {
   title: "Users — Twin Scene Admin",
@@ -89,10 +91,8 @@ export default async function AdminUsersPage() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr
-                  key={u.id}
-                  className="border-b border-[#E8E0D0]/10 align-top"
-                >
+                <Fragment key={u.id}>
+                <tr className="align-top">
                   <td className="py-3 pr-4">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{u.name ?? u.email}</span>
@@ -140,6 +140,15 @@ export default async function AdminUsersPage() {
                     />
                   </td>
                 </tr>
+                <tr className="border-b border-[#E8E0D0]/10">
+                  <td colSpan={7} className="pb-4 pl-0">
+                    <UserGrantsManager
+                      userId={Number(u.id)}
+                      userLabel={u.name ?? u.email}
+                    />
+                  </td>
+                </tr>
+                </Fragment>
               ))}
             </tbody>
           </table>

@@ -407,3 +407,63 @@ export async function fetchMusiciansDirectory(): Promise<MusicianEntry[]> {
       a.name.localeCompare(b.name, undefined, { sensitivity: "base" }),
   );
 }
+
+// ── Admin-facing user↔musician linking (migration 0021's musicians.user_id) ──
+// Unlike bands/writers/comrades (many editors via a join table), a musician has
+// at most ONE linked user: musicians.user_id is UNIQUE. So linking is a single
+// column write with two guards, both surfaced as MusicianLinkConflict so the
+// admin UI can show a clear message instead of a raw constraint error.
+
+export class MusicianLinkConflict extends Error {}
+
+// Links `userId` to `musicianId`. Throws MusicianLinkConflict if the musician is
+// already tied to a different account, or the user is already tied to a
+// different musician (the unique constraint would reject the latter anyway —
+// we pre-check to return a friendly message rather than a 500). Idempotent when
+// the pairing already exists. SELECT … FOR UPDATE so concurrent links can't race.
+export async function setMusicianUser(musicianId: number, userId: number): Promise<void> {
+  await sql.begin(async (tx) => {
+    const [musician] = await tx<{ id: number; user_id: number | null }[]>`
+      select id, user_id from musicians where id = ${musicianId} for update
+    `;
+    if (!musician) throw new MusicianLinkConflict("That musician no longer exists.");
+    if (musician.user_id === userId) return; // already linked — no-op
+    if (musician.user_id !== null) {
+      throw new MusicianLinkConflict("That musician is already linked to another account.");
+    }
+    const [other] = await tx<{ name: string }[]>`
+      select name from musicians where user_id = ${userId} and id <> ${musicianId} limit 1
+    `;
+    if (other) {
+      throw new MusicianLinkConflict(
+        `This user is already linked to the musician “${other.name}”. Unlink that first.`,
+      );
+    }
+    await tx`update musicians set user_id = ${userId} where id = ${musicianId}`;
+  });
+}
+
+// Clears musicians.user_id for `musicianId`, but only if it currently points at
+// `userId` — so a stale request can't unlink whoever happens to be linked now.
+export async function unsetMusicianUser(musicianId: number, userId: number): Promise<void> {
+  await sql`
+    update musicians set user_id = null
+    where id = ${musicianId} and user_id = ${userId}
+  `;
+}
+
+// Case-insensitive name search for the admin grant picker. Small result cap;
+// ordered so exact/prefix matches surface first.
+export async function searchMusiciansByName(
+  query: string,
+  limit = 10,
+): Promise<{ id: number; name: string; slug: string }[]> {
+  const q = query.trim();
+  if (!q) return [];
+  return sql<{ id: number; name: string; slug: string }[]>`
+    select id, name, slug from musicians
+    where name ilike ${"%" + q + "%"}
+    order by (name ilike ${q + "%"}) desc, name asc
+    limit ${limit}
+  `;
+}
