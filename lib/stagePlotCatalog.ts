@@ -45,7 +45,7 @@ export const STAGE_PLOT_CATALOG: CatalogItem[] = [
   {
     key: "vocal_mic",
     label: "Vocal Mic",
-    defaultInputs: [{ source: "Lead Vocal" }],
+    defaultInputs: [{ source: "Vocal Mic" }],
   },
   {
     key: "guitar_amp",
