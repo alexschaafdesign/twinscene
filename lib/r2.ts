@@ -344,6 +344,58 @@ export async function deleteMediaProGalleryImage(publicUrl: string): Promise<voi
   }
 }
 
+// --- Comrades (studios, labels, and other non-band/musician scene orgs) ----
+// Profile photo for a comrade directory listing. Keyed by slug like media-pro
+// photos (one object per listing, overwritten in place on re-upload), reusing
+// the same generateThumbnail() pipeline for the 400px grid variant.
+
+/** Upload a comrade's profile photo, keyed by slug, and return its public
+ * URL. */
+export async function uploadComradePhoto(
+  slug: string,
+  bytes: Uint8Array,
+  mimeType: string,
+): Promise<string> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
+  }
+  const key = `comrades/${slug}.${extensionFromMime(mimeType)}`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: bytes,
+      ContentType: mimeType,
+    }),
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
+/** Upload a comrade's thumbnail to R2 under comrades/thumb/<slug>.jpg and
+ * return its public URL. Overwrites any existing thumbnail for that slug. */
+export async function uploadComradeThumbnail(
+  slug: string,
+  thumbBytes: Uint8Array | Buffer,
+): Promise<string> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
+  }
+  const key = `comrades/thumb/${slug}.jpg`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: thumbBytes,
+      ContentType: "image/jpeg",
+    }),
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
 // Musician avatars (Musicians Slice 3) reuse generateAvatar above — same
 // sharp resize/re-encode pipeline — but live under their own musicians/<id>/
 // prefix (rather than avatars/<userId>/) since a musician's avatar and its

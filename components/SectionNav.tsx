@@ -2,7 +2,7 @@
 
 // The site's top-level section tabs (Feed, then the scene directories: Bands,
 // Shows, Venues, Musicians, Photo/Video, then the softer-grouped Reads +
-// Playlists). Rendered once from the root layout, outside {children}, so it's
+// Playlists + Comrades). Rendered once from the root layout, outside {children}, so it's
 // part of the persistent shell and never unmounts on navigation — unlike the
 // old copy that lived inline on the home page and vanished on every other route.
 //
@@ -54,6 +54,7 @@ const SECTIONS: Section[] = [
     grouped: true,
   },
   { href: "/playlists", label: "Playlists", isActive: (p) => p.startsWith("/playlists"), grouped: true },
+  { href: "/comrades", label: "Comrades", isActive: (p) => p.startsWith("/comrades"), grouped: true },
 ];
 
 export default function SectionNav() {

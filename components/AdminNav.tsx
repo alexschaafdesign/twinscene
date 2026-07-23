@@ -25,6 +25,7 @@ const LINKS: { href: string; label: string }[] = [
   { href: "/admin/band-member-claims", label: "Member claims" },
   { href: "/admin/media-pro-claims", label: "Photo/video claims" },
   { href: "/admin/writer-claims", label: "Writer claims" },
+  { href: "/admin/comrade-claims", label: "Comrade claims" },
   { href: "/admin/venue-claims", label: "Venue claims" },
 ];
 

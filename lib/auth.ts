@@ -490,6 +490,19 @@ export async function canEditWriter(user: User | null, writerId: number): Promis
   return !!row;
 }
 
+// Same rule as canEditBand, over comrade_editors — mirrors bands'/media
+// pros' self-editing model for the comrades directory (studios, labels,
+// etc — migration 0064).
+export async function canEditComrade(user: User | null, comradeId: number): Promise<boolean> {
+  if (!user) return false;
+  if (user.is_admin) return true;
+
+  const [row] = await sql`
+    select 1 from comrade_editors where user_id = ${user.id} and comrade_id = ${comradeId} limit 1
+  `;
+  return !!row;
+}
+
 // Same rule as canEditBand, over venue_editors — mirrors bands'/media pros'
 // self-editing model for the venue directory.
 export async function canEditVenue(user: User | null, venueId: number): Promise<boolean> {
