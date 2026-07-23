@@ -466,20 +466,8 @@ export async function canEditBand(user: User | null, bandId: number): Promise<bo
   return !!row;
 }
 
-// Same rule as canEditBand, over media_pro_editors — mirrors bands'
-// self-editing model for the photographer/videographer directory.
-export async function canEditMediaPro(user: User | null, mediaProId: number): Promise<boolean> {
-  if (!user) return false;
-  if (user.is_admin) return true;
-
-  const [row] = await sql`
-    select 1 from media_pro_editors where user_id = ${user.id} and media_pro_id = ${mediaProId} limit 1
-  `;
-  return !!row;
-}
-
-// Same rule as canEditBand, over writer_editors — mirrors bands'/media pros'
-// self-editing model for the music-writers directory (migration 0063).
+// Same rule as canEditBand, over writer_editors — mirrors bands' self-editing
+// model for the music-writers directory (migration 0063).
 export async function canEditWriter(user: User | null, writerId: number): Promise<boolean> {
   if (!user) return false;
   if (user.is_admin) return true;

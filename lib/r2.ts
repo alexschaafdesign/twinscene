@@ -230,64 +230,15 @@ export async function deleteAvatar(publicUrl: string): Promise<void> {
   }
 }
 
-// --- Media pros (photographers/videographers) ------------------------------
-// Profile photo for a media-pro directory listing. Keyed by slug like band
-// photos (one object per listing, overwritten in place on re-upload), reusing
-// the same generateThumbnail() pipeline bands use for their 400px grid variant.
-
-/** Upload a media pro's profile photo, keyed by slug, and return its public
- * URL. */
-export async function uploadMediaProPhoto(
-  slug: string,
-  bytes: Uint8Array,
-  mimeType: string,
-): Promise<string> {
-  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
-    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
-  }
-  const key = `media-pros/${slug}.${extensionFromMime(mimeType)}`;
-
-  await client().send(
-    new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
-      Key: key,
-      Body: bytes,
-      ContentType: mimeType,
-    }),
-  );
-
-  return `${R2_PUBLIC_URL}/${key}`;
-}
-
-/** Upload a media pro's thumbnail to R2 under media-pros/thumb/<slug>.jpg and
- * return its public URL. Overwrites any existing thumbnail for that slug. */
-export async function uploadMediaProThumbnail(
-  slug: string,
-  thumbBytes: Uint8Array | Buffer,
-): Promise<string> {
-  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
-    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
-  }
-  const key = `media-pros/thumb/${slug}.jpg`;
-
-  await client().send(
-    new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
-      Key: key,
-      Body: thumbBytes,
-      ContentType: "image/jpeg",
-    }),
-  );
-
-  return `${R2_PUBLIC_URL}/${key}`;
-}
-
-// --- Media pro gallery images ----------------------------------------------
-// Up to 5 portfolio images per listing (media_pros.gallery, migration 0032),
+// --- Gallery images (comrade photo/video portfolios) -----------------------
+// Up to 5 portfolio images per listing (comrades.gallery, migration 0065),
 // separate from the single profile `photo`. Each gets its own random key
-// under media-pros/gallery/<slug>/ — unlike `photo`/thumbnail (one object per
+// under comrades/gallery/<slug>/ — unlike `photo`/thumbnail (one object per
 // slug, overwritten in place) multiple images coexist and are added/removed
-// independently, so a shared slug-only key would collide.
+// independently, so a shared slug-only key would collide. (This pipeline
+// predates the Photo/Video → Comrades merge; it originally backed the
+// standalone media_pros gallery, hence the legacy media-pros/gallery/ prefix
+// still handled by deleteComradeGalleryImage below.)
 
 const GALLERY_MAX_DIMENSION = 2400;
 
@@ -305,49 +256,11 @@ export async function processGalleryImage(bytes: Uint8Array): Promise<Buffer> {
     .toBuffer();
 }
 
-/** Upload one processed gallery image under media-pros/gallery/<slug>/<random>.jpg
- * and return its public URL. */
-export async function uploadMediaProGalleryImage(
-  slug: string,
-  bytes: Uint8Array | Buffer,
-): Promise<string> {
-  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
-    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
-  }
-  const key = `media-pros/gallery/${slug}/${crypto.randomUUID()}.jpg`;
-
-  await client().send(
-    new PutObjectCommand({
-      Bucket: R2_BUCKET_NAME,
-      Key: key,
-      Body: bytes,
-      ContentType: "image/jpeg",
-    }),
-  );
-
-  return `${R2_PUBLIC_URL}/${key}`;
-}
-
-/** Best-effort delete of a gallery image removed on edit, given its public
- * URL. Silently no-ops on anything that isn't a gallery object under this
- * public base — replacing a listing's gallery should never fail because
- * cleanup of a dropped image did. */
-export async function deleteMediaProGalleryImage(publicUrl: string): Promise<void> {
-  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) return;
-  if (!publicUrl.startsWith(`${R2_PUBLIC_URL}/media-pros/gallery/`)) return;
-  const key = publicUrl.slice(`${R2_PUBLIC_URL}/`.length);
-
-  try {
-    await client().send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
-  } catch (err) {
-    console.error("lib/r2: failed to delete removed gallery image", err);
-  }
-}
-
-// --- Comrades (studios, labels, and other non-band/musician scene orgs) ----
-// Profile photo for a comrade directory listing. Keyed by slug like media-pro
-// photos (one object per listing, overwritten in place on re-upload), reusing
-// the same generateThumbnail() pipeline for the 400px grid variant.
+// --- Comrades (studios, labels, photo/video, and other non-band/musician
+// scene orgs) ---------------------------------------------------------------
+// Profile photo for a comrade directory listing. Keyed by slug (one object per
+// listing, overwritten in place on re-upload), reusing the same
+// generateThumbnail() pipeline for the 400px grid variant.
 
 /** Upload a comrade's profile photo, keyed by slug, and return its public
  * URL. */
