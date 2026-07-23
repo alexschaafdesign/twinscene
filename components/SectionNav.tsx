@@ -34,6 +34,13 @@ const SECTIONS: { href: string; label: string; isActive: (path: string) => boole
   { href: "/shows", label: "Shows", isActive: (p) => p.startsWith("/shows") },
   { href: "/venues", label: "Venues", isActive: (p) => p.startsWith("/venues") },
   { href: "/photo-video", label: "Photo/Video", isActive: (p) => p.startsWith("/photo-video") },
+  {
+    href: "/reads",
+    label: "Reads",
+    // The Reads hub (/reads) and the writer directory/detail pages
+    // (/writers, /writers/[slug]) are one section.
+    isActive: (p) => p.startsWith("/reads") || p.startsWith("/writers"),
+  },
   { href: "/playlists", label: "Playlists", isActive: (p) => p.startsWith("/playlists") },
   { href: "/musicians", label: "Musicians", isActive: (p) => p.startsWith("/musicians") },
 ];

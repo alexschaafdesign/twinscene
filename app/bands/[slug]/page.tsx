@@ -17,7 +17,9 @@ import { getBandMembers } from "@/lib/musicians";
 import { isBandOwner, bandHasOwner } from "@/lib/bandOwnership";
 import { canApproveMemberClaim, listPendingClaimsForBand } from "@/lib/bandMemberClaims";
 import { getHighConfidenceBandGenres } from "@/lib/bandGenres";
+import { listArticlesForEntity } from "@/lib/articles";
 import BandProfile, { editHref } from "@/components/BandProfile";
+import EntityPress from "@/components/EntityPress";
 import ClaimOwnershipButton from "@/components/ClaimOwnershipButton";
 import MessageButton from "@/components/MessageButton";
 import { iconProps, locationLabel } from "@/components/band-shared";
@@ -88,6 +90,8 @@ export default async function BandProfilePage({ params }: Props) {
   const canApproveClaims = user && bandRow ? await canApproveMemberClaim(user, bandRow.id) : false;
   const pendingMemberClaims = canApproveClaims && bandRow ? await listPendingClaimsForBand(bandRow.id) : [];
   const bandcampGenres = bandRow ? await getHighConfidenceBandGenres(bandRow.id) : [];
+  // "In the press" — articles cross-linked to this band via article_entities.
+  const pressArticles = bandRow ? await listArticlesForEntity("band", bandRow.id) : [];
 
   const actions = (
     <>
@@ -200,6 +204,9 @@ export default async function BandProfilePage({ params }: Props) {
         canEdit={canEdit}
         actions={actions}
       />
+      <div className="max-w-3xl">
+        <EntityPress articles={pressArticles} />
+      </div>
     </div>
   );
 }

@@ -15,6 +15,8 @@ const LINKS: { href: string; label: string }[] = [
   { href: "/admin/shows", label: "Shows" },
   { href: "/admin/bands", label: "Bands" },
   { href: "/admin/venues", label: "Venues" },
+  { href: "/admin/articles", label: "Reads" },
+  { href: "/admin/writers", label: "Writers" },
   { href: "/admin/review", label: "Review" },
   { href: "/admin/reconcile", label: "Reconcile" },
   { href: "/admin/activity", label: "Activity" },
@@ -22,6 +24,7 @@ const LINKS: { href: string; label: string }[] = [
   { href: "/admin/claims", label: "Band claims" },
   { href: "/admin/band-member-claims", label: "Member claims" },
   { href: "/admin/media-pro-claims", label: "Photo/video claims" },
+  { href: "/admin/writer-claims", label: "Writer claims" },
   { href: "/admin/venue-claims", label: "Venue claims" },
 ];
 
