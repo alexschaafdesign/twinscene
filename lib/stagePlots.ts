@@ -7,7 +7,7 @@
 // This module only reads/writes rows and normalizes untrusted payloads.
 
 import { sql } from "./db.ts";
-import { isCatalogKey } from "./stagePlotCatalog.ts";
+import { catalogItem, isCatalogKey } from "./stagePlotCatalog.ts";
 
 // Width-to-height ratio of the stage canvas, shared by the web editor and the
 // PDF so a plot renders identically in both. Wider than tall, like a stage seen
@@ -31,6 +31,7 @@ export interface StagePlotItem {
   y: number; // 0..1 fraction of canvas height
   rotation: number;
   scale: number; // multiplier on the symbol's natural size; 0.5..2.5
+  use_house: boolean; // backline gear: OK to use the venue's if provided
   notes: string | null;
   position: number;
 }
@@ -103,7 +104,7 @@ export async function getPlotDetail(plotId: number): Promise<StagePlotDetail | n
 
   const items = await sql<StagePlotItem[]>`
     select id, item_type, label, x::float8 as x, y::float8 as y,
-           rotation, scale::float8 as scale, notes, position
+           rotation, scale::float8 as scale, use_house, notes, position
     from stage_plot_items
     where stage_plot_id = ${plotId}
     order by position asc, id asc
@@ -146,6 +147,7 @@ export interface NormalizedContent {
     y: number;
     rotation: number;
     scale: number;
+    use_house: boolean;
     notes: string | null;
     position: number;
   }[];
@@ -208,6 +210,9 @@ export function normalizeContent(raw: unknown): NormalizedContent {
       y: clamp01(it.y),
       rotation: intOrNull(it.rotation, 0, 359) ?? 0,
       scale: clampScale(it.scale),
+      // Only backline gear (a catalog entry with a houseLabel) can carry the
+      // house flag; anything else stores false regardless of the payload.
+      use_house: it.use_house === true && !!catalogItem(it.item_type).houseLabel,
       notes: str(it.notes, MAX_TEXT),
       position: i,
     });
@@ -253,6 +258,7 @@ export async function saveContent(plotId: number, content: NormalizedContent): P
           "y",
           "rotation",
           "scale",
+          "use_house",
           "notes",
           "position",
         )}

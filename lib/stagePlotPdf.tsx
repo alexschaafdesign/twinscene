@@ -73,6 +73,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontFamily: "Helvetica-Bold",
   },
+  houseNote: {
+    fontSize: 6,
+    marginTop: 1,
+    textAlign: "center",
+    color: RED,
+  },
   audienceBar: {
     marginTop: 6,
     textAlign: "center",
@@ -249,7 +255,9 @@ function StagePlotDoc({
         <Text style={styles.sectionLabel}>Stage diagram</Text>
         <View style={styles.diagram}>
           {items.map((it) => {
-            const label = it.label?.trim() || catalogItem(it.item_type).label;
+            const cat = catalogItem(it.item_type);
+            const label = it.label?.trim() || cat.label;
+            const houseNote = it.use_house && cat.houseLabel ? `${cat.houseLabel} OK` : null;
             const size = symbolSize(it.item_type) * (it.scale || 1);
             const left = Math.min(
               Math.max(it.x * CONTENT_W - ITEM_BOX / 2, 0),
@@ -263,6 +271,7 @@ function StagePlotDoc({
               <View key={it.id} style={[styles.item, { left, top }]}>
                 <PdfSymbol type={it.item_type} size={size} rotation={it.rotation} />
                 <Text style={styles.itemLabel}>{label}</Text>
+                {houseNote && <Text style={styles.houseNote}>{houseNote}</Text>}
               </View>
             );
           })}

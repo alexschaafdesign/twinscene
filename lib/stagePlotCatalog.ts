@@ -29,6 +29,11 @@ export interface CatalogItem {
   /** Channel rows auto-created when this item is dropped. Empty for gear that
    *  isn't a channel source (monitors, power drops). */
   defaultInputs: DefaultInput[];
+  /** Set for backline gear a venue commonly provides (kit, bass/guitar amp).
+   *  When present, the editor offers a "will use the house … if provided"
+   *  toggle on the item, and the PDF flags it. The noun phrase, e.g.
+   *  "house kit". Absent = the band always brings their own. */
+  houseLabel?: string;
 }
 
 export const STAGE_PLOT_CATALOG: CatalogItem[] = [
@@ -41,11 +46,13 @@ export const STAGE_PLOT_CATALOG: CatalogItem[] = [
     key: "guitar_amp",
     label: "Guitar Amp",
     defaultInputs: [{ source: "Guitar Amp" }],
+    houseLabel: "house guitar amp",
   },
   {
     key: "bass_amp",
     label: "Bass Amp",
     defaultInputs: [{ source: "Bass" }],
+    houseLabel: "house bass amp",
   },
   {
     key: "acoustic_guitar",
@@ -59,6 +66,7 @@ export const STAGE_PLOT_CATALOG: CatalogItem[] = [
     // often a house kit anyway. The band can break it into per-drum channels
     // by hand if they want.
     defaultInputs: [{ source: "Drum Kit" }],
+    houseLabel: "house kit",
   },
   {
     key: "keys",

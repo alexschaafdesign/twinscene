@@ -42,6 +42,7 @@ type Item = {
   y: number;
   rotation: number;
   scale: number;
+  use_house: boolean;
   notes: string | null;
 };
 
@@ -67,6 +68,7 @@ function toItem(row: StagePlotItem): Item {
     y: row.y,
     rotation: row.rotation,
     scale: row.scale ?? 1,
+    use_house: row.use_house ?? false,
     notes: row.notes,
   };
 }
@@ -146,6 +148,7 @@ export default function StagePlotEditor({
               y: it.y,
               rotation: it.rotation,
               scale: it.scale,
+              use_house: it.use_house,
               notes: it.notes,
             })),
             inputs: inputs.map((row) => ({
@@ -177,6 +180,7 @@ export default function StagePlotEditor({
       y: snap(y),
       rotation: 0,
       scale: 1,
+      use_house: false,
       notes: null,
     };
     setItems((prev) => [...prev, newItem]);
@@ -537,6 +541,11 @@ export default function StagePlotEditor({
                 <span className="mt-1 max-w-[7rem] truncate text-[10px] font-medium leading-tight text-[#E8E0D0]/85">
                   {it.label || cat.label}
                 </span>
+                {it.use_house && cat.houseLabel && (
+                  <span className="max-w-[7rem] truncate text-[9px] leading-tight text-[#E8B84B]/85">
+                    {cat.houseLabel} OK
+                  </span>
+                )}
               </div>
             );
           })}
@@ -574,6 +583,25 @@ export default function StagePlotEditor({
                 maxLength={500}
               />
             </label>
+            {catalogItem(selected.item_type).houseLabel && (
+              <label className="flex cursor-pointer items-start gap-2 text-xs text-[#E8E0D0]/70">
+                <input
+                  type="checkbox"
+                  checked={selected.use_house}
+                  onChange={(e) =>
+                    updateItem(selected.uid, { use_house: e.target.checked })
+                  }
+                  className="mt-0.5 accent-[#E8B84B]"
+                />
+                <span>
+                  Will use the{" "}
+                  <span className="text-[#E8E0D0]/90">
+                    {catalogItem(selected.item_type).houseLabel}
+                  </span>{" "}
+                  if the venue provides one
+                </span>
+              </label>
+            )}
             <label className="block text-xs text-[#E8E0D0]/60">
               Notes
               <textarea
