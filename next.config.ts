@@ -11,6 +11,20 @@ const nextConfig: NextConfig = {
   // next/image — so it must not be bundled by the server transform; require it
   // natively instead, same as the other native/ESM-fussy packages here.
   serverExternalPackages: ["node-ical", "temporal-polyfill", "rrule-temporal", "sharp"],
+  async redirects() {
+    // The standalone Photo/Video directory (media_pros) was folded into
+    // Comrades as a category — slugs were preserved in the 0065 migration, so
+    // every old /photo-video URL maps 1:1 to its /comrades counterpart.
+    // Permanent (308) since these were public, link-previewed pages.
+    return [
+      { source: "/photo-video", destination: "/comrades", permanent: true },
+      { source: "/photo-video/submit", destination: "/comrades/submit", permanent: true },
+      { source: "/photo-video/:slug", destination: "/comrades/:slug", permanent: true },
+      // The old "link yourself to a photo/video profile" page — claiming now
+      // happens from the listing page itself, same as every other comrade.
+      { source: "/profile/media-pro", destination: "/comrades", permanent: true },
+    ];
+  },
   async headers() {
     return [
       {

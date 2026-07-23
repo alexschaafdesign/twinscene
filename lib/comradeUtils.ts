@@ -12,6 +12,7 @@ export type ComradeCategory =
   | "sound_production"
   | "record_store"
   | "promoter_collective"
+  | "photo_video"
   | "other";
 
 export const COMRADE_CATEGORIES: ComradeCategory[] = [
@@ -21,6 +22,11 @@ export const COMRADE_CATEGORIES: ComradeCategory[] = [
   "sound_production",
   "record_store",
   "promoter_collective",
+  // Photographers/videographers — folded in from the retired standalone
+  // Photo/Video directory (media_pros), which was itself just "scene people
+  // who aren't bands/musicians". They keep a portfolio gallery, unlike the
+  // other categories (see lib/comrades.ts's gallery/portfolio_url columns).
+  "photo_video",
   "other",
 ];
 
@@ -38,6 +44,8 @@ export function comradeCategoryLabel(category: string): string {
       return "Record Store / Distro";
     case "promoter_collective":
       return "Promoter / Collective";
+    case "photo_video":
+      return "Photo / Video";
     case "other":
     default:
       return "Other";

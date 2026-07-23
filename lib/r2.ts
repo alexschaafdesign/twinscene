@@ -396,6 +396,49 @@ export async function uploadComradeThumbnail(
   return `${R2_PUBLIC_URL}/${key}`;
 }
 
+/** Upload one processed comrade gallery image under
+ * comrades/gallery/<slug>/<random>.jpg and return its public URL. Reuses
+ * processGalleryImage above (same pipeline as media-pro galleries). */
+export async function uploadComradeGalleryImage(
+  slug: string,
+  bytes: Uint8Array | Buffer,
+): Promise<string> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) {
+    throw new Error("lib/r2: R2_BUCKET_NAME/R2_PUBLIC_URL are not set");
+  }
+  const key = `comrades/gallery/${slug}/${crypto.randomUUID()}.jpg`;
+
+  await client().send(
+    new PutObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: key,
+      Body: bytes,
+      ContentType: "image/jpeg",
+    }),
+  );
+
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
+/** Best-effort delete of a comrade gallery image removed on edit. Matches both
+ * the comrades/gallery/ prefix (new uploads) and the legacy media-pros/gallery/
+ * prefix — a photo/video listing migrated in from the old directory still
+ * points its gallery URLs at media-pros/gallery/ objects, so removing one on
+ * edit should clean that up too. No-ops on anything else. */
+export async function deleteComradeGalleryImage(publicUrl: string): Promise<void> {
+  if (!R2_BUCKET_NAME || !R2_PUBLIC_URL) return;
+  const comradePrefix = `${R2_PUBLIC_URL}/comrades/gallery/`;
+  const legacyPrefix = `${R2_PUBLIC_URL}/media-pros/gallery/`;
+  if (!publicUrl.startsWith(comradePrefix) && !publicUrl.startsWith(legacyPrefix)) return;
+  const key = publicUrl.slice(`${R2_PUBLIC_URL}/`.length);
+
+  try {
+    await client().send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
+  } catch (err) {
+    console.error("lib/r2: failed to delete removed comrade gallery image", err);
+  }
+}
+
 // Musician avatars (Musicians Slice 3) reuse generateAvatar above — same
 // sharp resize/re-encode pipeline — but live under their own musicians/<id>/
 // prefix (rather than avatars/<userId>/) since a musician's avatar and its

@@ -1,8 +1,11 @@
 "use client";
 
 // The site's top-level section tabs (Feed, then the scene directories: Bands,
-// Shows, Venues, Musicians, Photo/Video, then the softer-grouped Reads +
-// Playlists + Comrades). Rendered once from the root layout, outside {children}, so it's
+// Shows, Venues, Musicians, then the softer-grouped Reads + Comrades). Two
+// former directories were folded away to keep the bar focused: Photo/Video is
+// now a category inside Comrades (/photo-video redirects there), and Playlists
+// folds into Reads (reached via a header link; /playlists stays a route but not
+// a tab). Rendered once from the root layout, outside {children}, so it's
 // part of the persistent shell and never unmounts on navigation — unlike the
 // old copy that lived inline on the home page and vanished on every other route.
 //
@@ -22,7 +25,7 @@ const activeClass = "border-[#E8E0D0] text-[#E8E0D0]";
 const inactiveClass =
   "border-transparent text-[#E8E0D0]/70 hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]";
 
-// `grouped` tabs (Reads, Playlists) are a softer aside from the scene-directory
+// `grouped` tabs (Reads, Comrades) are a softer aside from the scene-directory
 // tabs — they render together inside a lightly tinted zone (no label, just the
 // tint) to read as their own little cluster.
 type Section = {
@@ -44,16 +47,16 @@ const SECTIONS: Section[] = [
   { href: "/shows", label: "Shows", isActive: (p) => p.startsWith("/shows") },
   { href: "/venues", label: "Venues", isActive: (p) => p.startsWith("/venues") },
   { href: "/musicians", label: "Musicians", isActive: (p) => p.startsWith("/musicians") },
-  { href: "/photo-video", label: "Photo/Video", isActive: (p) => p.startsWith("/photo-video") },
   {
     href: "/reads",
     label: "Reads",
-    // The Reads hub (/reads) and the writer directory/detail pages
-    // (/writers, /writers/[slug]) are one section.
-    isActive: (p) => p.startsWith("/reads") || p.startsWith("/writers"),
+    // The Reads hub (/reads), the writer directory/detail pages (/writers,
+    // /writers/[slug]), and Playlists (/playlists) are one section — Reads is
+    // the editorial hub, and both are reached via links in its header.
+    isActive: (p) =>
+      p.startsWith("/reads") || p.startsWith("/writers") || p.startsWith("/playlists"),
     grouped: true,
   },
-  { href: "/playlists", label: "Playlists", isActive: (p) => p.startsWith("/playlists"), grouped: true },
   { href: "/comrades", label: "Comrades", isActive: (p) => p.startsWith("/comrades"), grouped: true },
 ];
 
@@ -107,7 +110,7 @@ export default function SectionNav() {
             </li>
           ))}
 
-          {/* Reads + Playlists: a softer aside, bracketed by a faint tinted
+          {/* Reads + Comrades: a softer aside, bracketed by a faint tinted
               zone (rounded top, meeting the nav's bottom border) so they read
               as their own small cluster without a heading. */}
           {groupedSections.length > 0 && (

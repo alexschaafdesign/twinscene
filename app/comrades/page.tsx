@@ -23,7 +23,8 @@ export default async function ComradesPage() {
       <header className="mb-6">
         <h1 className="text-3xl font-semibold text-[#E8E0D0] sm:text-4xl">Comrades</h1>
         <p className="mt-1 max-w-xl text-[15px] text-[#E8E0D0]/60">
-          Studios, labels, and the rest of the scene that isn&apos;t a band or musician.
+          Studios, labels, photographers, and the rest of the scene that isn&apos;t a band or
+          musician.
         </p>
       </header>
 

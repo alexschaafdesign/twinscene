@@ -81,11 +81,39 @@ export default function ComradeProfile({
         <p className="whitespace-pre-line break-words text-sm leading-relaxed text-[#E8E0D0]/85">
           {comrade.bio || "No bio yet."}
         </p>
+
+        {/* Portfolio gallery — only photo/video listings carry one. */}
+        {comrade.gallery.length > 0 && (
+          <div>
+            <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-[#E8E0D0]/55">
+              Gallery
+            </h2>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {comrade.gallery.map((url) => (
+                <a
+                  key={url}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="aspect-square overflow-hidden rounded-md ring-1 ring-[#E8E0D0]/10 transition hover:ring-[#E8E0D0]/30"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- photo comes from R2, an arbitrary external host */}
+                  <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sidebar extras — directly under the photo */}
       <div className="space-y-5 md:col-start-1 md:row-start-2">
         <InfoBlock label="Contact" value={comrade.contact ?? ""} />
+        <InfoBlock
+          label="Portfolio"
+          value={comrade.portfolio_url ?? ""}
+          href={comrade.portfolio_url ? ensureUrl(comrade.portfolio_url) : undefined}
+        />
         <InfoBlock
           label="Website"
           value={comrade.website ?? ""}

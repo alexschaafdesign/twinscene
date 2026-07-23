@@ -26,6 +26,10 @@ export default async function ComradeSubmitPage({
   const slug = param("slug");
 
   let initialPhotoUrl = "";
+  // Gallery + portfolio can't ride in the query string (the gallery is an array
+  // of URLs), so they're loaded straight from the row in correct mode.
+  let initialGallery: string[] = [];
+  let initialPortfolioUrl = "";
   if (isCorrect) {
     const comrade = slug ? await getComradeBySlug(slug) : null;
     if (!comrade) notFound();
@@ -42,6 +46,8 @@ export default async function ComradeSubmitPage({
       );
     }
     initialPhotoUrl = comrade.photo ?? "";
+    initialGallery = comrade.gallery;
+    initialPortfolioUrl = comrade.portfolio_url ?? "";
   }
 
   return (
@@ -57,7 +63,9 @@ export default async function ComradeSubmitPage({
         initialWebsite={param("website")}
         initialInstagram={param("instagram")}
         initialContact={param("contact")}
+        initialPortfolioUrl={initialPortfolioUrl}
         initialPhotoUrl={initialPhotoUrl}
+        initialGallery={initialGallery}
       />
     </main>
   );

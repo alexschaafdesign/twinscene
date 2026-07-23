@@ -1,9 +1,9 @@
-// Canonical directory of scene participants who aren't bands, musicians,
-// photo/video pros, or writers — recording studios, record labels, rehearsal
-// spaces, and the like — backing /comrades. Raw-SQL data layer over the
-// `comrades` table (migration 0064), a near-exact clone of lib/mediaPros.ts
-// (a simple, fully-public directory) with bands-style self-editing bolted on
-// (lib/comradeEditors.ts, lib/comradeClaims.ts).
+// Canonical directory of scene participants who aren't bands, musicians, or
+// writers — recording studios, record labels, rehearsal spaces, photographers
+// and videographers, and the like — backing /comrades. Raw-SQL data layer over
+// the `comrades` table (migration 0064; photo/video merged in via 0065, which
+// absorbed the retired standalone media_pros directory), with bands-style
+// self-editing bolted on (lib/comradeEditors.ts, lib/comradeClaims.ts).
 
 import { sql } from "./db.ts";
 import type postgres from "postgres";
@@ -24,8 +24,13 @@ export interface Comrade {
   website: string | null;
   instagram: string | null;
   contact: string | null;
+  portfolio_url: string | null;
   photo: string | null;
   thumbnail_url: string | null;
+  // Up to 5 work samples — only ever populated for the `photo_video` category
+  // (folded in from the retired media_pros directory). Other categories leave
+  // it empty; the profile only renders a gallery when it's non-empty.
+  gallery: string[];
   created_at: string;
   updated_at: string;
 }
@@ -61,9 +66,13 @@ export interface ComradeSubmissionInput {
   website: string;
   instagram: string;
   contact: string;
+  portfolioUrl: string;
   photoUrl?: string; // set when a new photo was just uploaded (lib/r2.ts)
   thumbnailUrl?: string;
   removePhoto?: boolean;
+  // Final gallery URLs to persist (kept-existing + newly-uploaded), already
+  // resolved by the submit route. Omitted for non-photo/video submissions.
+  galleryUrls?: string[];
 }
 
 export interface UpsertComradeResult {
@@ -98,6 +107,11 @@ export async function upsertComrade(
     if (input.photoUrl) photo = input.photoUrl;
     if (input.thumbnailUrl) thumbnailUrl = input.thumbnailUrl;
 
+    // Gallery only applies to photo/video listings; when the caller doesn't
+    // send one (every other category), preserve whatever's there on update and
+    // default to empty on insert.
+    const gallery = input.galleryUrls ?? existing?.gallery ?? [];
+
     if (existing) {
       const [updated] = await tx<Comrade[]>`
         update comrades set
@@ -109,8 +123,10 @@ export async function upsertComrade(
           website = ${input.website || null},
           instagram = ${input.instagram || null},
           contact = ${input.contact || null},
+          portfolio_url = ${input.portfolioUrl || null},
           photo = ${photo},
           thumbnail_url = ${thumbnailUrl},
+          gallery = ${gallery},
           updated_at = now()
         where id = ${existing.id}
         returning *
@@ -122,11 +138,11 @@ export async function upsertComrade(
     const [created] = await tx<Comrade[]>`
       insert into comrades (
         slug, name, category, tagline, bio, city, website, instagram, contact,
-        photo, thumbnail_url
+        portfolio_url, photo, thumbnail_url, gallery
       ) values (
         ${slug}, ${input.name}, ${input.category}, ${input.tagline || null}, ${input.bio || null},
         ${input.city || null}, ${input.website || null}, ${input.instagram || null},
-        ${input.contact || null}, ${photo}, ${thumbnailUrl}
+        ${input.contact || null}, ${input.portfolioUrl || null}, ${photo}, ${thumbnailUrl}, ${gallery}
       )
       returning *
     `;

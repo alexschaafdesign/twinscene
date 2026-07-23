@@ -32,12 +32,20 @@ export default async function ReadsPage() {
             covering it.
           </p>
         </div>
-        <Link
-          href="/writers"
-          className="font-mono text-xs uppercase tracking-wider text-[#E8E0D0]/70 underline-offset-4 transition hover:text-[#E8E0D0] hover:underline"
-        >
-          The writers →
-        </Link>
+        <nav className="flex items-center gap-5">
+          <Link
+            href="/playlists"
+            className="font-mono text-xs uppercase tracking-wider text-[#E8E0D0]/70 underline-offset-4 transition hover:text-[#E8E0D0] hover:underline"
+          >
+            Playlists →
+          </Link>
+          <Link
+            href="/writers"
+            className="font-mono text-xs uppercase tracking-wider text-[#E8E0D0]/70 underline-offset-4 transition hover:text-[#E8E0D0] hover:underline"
+          >
+            The writers →
+          </Link>
+        </nav>
       </header>
 
       {articles.length === 0 ? (
