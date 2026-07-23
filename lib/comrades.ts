@@ -39,6 +39,10 @@ export async function getAllComrades(): Promise<Comrade[]> {
   return sql<Comrade[]>`select * from comrades order by name asc`;
 }
 
+export async function getComradesByCategory(category: ComradeCategory): Promise<Comrade[]> {
+  return sql<Comrade[]>`select * from comrades where category = ${category} order by name asc`;
+}
+
 export async function getComradeBySlug(slug: string): Promise<Comrade | null> {
   const [row] = await sql<Comrade[]>`select * from comrades where slug = ${slug} limit 1`;
   return row ?? null;

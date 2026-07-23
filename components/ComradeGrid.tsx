@@ -5,7 +5,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import type { Comrade } from "@/lib/comrades";
 import { comradeCategoryLabel } from "@/components/comrade-shared";
 import { ComradeImage } from "@/components/comrade-shared-client";
-import { COMRADE_CATEGORIES } from "@/lib/comradeUtils";
+import { COMRADE_CATEGORIES, type ComradeCategory } from "@/lib/comradeUtils";
 import { iconProps } from "@/components/band-shared";
 
 const CATEGORY_TAGS = COMRADE_CATEGORIES.map((value) => ({
@@ -107,9 +107,15 @@ function ComradeCard({ comrade }: { comrade: Comrade }) {
 export default function ComradeGrid({
   comrades,
   intro,
+  fixedCategory,
 }: {
   comrades: Comrade[];
   intro?: ReactNode;
+  // When set (the per-category pages at /comrades/c/<slug>), the category is
+  // locked and the category filter UI is dropped — it's the only filter, so a
+  // pill panel that can only ever re-select the current category is just noise.
+  // Search still works within the category.
+  fixedCategory?: ComradeCategory;
 }) {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
@@ -124,12 +130,13 @@ export default function ComradeGrid({
         const haystack = [c.name, c.city, c.tagline, c.bio, c.instagram].join(" ").toLowerCase();
         if (!haystack.includes(q)) return false;
       }
-      if (category && c.category !== category) return false;
+      const effectiveCategory = fixedCategory ?? category;
+      if (effectiveCategory && c.category !== effectiveCategory) return false;
       return true;
     });
-  }, [comrades, query, category]);
+  }, [comrades, query, category, fixedCategory]);
 
-  const gridKey = `${query}|${category}`;
+  const gridKey = `${query}|${fixedCategory ?? category}`;
 
   const activeFilterCount = category ? 1 : 0;
 
@@ -153,6 +160,7 @@ export default function ComradeGrid({
                 placeholder="Search by name, city, or what they do…"
                 className="w-full flex-1 rounded-md border border-[#E8E0D0]/25 bg-transparent px-3.5 py-2 text-sm text-[#E8E0D0] placeholder:text-[#E8E0D0]/40 focus:border-[#E8E0D0]/60 focus:outline-none"
               />
+              {!fixedCategory && (
               <button
                 type="button"
                 onClick={() => setFiltersOpen((v) => !v)}
@@ -191,10 +199,11 @@ export default function ComradeGrid({
                   <path d="M6 9l6 6l6 -6" />
                 </svg>
               </button>
+              )}
             </div>
 
             {/* Active filters — always visible, even with the panel collapsed */}
-            {activeFilterCount > 0 && (
+            {!fixedCategory && activeFilterCount > 0 && (
               <div className="flex flex-wrap items-center gap-1.5">
                 {category && (
                   <ActiveFilterChip
@@ -213,7 +222,7 @@ export default function ComradeGrid({
             )}
 
             {/* Full filter panel — collapsed by default, opened via the Filters button */}
-            {filtersOpen && (
+            {!fixedCategory && filtersOpen && (
               <div className="space-y-4 rounded-lg border border-[#E8E0D0]/15 bg-[#E8E0D0]/[0.03] p-4">
                 <FilterSection label="Category">
                   <div className="flex flex-wrap items-center gap-1.5">

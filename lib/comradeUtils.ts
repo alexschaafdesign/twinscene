@@ -52,6 +52,19 @@ export function comradeCategoryLabel(category: string): string {
   }
 }
 
+// URL-facing category slugs for the per-category listing pages
+// (/comrades/c/<slug>). The enum values already read like slugs except for the
+// underscore, so the mapping is a mechanical `_` <-> `-` swap — but we route it
+// through COMRADE_CATEGORIES so an unknown slug resolves to null (→ 404) rather
+// than silently constructing a bogus category.
+export function categorySlug(category: ComradeCategory): string {
+  return category.replace(/_/g, "-");
+}
+
+export function categoryFromSlug(slug: string): ComradeCategory | null {
+  return COMRADE_CATEGORIES.find((c) => categorySlug(c) === slug) ?? null;
+}
+
 export function slugify(text: string): string {
   return text
     .toLowerCase()

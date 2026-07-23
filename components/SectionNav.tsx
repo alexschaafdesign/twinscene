@@ -5,7 +5,9 @@
 // former directories were folded away to keep the bar focused: Photo/Video is
 // now a category inside Comrades (/photo-video redirects there), and Playlists
 // folds into Reads (reached via a header link; /playlists stays a route but not
-// a tab). Rendered once from the root layout, outside {children}, so it's
+// a tab). Comrades keeps its many categories reachable via a dropdown of
+// per-category pages (see ComradesDropdown) rather than another row of tabs.
+// Rendered once from the root layout, outside {children}, so it's
 // part of the persistent shell and never unmounts on navigation — unlike the
 // old copy that lived inline on the home page and vanished on every other route.
 //
@@ -17,7 +19,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { COMRADE_CATEGORIES, categorySlug, comradeCategoryLabel } from "@/lib/comradeUtils";
 
 const tabClass =
   "inline-block border-b-2 px-1 pb-3 text-sm font-semibold uppercase tracking-wide transition";
@@ -34,6 +37,136 @@ type Section = {
   isActive: (path: string) => boolean;
   grouped?: boolean;
 };
+
+// Comrades is one directory (a single `comrades` table with a `category`
+// column), but it fans out into a dropdown so each category has its own
+// shareable landing page. "All Comrades" heads the list (the unfiltered
+// /comrades grid); the rest map to /comrades/c/<category-slug>.
+const COMRADE_MENU = [
+  { href: "/comrades", label: "All Comrades" },
+  ...COMRADE_CATEGORIES.map((c) => ({
+    href: `/comrades/c/${categorySlug(c)}`,
+    label: comradeCategoryLabel(c),
+  })),
+];
+
+// The Comrades tab: a button that opens a menu of per-category pages rather
+// than a plain link. The menu is `position: fixed`, positioned from the
+// trigger's rect, so it escapes the nav row's horizontal-scroll clip on mobile
+// (an `overflow-x-auto` container clips `overflow-y` too). It closes on outside
+// click, Escape, route change, and any scroll/resize (a fixed menu doesn't
+// track the trigger once the page moves).
+function ComradesDropdown() {
+  const pathname = usePathname();
+  const isCurrent = pathname.startsWith("/comrades");
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ left: number; top: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Any navigation closes the menu (clicking an item, or landing elsewhere).
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function place() {
+      const el = triggerRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setCoords({ left: r.left, top: r.bottom + 8 });
+    }
+    place();
+
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    function onPointerDown(e: PointerEvent) {
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onScroll() {
+      setOpen(false);
+    }
+
+    window.addEventListener("resize", place);
+    // Capture so the nav row's own horizontal scroll (which doesn't bubble)
+    // also dismisses the menu.
+    window.addEventListener("scroll", onScroll, true);
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", onScroll, true);
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-current={isCurrent ? "page" : undefined}
+        className={`${tabClass} inline-flex items-center gap-1 ${isCurrent ? activeClass : inactiveClass}`}
+      >
+        Comrades
+        {/* ti-chevron-down (Tabler) */}
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          width={13}
+          height={13}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`transition-transform ${open ? "rotate-180" : ""}`}
+        >
+          <path d="M6 9l6 6l6 -6" />
+        </svg>
+      </button>
+
+      {open && coords && (
+        <div
+          ref={menuRef}
+          role="menu"
+          style={{ position: "fixed", left: coords.left, top: coords.top }}
+          className="z-50 min-w-[13rem] overflow-hidden rounded-lg border border-[#E8E0D0]/15 bg-[#141210] py-1 shadow-xl shadow-black/50"
+        >
+          {COMRADE_MENU.map((item) => {
+            const active =
+              item.href === "/comrades"
+                ? pathname === "/comrades"
+                : pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                role="menuitem"
+                className={`block px-4 py-2 text-sm transition ${
+                  active
+                    ? "bg-[#E8E0D0]/10 text-[#E8E0D0]"
+                    : "text-[#E8E0D0]/75 hover:bg-[#E8E0D0]/[0.06] hover:text-[#E8E0D0]"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </>
+  );
+}
 
 const SECTIONS: Section[] = [
   { href: "/feed", label: "Feed", isActive: (p) => p.startsWith("/feed") },
@@ -120,7 +253,7 @@ export default function SectionNav() {
             >
               {groupedSections.map((section) => (
                 <span key={section.href} className="shrink-0">
-                  {tabLink(section)}
+                  {section.href === "/comrades" ? <ComradesDropdown /> : tabLink(section)}
                 </span>
               ))}
             </li>
