@@ -92,12 +92,17 @@ function dayInfo(date: string, today: string): { label: string; sub: string } {
   const d = parse(date);
   const t = parse(today);
   if (Number.isNaN(d)) return { label: date, sub: "" };
-  const sub = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(d));
+  // A date outside today's calendar year gets its year appended ("Sat, Jul 22
+  // '24") — otherwise two archive entries on the same month/day from
+  // different years render identically.
+  const sameYear = !Number.isNaN(t) && date.slice(0, 4) === today.slice(0, 4);
+  const sub =
+    new Intl.DateTimeFormat("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(d)) + (sameYear ? "" : ` '${date.slice(2, 4)}`);
   if (Number.isNaN(t)) return { label: sub, sub: "" };
   const diff = Math.round((d - t) / 86_400_000);
   let label: string;
@@ -131,6 +136,22 @@ function groupByDate(shows: Show[]): { date: string; shows: Show[] }[] {
     else groups.push({ date: show.date, shows: [show] });
   }
   return groups;
+}
+
+/** Which day-groups should get a year divider before them — the first group
+ * of each new calendar year, when `enabled`. */
+function yearDividerFlags(
+  groups: { date: string }[],
+  enabled: boolean,
+): boolean[] {
+  if (!enabled) return groups.map(() => false);
+  let lastYear = "";
+  return groups.map((g) => {
+    const year = g.date.slice(0, 4);
+    const isNewYear = year !== lastYear;
+    lastYear = year;
+    return isNewYear;
+  });
 }
 
 type VenueGroup = { key: string; name: string; venue?: Venue; shows: Show[] };
@@ -240,6 +261,7 @@ export default function ShowsTimeline({
   density = "cards",
   distances,
   venues = [],
+  yearDividers = false,
 }: {
   shows: Show[];
   press?: Press[];
@@ -267,6 +289,10 @@ export default function ShowsTimeline({
    * sorting by distance. Present only in "nearest" mode; a null entry means the
    * venue has no coordinates, so no chip is shown. */
   distances?: Record<string, number | null>;
+  /** Insert a big year heading (with a `year-YYYY` anchor for the archive
+   * tab's "Jump to" nav) whenever the calendar year changes. Meant for a
+   * multi-year history browse, not the day-by-day upcoming list. */
+  yearDividers?: boolean;
 }) {
   const groups = groupByDate(shows);
 
@@ -278,12 +304,23 @@ export default function ShowsTimeline({
     );
   }
 
+  const showYearDividers = yearDividerFlags(groups, yearDividers);
+
   return (
     <div className="space-y-8">
-      {groups.map((group) => {
+      {groups.map((group, i) => {
         const { label, sub } = dayInfo(group.date, today);
+        const year = group.date.slice(0, 4);
         return (
           <section key={group.date}>
+            {showYearDividers[i] && (
+              <h2
+                id={`year-${year}`}
+                className="mb-4 scroll-mt-4 border-b border-[#E8E0D0]/15 pb-2 text-2xl font-semibold text-[#E8E0D0]/90"
+              >
+                {year}
+              </h2>
+            )}
             {/* Sticky relative day header — stays pinned while you scroll that
                 day's shows, so you never lose the date context. */}
             <div className="sticky top-0 z-20 mb-3 flex items-baseline justify-between gap-3 bg-[#090909]/85 py-2 backdrop-blur">

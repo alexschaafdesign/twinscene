@@ -98,8 +98,9 @@ export default function ShowsList({
   intro,
 }: {
   shows: Show[];
-  /** Shows in the last N days (fetchPastShows) — the "Recent" tab, so a show
-   * that's already happened is still reachable to mark "I went to this". */
+  /** Every past show (fetchAllPastShows), most recent first — backs the
+   * "Archive" tab, the browsable history of what's already happened (both to
+   * look a show up and to mark "I went to this"). */
   pastShows?: Show[];
   venues: Venue[];
   press?: Press[];
@@ -115,7 +116,7 @@ export default function ShowsList({
    * BandGrid's `intro` prop. */
   intro?: ReactNode;
 }) {
-  const [view, setView] = useState<"upcoming" | "recent">("upcoming");
+  const [view, setView] = useState<"upcoming" | "archive">("upcoming");
   // Render density for the timeline: "compact" (default) is the venue-clustered
   // agenda with flyer/venue avatars; "list" is an ultra-compact flat list (no
   // artwork, one line per show); "cards" is roomy, detail-rich per-show cards.
@@ -135,9 +136,9 @@ export default function ShowsList({
   const [sortByDistance, setSortByDistance] = useState(false);
 
   // Everything below (filters, counts, the timeline itself) derives from
-  // whichever tab is active, so switching to "Recent" re-scopes the whole
+  // whichever tab is active, so switching to "Archive" re-scopes the whole
   // page to past shows instead of upcoming ones.
-  const activeShows = view === "recent" ? pastShows : shows;
+  const activeShows = view === "archive" ? pastShows : shows;
 
   // Shows tagged with a non-band event type (open mic, trivia, DJ night,
   // etc. — see the scrapers' classifyEventType helpers). Hidden by default;
@@ -262,6 +263,24 @@ export default function ShowsList({
       return da - db;
     });
   }, [distanceSortActive, visible, showDistances]);
+
+  // Distinct years present in the archive, most recent first — a quick-jump
+  // nav so finding an old show doesn't mean scrolling past every year since.
+  const archiveYears = useMemo(() => {
+    if (view !== "archive") return [];
+    const years = new Set<string>();
+    for (const s of ordered) {
+      const y = s.date.slice(0, 4);
+      if (y) years.add(y);
+    }
+    return [...years].sort((a, b) => b.localeCompare(a));
+  }, [view, ordered]);
+
+  function jumpToYear(year: string) {
+    document
+      .getElementById(`year-${year}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   const activeFilterCount =
     (venue ? 1 : 0) +
@@ -532,9 +551,8 @@ export default function ShowsList({
         )}
       </div>
 
-      {/* Upcoming/Recent tab — only once there's something in the last 30 days
-          to look back at (a past show stays reachable to mark "I went to this"
-          after fetchShows() drops it). Positioned like BandGrid's Sort/View row. */}
+      {/* Upcoming/Archive tab — only once there's a past show to look back at.
+          Positioned like BandGrid's Sort/View row. */}
       {pastShows.length > 0 && (
         <div className="mt-4 flex items-center gap-1.5">
           <span className="text-xs text-[#E8E0D0]/45">Showing</span>
@@ -553,17 +571,35 @@ export default function ShowsList({
             </button>
             <button
               type="button"
-              onClick={() => setView("recent")}
-              aria-pressed={view === "recent"}
+              onClick={() => setView("archive")}
+              aria-pressed={view === "archive"}
               className={`rounded px-2.5 py-1 text-xs transition ${
-                view === "recent"
+                view === "archive"
                   ? "bg-[#E8E0D0] text-[#2A2420]"
                   : "text-[#E8E0D0]/55 hover:text-[#E8E0D0]"
               }`}
             >
-              Recent ({pastShows.length})
+              Archive ({pastShows.length})
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Year quick-jump — only worth showing once the archive spans more
+          than one calendar year. */}
+      {view === "archive" && archiveYears.length > 1 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          <span className="text-xs text-[#E8E0D0]/45">Jump to</span>
+          {archiveYears.map((year) => (
+            <button
+              key={year}
+              type="button"
+              onClick={() => jumpToYear(year)}
+              className={`${filterPillBase} border-[#E8E0D0]/25 text-[#E8E0D0]/70 hover:border-[#E8E0D0]/60`}
+            >
+              {year}
+            </button>
+          ))}
         </div>
       )}
       </div>
@@ -611,11 +647,12 @@ export default function ShowsList({
         distances={distanceSortActive ? showDistances : undefined}
         venues={venueDirectory}
         returnTo="/shows"
+        yearDividers={view === "archive"}
         emptyMessage={
-          view === "recent"
+          view === "archive"
             ? venue
-              ? `No recent shows at ${venue}.`
-              : "No recent shows in the last 30 days."
+              ? `No archived shows at ${venue}.`
+              : "No shows in the archive yet."
             : venue
               ? `No upcoming shows at ${venue}.`
               : pressRecommendedOnly

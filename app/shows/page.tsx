@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { todayInChicago } from "@/lib/fetchShows";
-import { getCachedShows, getCachedPastShows, getCachedVenues } from "@/lib/cachedReads";
+import { getCachedShows, getCachedAllPastShows, getCachedVenues } from "@/lib/cachedReads";
 import { fetchPress } from "@/lib/fetchPress";
 import { getCurrentUser } from "@/lib/auth";
 import { listShowStatuses } from "@/lib/showSaves";
@@ -12,15 +12,11 @@ export const metadata: Metadata = {
   description: "This list is mostly created automatically by pulling info from venue websites. Still in beta!",
 };
 
-// How far back the "Recent" tab looks — just enough to make a just-happened
-// show reachable for marking "I went to this", not a full history browser.
-const PAST_SHOWS_DAYS = 30;
-
 export default async function ShowsPage() {
   const today = todayInChicago();
   const [shows, pastShows, venues, press, user] = await Promise.all([
     getCachedShows(today),
-    getCachedPastShows(PAST_SHOWS_DAYS, today),
+    getCachedAllPastShows(),
     getCachedVenues(),
     fetchPress(),
     getCurrentUser(),

@@ -14,11 +14,11 @@
 // so an edit is reflected immediately. The `revalidate` floors are a safety net
 // if a tag call is ever missed.
 //
-// The shows wrappers additionally take today's Chicago date as a cache-key
-// discriminator (the functions still compute it internally — the arg only shapes
-// the key). Because fetchShows()/fetchPastShows() filter by today's date, their
-// result is only valid for the current day; folding the date into the key makes
-// the cache miss and refetch the instant the Chicago date ticks past midnight,
+// getCachedShows additionally takes today's Chicago date as a cache-key
+// discriminator (the function still computes it internally — the arg only
+// shapes the key). Because fetchShows() filters by today's date, its result
+// is only valid for the current day; folding the date into the key makes the
+// cache miss and refetch the instant the Chicago date ticks past midnight,
 // instead of serving yesterday's upcoming shows until the hourly floor expires.
 //
 // IMPORTANT: only display/read code (app pages, read-only routes) should import
@@ -36,7 +36,6 @@ import { getBandBySlug } from "./bands.ts";
 import {
   fetchShows,
   fetchShowById,
-  fetchPastShows,
   fetchAllPastShows,
 } from "./fetchShows.ts";
 import { fetchVenues } from "./fetchVenues.ts";
@@ -79,12 +78,6 @@ export const getCachedShowById = unstable_cache(fetchShowById, ["cached-show-by-
   tags: [CACHE_TAGS.shows],
   revalidate: HOUR,
 });
-export const getCachedPastShows = unstable_cache(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- today is a cache-key discriminator only
-  (days: number, today: string) => fetchPastShows(days),
-  ["cached-past-shows-v2"], // v2: see getCachedShows — Show gained localBandSlugs (0059)
-  { tags: [CACHE_TAGS.shows], revalidate: HOUR },
-);
 export const getCachedAllPastShows = unstable_cache(fetchAllPastShows, ["cached-all-past-shows-v2"], {
   tags: [CACHE_TAGS.shows],
   revalidate: HOUR,

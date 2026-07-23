@@ -227,44 +227,9 @@ function byDateThenTime(a: Show, b: Show): number {
 }
 
 /**
- * Every show dated in the last `days` days, most recent first — the "Recent
- * shows" tab on /shows, so a show that's already happened is still reachable
- * (to mark "I went to this") even though fetchShows() drops it the moment its
- * date passes. Windowed rather than "everything past" (unlike
- * fetchAllShows()) to keep the query cheap as show history grows.
- */
-export async function fetchPastShows(days: number): Promise<Show[]> {
-  const today = todayInChicago();
-  const start = new Date(`${today}T00:00:00Z`);
-  start.setUTCDate(start.getUTCDate() - days);
-  const startStr = start.toISOString().slice(0, 10);
-
-  let rows: ShowsQueryRow[];
-  try {
-    rows = await sql<ShowsQueryRow[]>`
-      SELECT
-        id, to_char(date, 'YYYY-MM-DD') AS date, venue_name, title, lineup,
-        notes, to_char(music_time, 'HH24:MI') AS music_time, to_char(doors_time, 'HH24:MI') AS doors_time,
-        genres, age_restriction, description, similar_to,
-        ticket_url, flyer_url, event_type, source, source_key, starred_by, created_at,
-        needs_review, confidence, review_reasons, hidden_at
-      FROM shows
-      WHERE confidence IS DISTINCT FROM 'broken' AND hidden_at IS NULL AND date >= ${startStr} AND date < ${today}
-    `;
-  } catch (err) {
-    console.error("fetchPastShows: query failed", err);
-    return [];
-  }
-
-  return annotateLocality(
-    rows.map(mapRow).sort((a, b) => b.date.localeCompare(a.date)),
-  );
-}
-
-/**
- * Every past show, any age, most recent first — unlike fetchPastShows(), not
- * windowed to the last N days. Used by the venue profile page's "Past shows"
- * tab, which wants a venue's full history rather than just a recent slice.
+ * Every past show, any age, most recent first. Backs the /shows page's
+ * "Archive" tab (the browsable full show history) and the venue profile
+ * page's "Past shows" tab.
  */
 export async function fetchAllPastShows(): Promise<Show[]> {
   const today = todayInChicago();
