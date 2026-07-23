@@ -1,12 +1,14 @@
 "use client";
 
 // The site's top-level section tabs (Feed, then the scene directories: Bands,
-// Shows, Venues, Musicians, then the softer-grouped Reads + Comrades). Two
-// former directories were folded away to keep the bar focused: Photo/Video is
-// now a category inside Comrades (/photo-video redirects there), and Playlists
-// folds into Reads (reached via a header link; /playlists stays a route but not
-// a tab). Comrades keeps its many categories reachable via a dropdown of
-// per-category pages (see ComradesDropdown) rather than another row of tabs.
+// Shows, Venues, Musicians, then the softer-grouped Reads + Comrades +
+// Projects). Two former directories were folded away to keep the bar focused:
+// Photo/Video is now a category inside Comrades (/photo-video redirects there),
+// and Playlists folds into Reads (reached via a header link; /playlists stays a
+// route but not a tab). Sections whose destinations fan out (Comrades'
+// categories, Projects' programs) carry a `menu` and render as a dropdown (see
+// NavDropdown) rather than another row of tabs. Projects currently holds just
+// Song Club (our own admin-run songwriter meetups).
 // Rendered once from the root layout, outside {children}, so it's
 // part of the persistent shell and never unmounts on navigation — unlike the
 // old copy that lived inline on the home page and vanished on every other route.
@@ -28,21 +30,25 @@ const activeClass = "border-[#E8E0D0] text-[#E8E0D0]";
 const inactiveClass =
   "border-transparent text-[#E8E0D0]/70 hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]";
 
-// `grouped` tabs (Reads, Comrades) are a softer aside from the scene-directory
-// tabs — they render together inside a lightly tinted zone (no label, just the
-// tint) to read as their own little cluster.
+// `grouped` tabs (Reads, Comrades, Projects) are a softer aside from the
+// scene-directory tabs — they render together inside a lightly tinted zone (no
+// label, just the tint) to read as their own little cluster.
+type MenuItem = { href: string; label: string };
 type Section = {
   href: string;
   label: string;
   isActive: (path: string) => boolean;
   grouped?: boolean;
+  // When present, the tab is a dropdown of these destinations (see NavDropdown)
+  // instead of a plain link.
+  menu?: MenuItem[];
 };
 
 // Comrades is one directory (a single `comrades` table with a `category`
 // column), but it fans out into a dropdown so each category has its own
 // shareable landing page. "All Comrades" heads the list (the unfiltered
 // /comrades grid); the rest map to /comrades/c/<category-slug>.
-const COMRADE_MENU = [
+const COMRADE_MENU: MenuItem[] = [
   { href: "/comrades", label: "All Comrades" },
   ...COMRADE_CATEGORIES.map((c) => ({
     href: `/comrades/c/${categorySlug(c)}`,
@@ -50,15 +56,20 @@ const COMRADE_MENU = [
   })),
 ];
 
-// The Comrades tab: a button that opens a menu of per-category pages rather
-// than a plain link. The menu is `position: fixed`, positioned from the
-// trigger's rect, so it escapes the nav row's horizontal-scroll clip on mobile
-// (an `overflow-x-auto` container clips `overflow-y` too). It closes on outside
-// click, Escape, route change, and any scroll/resize (a fixed menu doesn't
-// track the trigger once the page moves).
-function ComradesDropdown() {
+// Projects — our own admin-run programming, not a scraped/scene directory. Just
+// Song Club today; the dropdown leaves room to add more programs later.
+const PROJECTS_MENU: MenuItem[] = [{ href: "/song-club", label: "Song Club" }];
+
+// A section tab that opens a menu of destinations rather than being a plain
+// link (Comrades' categories, Projects' programs). The menu is
+// `position: fixed`, positioned from the trigger's rect, so it escapes the nav
+// row's horizontal-scroll clip on mobile (an `overflow-x-auto` container clips
+// `overflow-y` too). It closes on outside click, Escape, route change, and any
+// scroll/resize (a fixed menu doesn't track the trigger once the page moves).
+function NavDropdown({ section }: { section: Section }) {
   const pathname = usePathname();
-  const isCurrent = pathname.startsWith("/comrades");
+  const isCurrent = section.isActive(pathname);
+  const items = section.menu ?? [];
   const [open, setOpen] = useState(false);
   const [coords, setCoords] = useState<{ left: number; top: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -117,7 +128,7 @@ function ComradesDropdown() {
         aria-current={isCurrent ? "page" : undefined}
         className={`${tabClass} inline-flex items-center gap-1 ${isCurrent ? activeClass : inactiveClass}`}
       >
-        Comrades
+        {section.label}
         {/* ti-chevron-down (Tabler) */}
         <svg
           aria-hidden="true"
@@ -142,11 +153,11 @@ function ComradesDropdown() {
           style={{ position: "fixed", left: coords.left, top: coords.top }}
           className="z-50 min-w-[13rem] overflow-hidden rounded-lg border border-[#E8E0D0]/15 bg-[#141210] py-1 shadow-xl shadow-black/50"
         >
-          {COMRADE_MENU.map((item) => {
-            const active =
-              item.href === "/comrades"
-                ? pathname === "/comrades"
-                : pathname === item.href;
+          {items.map((item) => {
+            // Exact match: the top-level tab already carries "you're in this
+            // section" via isCurrent, so a menu item highlights only on its own
+            // landing page (e.g. "All Comrades" isn't lit on a category page).
+            const active = pathname === item.href;
             return (
               <Link
                 key={item.href}
@@ -190,7 +201,22 @@ const SECTIONS: Section[] = [
       p.startsWith("/reads") || p.startsWith("/writers") || p.startsWith("/playlists"),
     grouped: true,
   },
-  { href: "/comrades", label: "Comrades", isActive: (p) => p.startsWith("/comrades"), grouped: true },
+  {
+    href: "/comrades",
+    label: "Comrades",
+    isActive: (p) => p.startsWith("/comrades"),
+    grouped: true,
+    menu: COMRADE_MENU,
+  },
+  {
+    href: "/song-club",
+    label: "Projects",
+    // Projects is a dropdown of our own programs; Song Club (list + event
+    // pages) is the only one for now.
+    isActive: (p) => p.startsWith("/song-club"),
+    grouped: true,
+    menu: PROJECTS_MENU,
+  },
 ];
 
 export default function SectionNav() {
@@ -239,7 +265,7 @@ export default function SectionNav() {
               {i === 1 && (
                 <span aria-hidden="true" className="mb-3 h-4 w-px shrink-0 bg-[#E8E0D0]/20" />
               )}
-              {tabLink(section)}
+              {section.menu ? <NavDropdown section={section} /> : tabLink(section)}
             </li>
           ))}
 
@@ -253,7 +279,7 @@ export default function SectionNav() {
             >
               {groupedSections.map((section) => (
                 <span key={section.href} className="shrink-0">
-                  {section.href === "/comrades" ? <ComradesDropdown /> : tabLink(section)}
+                  {section.menu ? <NavDropdown section={section} /> : tabLink(section)}
                 </span>
               ))}
             </li>
