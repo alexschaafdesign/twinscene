@@ -31,8 +31,9 @@ const inactiveClass =
   "border-transparent text-[#E8E0D0]/70 hover:border-[#E8E0D0]/40 hover:text-[#E8E0D0]";
 
 // `grouped` tabs (Reads, Comrades, Projects) are a softer aside from the
-// scene-directory tabs — they render together inside a lightly tinted zone (no
-// label, just the tint) to read as their own little cluster.
+// scene-directory tabs — on sm+ they cluster at the right edge of the bar
+// (ml-auto) to read as their own group; on mobile they just trail the rest in
+// the horizontal scroll.
 type MenuItem = { href: string; label: string };
 type Section = {
   href: string;
@@ -269,13 +270,15 @@ export default function SectionNav() {
             </li>
           ))}
 
-          {/* Reads + Comrades: a softer aside, bracketed by a faint tinted
-              zone (rounded top, meeting the nav's bottom border) so they read
-              as their own small cluster without a heading. */}
+          {/* Reads + Comrades + Projects: the softer, non-directory sections.
+              On sm+ `ml-auto` pushes the cluster to the right edge, setting it
+              apart from the scene-directory tabs. On mobile there's no room to
+              split the row, so they just trail the others in the horizontal
+              scroll. */}
           {groupedSections.length > 0 && (
             <li
               ref={groupIsCurrent ? activeRef : undefined}
-              className="ml-1 flex shrink-0 items-end gap-x-5 rounded-t-md bg-[#E8E0D0]/[0.06] px-3"
+              className="flex shrink-0 items-end gap-x-6 sm:ml-auto"
             >
               {groupedSections.map((section) => (
                 <span key={section.href} className="shrink-0">
