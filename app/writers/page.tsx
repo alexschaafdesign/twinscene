@@ -2,12 +2,13 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getAllWritersWithCounts } from "@/lib/writers";
 import { WriterAvatar } from "@/components/writer-shared";
+import { pageMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Writers — Twin Scene",
   description:
     "Music writers, journalists, and bloggers covering the Twin Cities scene.",
-};
+});
 
 // getAllWritersWithCounts() reads the DB directly (no fetch()), so Next has no
 // signal to render dynamically — same note as /photo-video.

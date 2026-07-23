@@ -1,8 +1,7 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { getCachedShowById } from "@/lib/cachedReads";
 import { isVenueLogo } from "@/lib/venueImages";
+import { loadBricolageWeight, loadLogoDataUri } from "@/lib/ogAssets";
 
 // fs + Postgres access, so this needs the Node.js runtime, not Edge.
 export const runtime = "nodejs";
@@ -41,37 +40,6 @@ function lineupActs(lineup: string): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-}
-
-/** Fetch one weight of Bricolage Grotesque as ttf/otf/woff, matching the site's font. Never throws. */
-async function loadFontWeight(weight: number): Promise<ArrayBuffer | null> {
-  try {
-    const cssUrl = `https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@${weight}`;
-    const css = await (
-      await fetch(cssUrl, {
-        // A bare UA with no recognized browser tokens gets Google's most
-        // conservative format (ttf) — modern UAs get woff2, which Satori can't parse.
-        headers: { "User-Agent": "Mozilla/5.0" },
-        cache: "force-cache",
-      })
-    ).text();
-    const match = /src: url\(([^)]+)\) format\('(?:opentype|truetype|woff)'\)/.exec(css);
-    if (!match) return null;
-    const fontResponse = await fetch(match[1], { cache: "force-cache" });
-    if (!fontResponse.ok) return null;
-    return await fontResponse.arrayBuffer();
-  } catch {
-    return null;
-  }
-}
-
-async function loadLogoDataUri(): Promise<string | null> {
-  try {
-    const buffer = await readFile(join(process.cwd(), "public", "logo.png"));
-    return `data:image/png;base64,${buffer.toString("base64")}`;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -124,8 +92,8 @@ export async function GET(
 
   const [logoDataUri, boldFont, mediumFont, flyerDataUri] = await Promise.all([
     loadLogoDataUri(),
-    loadFontWeight(800),
-    loadFontWeight(500),
+    loadBricolageWeight(800),
+    loadBricolageWeight(500),
     flyerUrl ? loadFlyerDataUri(flyerUrl) : Promise.resolve(null),
   ]);
 

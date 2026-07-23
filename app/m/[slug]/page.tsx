@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getMusicianPageData, canEditMusician } from "@/lib/musicians";
 import BackLink from "@/components/BackLink";
 import MessageButton from "@/components/MessageButton";
+import { pageMetadata } from "@/lib/metadata";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -19,10 +20,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   // Musicians are public scene data — no noindex, unlike private user
   // profiles.
-  return {
+  return pageMetadata({
     title: `${musician.name} — Twin Scene`,
     description: musician.bio || `${musician.name} on Twin Scene.`,
-  };
+    image: musician.image_url,
+    type: "profile",
+  });
 }
 
 // Public, unauthenticated musician page — name, avatar, bio, and the bands

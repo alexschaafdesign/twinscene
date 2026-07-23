@@ -17,6 +17,7 @@ import ClaimVenueButton from "@/components/ClaimVenueButton";
 import { venueEditHref, venueLocationLabel } from "@/components/venue-shared";
 import { iconProps } from "@/components/band-shared";
 import BackLink from "@/components/BackLink";
+import { pageMetadata } from "@/lib/metadata";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -43,10 +44,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     venue.notes ||
     `${venue.name}${place ? ` — ${place}` : ""} on Twin Scene, the Twin Cities music directory.`;
 
-  return {
-    title: venue.name,
-    description,
-  };
+  return pageMetadata({ title: venue.name, description, image: venue.photo });
 }
 
 export default async function VenueProfilePage({ params }: Props) {

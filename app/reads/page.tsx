@@ -2,12 +2,13 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { listPublishedArticles } from "@/lib/articles";
 import { FeaturedHero, ArticleCard } from "@/components/article-cards";
+import { pageMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Reads — Twin Scene",
   description:
     "Writing about the Twin Cities music scene — reviews, interviews, and features from local music writers and journalists.",
-};
+});
 
 // listPublishedArticles() reads the DB directly (no fetch()), so Next has no
 // signal to render dynamically — without this the page caches after its first

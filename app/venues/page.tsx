@@ -2,11 +2,12 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getCachedVenues } from "@/lib/cachedReads";
 import VenueGrid from "@/components/VenueGrid";
+import { pageMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Venues — Twin Scene",
   description: "Venues that host the Twin Cities music scene.",
-};
+});
 
 // fetchVenues() reads the DB directly (no fetch()), which gives Next no
 // signal to render dynamically — without this the page gets cached after its

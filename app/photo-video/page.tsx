@@ -2,11 +2,12 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { getAllMediaPros } from "@/lib/mediaPros";
 import MediaProGrid from "@/components/MediaProGrid";
+import { pageMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Photo/Video — Twin Scene",
   description: "Photographers and videographers in the Twin Cities music scene.",
-};
+});
 
 // getAllMediaPros() reads the DB directly (no fetch()), which gives Next no
 // signal to render dynamically — without this the page gets cached after its

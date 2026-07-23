@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Playlists — Twin Scene",
   description:
     "Playlists spotlighting the Twin Cities music scene, starting with a monthly roundup of new local releases.",
-};
+});
 
 type Playlist = {
   credit: string;

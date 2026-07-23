@@ -18,6 +18,7 @@ import { isBandOwner, bandHasOwner } from "@/lib/bandOwnership";
 import { canApproveMemberClaim, listPendingClaimsForBand } from "@/lib/bandMemberClaims";
 import { getHighConfidenceBandGenres } from "@/lib/bandGenres";
 import { listArticlesForEntity } from "@/lib/articles";
+import { pageMetadata } from "@/lib/metadata";
 import BandProfile, { editHref } from "@/components/BandProfile";
 import EntityPress from "@/components/EntityPress";
 import ClaimOwnershipButton from "@/components/ClaimOwnershipButton";
@@ -52,17 +53,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     band.bio ||
     `${band.name}${place ? ` — ${place}` : ""} on Twin Scene, the Twin Cities music directory.`;
 
-  return {
-    title: band.name,
-    description,
-    openGraph: {
-      title: band.name,
-      description,
-      type: "profile",
-      // band.image is an absolute external URL, which OG images require.
-      images: band.image ? [band.image] : undefined,
-    },
-  };
+  return pageMetadata({ title: band.name, description, image: band.image, type: "profile" });
 }
 
 export default async function BandProfilePage({ params }: Props) {

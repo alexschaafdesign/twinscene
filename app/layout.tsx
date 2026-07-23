@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, IBM_Plex_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getUnreadCount } from "@/lib/notifications";
+import { pageMetadata, SITE_URL } from "@/lib/metadata";
 import AccountMenu from "@/components/AccountMenu";
 import SectionNav from "@/components/SectionNav";
 import "./globals.css";
@@ -25,9 +26,14 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Twin Scene",
-  description:
-    "A curated index of the Twin Cities music scene, maintained by The Birdhaus.",
+  // Lets every URL-based metadata field below (and in child routes) use a
+  // relative path instead of requiring a fully-qualified URL.
+  metadataBase: new URL(SITE_URL),
+  ...pageMetadata({
+    title: "Twin Scene",
+    description:
+      "A curated index of the Twin Cities music scene, maintained by The Birdhaus.",
+  }),
 };
 
 export default async function RootLayout({

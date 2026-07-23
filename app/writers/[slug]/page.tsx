@@ -8,6 +8,7 @@ import { WriterAvatar, ensureUrl } from "@/components/writer-shared";
 import { ArticleCard } from "@/components/article-cards";
 import ClaimWriterButton from "@/components/ClaimWriterButton";
 import BackLink from "@/components/BackLink";
+import { pageMetadata } from "@/lib/metadata";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -20,16 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description =
     writer.bio ||
     `${writer.name}${writer.publication ? ` — ${writer.publication}` : ""} on Twin Scene.`;
-  return {
-    title: writer.name,
-    description,
-    openGraph: {
-      title: writer.name,
-      description,
-      type: "profile",
-      images: writer.photo ? [writer.photo] : undefined,
-    },
-  };
+  return pageMetadata({ title: writer.name, description, image: writer.photo, type: "profile" });
 }
 
 function LinkPill({ href, label }: { href: string; label: string }) {

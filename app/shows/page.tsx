@@ -6,11 +6,12 @@ import { fetchPress } from "@/lib/fetchPress";
 import { getCurrentUser } from "@/lib/auth";
 import { listShowStatuses } from "@/lib/showSaves";
 import ShowsList from "@/components/ShowsList";
+import { pageMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Upcoming Shows — Twin Scene",
   description: "This list is mostly created automatically by pulling info from venue websites. Still in beta!",
-};
+});
 
 export default async function ShowsPage() {
   const today = todayInChicago();

@@ -3,12 +3,13 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { fetchMusiciansDirectory, getMusicianForUser } from "@/lib/musicians";
 import MusiciansTable from "@/components/MusiciansTable";
+import { pageMetadata } from "@/lib/metadata";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "Musicians — Twin Scene",
   description:
     "Every musician in the Twin Cities Music Scene directory, ranked by how many bands they play in.",
-};
+});
 
 // fetchMusiciansDirectory() reads the DB directly, so force dynamic rendering
 // the same way the home page does — otherwise this would prerender once and

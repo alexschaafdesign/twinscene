@@ -8,6 +8,7 @@ import ClaimMediaProButton from "@/components/ClaimMediaProButton";
 import { mediaProEditHref } from "@/components/media-pro-shared";
 import { iconProps } from "@/components/band-shared";
 import BackLink from "@/components/BackLink";
+import { pageMetadata } from "@/lib/metadata";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -28,16 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     mediaPro.bio ||
     `${mediaPro.name}${mediaPro.city ? ` — ${mediaPro.city}` : ""} on Twin Scene, the Twin Cities music directory.`;
 
-  return {
-    title: mediaPro.name,
-    description,
-    openGraph: {
-      title: mediaPro.name,
-      description,
-      type: "profile",
-      images: mediaPro.photo ? [mediaPro.photo] : undefined,
-    },
-  };
+  return pageMetadata({ title: mediaPro.name, description, image: mediaPro.photo, type: "profile" });
 }
 
 export default async function MediaProProfilePage({ params }: Props) {

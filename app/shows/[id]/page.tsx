@@ -23,6 +23,7 @@ import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getShowStatus } from "@/lib/showSaves";
 import { ShowStatusButtons } from "@/components/ShowStatusButtons";
 import BackLink from "@/components/BackLink";
+import { pageMetadata } from "@/lib/metadata";
 
 // Shared by generateMetadata and the page body so a visit costs one
 // fetchShowById() DB hit, not two.
@@ -94,10 +95,14 @@ export async function generateMetadata({
   const show = await getShow(id);
   if (!show) return {};
   const description = [show.venue, show.lineup || undefined].filter(Boolean).join(" · ");
-  return {
+  // The scraped flyer is the best preview image when it's a real poster —
+  // venue-logo fallbacks (isVenueLogo) look wrong as a link-preview card.
+  const image = show.flyerUrl && !isVenueLogo(show.flyerUrl) ? show.flyerUrl : null;
+  return pageMetadata({
     title: `${showHeading(show)} — Twin Scene`,
-    description: description || undefined,
-  };
+    description: description || `${show.venue} on Twin Scene.`,
+    image,
+  });
 }
 
 export default async function ShowDetailPage({

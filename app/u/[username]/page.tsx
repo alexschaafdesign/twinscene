@@ -7,6 +7,7 @@ import { listAttended, getAttendedStats } from "@/lib/showSaves";
 import Link from "next/link";
 import { formatShowDate } from "@/components/band-shared";
 import { formatStatusAge } from "@/components/statusTime";
+import { pageMetadata } from "@/lib/metadata";
 
 type Props = {
   params: Promise<{ username: string }>;
@@ -24,19 +25,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!profileUser) return {};
 
   const title = `${displayName(profileUser)} — Twin Scene`;
+  const description =
+    (profileUser.show_bio && profileUser.bio) || `${displayName(profileUser)} on Twin Scene.`;
+  const metadata = pageMetadata({ title, description, image: profileUser.image_url, type: "profile" });
 
   // Private profiles never get indexed, regardless of who's viewing — the
   // owner's own "private preview" of their page shouldn't show up in search
-  // results either.
+  // results either. A direct link the owner shares still gets a rich preview.
   if (!profileUser.profile_public) {
-    return { title, robots: { index: false, follow: false } };
+    return { ...metadata, robots: { index: false, follow: false } };
   }
 
-  return {
-    title,
-    description:
-      (profileUser.show_bio && profileUser.bio) || `${displayName(profileUser)} on Twin Scene.`,
-  };
+  return metadata;
 }
 
 // Public, unauthenticated profile page — followed bands, shows attended, and
