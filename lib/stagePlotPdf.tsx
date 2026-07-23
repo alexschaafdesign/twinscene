@@ -106,6 +106,52 @@ function formatDate(d: Date): string {
   }).format(d);
 }
 
+// Auto-frame the diagram so it hugs the placed gear instead of floating in a
+// big empty stage. Works in full-canvas px: take the bounding box of item
+// centers, pad enough to clear each item's symbol + centered label, clamp to
+// the stage, and enforce a minimum so a 1–2 item plot doesn't shrink to
+// nothing. Returns the crop origin (x0,y0) and box size (w,h); the crop keeps
+// the same scale, so only the empty margin shrinks. An empty plot falls back to
+// the full stage.
+const FRAME_PAD = 58; // px around the gear (a centered label spans ITEM_BOX = 92)
+const FRAME_MIN_W = 200;
+const FRAME_MIN_H = 150;
+function computeFrame(items: StagePlotDetail["items"]): {
+  x0: number;
+  y0: number;
+  w: number;
+  h: number;
+} {
+  if (items.length === 0) return { x0: 0, y0: 0, w: CONTENT_W, h: DIAGRAM_H };
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const it of items) {
+    const cx = it.x * CONTENT_W;
+    const cy = it.y * DIAGRAM_H;
+    minX = Math.min(minX, cx);
+    maxX = Math.max(maxX, cx);
+    minY = Math.min(minY, cy);
+    maxY = Math.max(maxY, cy);
+  }
+  let x0 = Math.max(0, minX - FRAME_PAD);
+  let y0 = Math.max(0, minY - FRAME_PAD);
+  let w = Math.min(CONTENT_W, maxX + FRAME_PAD) - x0;
+  let h = Math.min(DIAGRAM_H, maxY + FRAME_PAD) - y0;
+  // Enforce a minimum box, re-centering the content within it and keeping the
+  // crop inside the stage.
+  if (w < FRAME_MIN_W) {
+    x0 = Math.max(0, Math.min(x0 - (FRAME_MIN_W - w) / 2, CONTENT_W - FRAME_MIN_W));
+    w = FRAME_MIN_W;
+  }
+  if (h < FRAME_MIN_H) {
+    y0 = Math.max(0, Math.min(y0 - (FRAME_MIN_H - h) / 2, DIAGRAM_H - FRAME_MIN_H));
+    h = FRAME_MIN_H;
+  }
+  return { x0, y0, w, h };
+}
+
 // The editor's stage-plot symbols (components/StageSymbol.tsx), ported to
 // react-pdf's SVG primitives — same shapes, drawn in ink instead of currentColor
 // so the printed diagram matches what the band arranged on screen.
@@ -251,6 +297,7 @@ function StagePlotDoc({
   detail: StagePlotDetail;
 }) {
   const { plot, items, inputs } = detail;
+  const frame = computeFrame(items);
   return (
     <Document title={`${bandName} — ${plot.name}`}>
       <Page size="LETTER" style={styles.page}>
@@ -261,20 +308,23 @@ function StagePlotDoc({
         </Text>
 
         <Text style={styles.sectionLabel}>Stage diagram</Text>
-        <View style={styles.diagram}>
+        <View style={[styles.diagram, { width: frame.w, height: frame.h, alignSelf: "center" }]}>
           {items.map((it) => {
             const cat = catalogItem(it.item_type);
             const label = it.label?.trim() || cat.label;
             const houseNote = it.use_house && cat.houseLabel ? `${cat.houseLabel} OK` : null;
             const xlrNote = it.xlr_out && cat.xlrOut ? cat.xlrOut.note : null;
             const size = symbolSize(it.item_type) * (it.scale || 1);
+            // Positions are relative to the auto-framed crop origin, so the box
+            // hugs the gear (see computeFrame) rather than floating in an empty
+            // stage. Scale and spacing are unchanged — only the margin shrinks.
             const left = Math.min(
-              Math.max(it.x * CONTENT_W - ITEM_BOX / 2, 0),
-              CONTENT_W - ITEM_BOX,
+              Math.max(it.x * CONTENT_W - frame.x0 - ITEM_BOX / 2, 0),
+              frame.w - ITEM_BOX,
             );
             const top = Math.min(
-              Math.max(it.y * DIAGRAM_H - size / 2, 0),
-              DIAGRAM_H - size - 12,
+              Math.max(it.y * DIAGRAM_H - frame.y0 - size / 2, 0),
+              frame.h - size - 12,
             );
             return (
               <View key={it.id} style={[styles.item, { left, top }]}>
@@ -286,7 +336,7 @@ function StagePlotDoc({
             );
           })}
         </View>
-        <Text style={styles.audienceBar}>▲ FRONT OF STAGE · AUDIENCE ▲</Text>
+        <Text style={styles.audienceBar}>FRONT OF STAGE · AUDIENCE</Text>
 
         <Text style={styles.sectionLabel}>Input list</Text>
         {inputs.length === 0 ? (
