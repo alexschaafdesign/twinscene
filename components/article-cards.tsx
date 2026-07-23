@@ -49,7 +49,7 @@ export function ArticleByline({ article }: { article: ArticleWithWriter }) {
 
 export function FeaturedHero({ article }: { article: ArticleWithWriter }) {
   return (
-    <article className="grid gap-6 border-b border-[#E8E0D0]/15 pb-10 md:grid-cols-2 md:gap-10">
+    <article className="grid gap-6 border-b border-[#E8E0D0]/15 pb-10 md:grid-cols-2 md:items-start md:gap-10">
       <a
         href={article.url}
         target="_blank"
@@ -57,18 +57,22 @@ export function FeaturedHero({ article }: { article: ArticleWithWriter }) {
         className="group block overflow-hidden rounded-lg bg-[#E8E0D0]/5 ring-1 ring-[#E8E0D0]/10"
       >
         {article.hero_image_url ? (
+          // The hero shows the source image at its natural aspect ratio: posters
+          // are often portrait, so the old fixed 16/10 object-cover chopped the
+          // top and left black dead space below. w-full h-auto lets the frame
+          // shrink-wrap the image — no crop, no letterbox bars.
           // eslint-disable-next-line @next/next/no-img-element -- external OG images; next/image would need per-domain remotePatterns
           <img
             src={article.hero_image_url}
             alt=""
-            className="aspect-[16/10] w-full object-cover transition duration-500 group-hover:scale-[1.02]"
+            className="h-auto w-full transition duration-500 group-hover:scale-[1.02]"
           />
         ) : (
           <div className="aspect-[16/10] w-full bg-gradient-to-br from-[#7c5e35]/30 to-[#090909]" />
         )}
       </a>
 
-      <div className="flex flex-col justify-center gap-4">
+      <div className="flex flex-col gap-4">
         <ArticleMetaLine article={article} />
         <a href={article.url} target="_blank" rel="noopener noreferrer" className="group">
           <h2 className="text-2xl font-semibold leading-tight text-[#E8E0D0] transition group-hover:text-white sm:text-3xl">
