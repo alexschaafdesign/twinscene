@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getArticleById, getArticleBandSlugs } from "@/lib/articles";
 import { getAllWriters } from "@/lib/writers";
+import { getAllBands } from "@/lib/bands";
 import ArticleForm from "@/components/ArticleForm";
 
 export const metadata: Metadata = {
@@ -32,7 +33,11 @@ export default async function EditArticlePage({ params }: { params: Promise<{ id
   const article = Number.isInteger(id) ? await getArticleById(id) : null;
   if (!article) notFound();
 
-  const [writers, bandSlugs] = await Promise.all([getAllWriters(), getArticleBandSlugs(article.id)]);
+  const [writers, bands, bandSlugs] = await Promise.all([
+    getAllWriters(),
+    getAllBands(),
+    getArticleBandSlugs(article.id),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
@@ -40,6 +45,7 @@ export default async function EditArticlePage({ params }: { params: Promise<{ id
       <ArticleForm
         mode="edit"
         writers={writers.map((w) => ({ id: w.id, name: w.name }))}
+        bands={bands.map((b) => ({ name: b.name, slug: b.slug }))}
         initial={{
           id: article.id,
           writerId: article.writer_id,
@@ -53,7 +59,7 @@ export default async function EditArticlePage({ params }: { params: Promise<{ id
           readingTime: article.reading_time?.toString() ?? "",
           featured: article.featured,
           status: article.status,
-          bandSlugs: bandSlugs.join(", "),
+          bandSlugs: bandSlugs,
         }}
       />
     </main>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import { getAllWriters } from "@/lib/writers";
+import { getAllBands } from "@/lib/bands";
 import ArticleForm from "@/components/ArticleForm";
 
 export const metadata: Metadata = {
@@ -21,7 +22,7 @@ export default async function NewArticlePage() {
     );
   }
 
-  const writers = await getAllWriters();
+  const [writers, bands] = await Promise.all([getAllWriters(), getAllBands()]);
 
   return (
     <main className="mx-auto w-full max-w-2xl px-5 py-6 text-[#E8E0D0] sm:px-8 sm:py-8">
@@ -35,7 +36,11 @@ export default async function NewArticlePage() {
           first — an article needs one.
         </p>
       ) : (
-        <ArticleForm mode="add" writers={writers.map((w) => ({ id: w.id, name: w.name }))} />
+        <ArticleForm
+          mode="add"
+          writers={writers.map((w) => ({ id: w.id, name: w.name }))}
+          bands={bands.map((b) => ({ name: b.name, slug: b.slug }))}
+        />
       )}
     </main>
   );

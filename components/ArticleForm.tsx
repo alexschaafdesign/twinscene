@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import BandMultiSelect, { type BandOption } from "@/components/BandMultiSelect";
 
 // Admin create/edit form for an article. `mode: "add"` POSTs to
 // /api/admin/articles; `mode: "edit"` PATCHes /api/admin/articles/[id].
@@ -20,7 +21,7 @@ export interface ArticleFormValues {
   readingTime: string; // kept as string in the input
   featured: boolean;
   status: "draft" | "published";
-  bandSlugs: string; // comma-separated
+  bandSlugs: string[]; // selected band slugs (cross-linked as "In the press")
 }
 
 export interface WriterOption {
@@ -45,10 +46,12 @@ function Field({ label, children, hint }: { label: string; children: React.React
 export default function ArticleForm({
   mode,
   writers,
+  bands,
   initial,
 }: {
   mode: "add" | "edit";
   writers: WriterOption[];
+  bands: BandOption[];
   initial?: Partial<ArticleFormValues>;
 }) {
   const router = useRouter();
@@ -64,7 +67,7 @@ export default function ArticleForm({
     readingTime: initial?.readingTime ?? "",
     featured: initial?.featured ?? false,
     status: initial?.status ?? "published",
-    bandSlugs: initial?.bandSlugs ?? "",
+    bandSlugs: initial?.bandSlugs ?? [],
   });
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [error, setError] = useState("");
@@ -96,7 +99,7 @@ export default function ArticleForm({
           readingTime: v.readingTime ? Number(v.readingTime) : null,
           featured: v.featured,
           status: v.status,
-          bandSlugs: v.bandSlugs,
+          bandSlugs: v.bandSlugs.join(","),
         }),
       });
       const data = await res.json();
@@ -153,8 +156,12 @@ export default function ArticleForm({
           <input type="number" min={1} className={inputClass} value={v.readingTime} onChange={set("readingTime")} />
         </Field>
       </div>
-      <Field label="Linked bands" hint="Comma-separated band slugs — surfaces this piece as 'In the press' on those bands">
-        <input className={inputClass} value={v.bandSlugs} onChange={set("bandSlugs")} placeholder="toth, remo-drive" />
+      <Field label="Linked bands" hint="Type a band name to tag it — surfaces this piece as 'In the press' on that band's page">
+        <BandMultiSelect
+          bands={bands}
+          value={v.bandSlugs}
+          onChange={(slugs) => setV((prev) => ({ ...prev, bandSlugs: slugs }))}
+        />
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Status">
