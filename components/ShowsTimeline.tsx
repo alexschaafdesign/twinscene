@@ -358,23 +358,10 @@ export default function ShowsTimeline({
   );
 }
 
-/** The full-height artwork for a venue block's left column: a single show's
- * flyer poster when there is one, else the venue's textured avatar, else a
- * generic initials tile — each stretched to fill the (relative) column. */
-function VenueBlockArt({ group, single }: { group: VenueGroup; single: Show | null }) {
-  const poster =
-    single && single.flyerUrl && !isVenueLogo(single.flyerUrl) ? single.flyerUrl : "";
-  if (poster) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element -- external flyer art
-      <img
-        src={poster}
-        alt=""
-        loading="lazy"
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-    );
-  }
+/** The artwork for a venue block's left column: the venue's textured avatar
+ * (its identity, since the venue name no longer appears as text), else a
+ * generic initials tile — stretched to fill the (relative) column. */
+function VenueBlockArt({ group }: { group: VenueGroup }) {
   if (group.venue) {
     return (
       <VenueAvatar
@@ -413,16 +400,14 @@ function VenueBlock({
 }) {
   // Same venue ⇒ same distance; read it off the first show.
   const miles = distances?.[group.shows[0].id];
-  // A single-show block keeps its flyer art as the avatar; multi-show blocks
-  // use the venue's identity so the block reads as the venue, not one show.
+  // The art is the venue's avatar (its identity, now that the name no longer
+  // appears as text). A single-show block links the avatar to that show, so
+  // the whole card points at one show page; a multi-show block's avatar isn't
+  // a link (each row still links to its own show). No venue-page link here.
   const single = group.shows.length === 1 ? group.shows[0] : null;
-  // The avatar links only to the one show in a single-show block; a multi-show
-  // block groups several shows, so its art has no single detail page to point
-  // at (and we no longer link out to the venue page from here).
   const artHref = single?.id ? `/shows/${single.id}` : null;
-  // A fixed square, aligned to the top with the venue name — keeps every
-  // block's artwork the same dimensions (a full-height stretch cropped posters
-  // into inconsistent tall strips).
+  // A fixed square tile, top-aligned — keeps every block's avatar the same
+  // dimensions.
   const artClass =
     "relative h-20 w-20 shrink-0 self-start overflow-hidden rounded-md border border-[#E8E0D0]/15 bg-[rgba(232,224,208,0.06)]";
 
@@ -430,25 +415,22 @@ function VenueBlock({
     <li className="mb-3 flex break-inside-avoid gap-3 rounded-lg border border-[#E8E0D0]/12 bg-[rgba(232,224,208,0.03)] p-3">
       {artHref ? (
         <Link href={artHref} className={artClass} aria-label={group.name}>
-          <VenueBlockArt group={group} single={single} />
+          <VenueBlockArt group={group} />
         </Link>
       ) : (
-        <div className={artClass}>
-          <VenueBlockArt group={group} single={single} />
+        <div className={artClass} aria-label={group.name}>
+          <VenueBlockArt group={group} />
         </div>
       )}
 
       <div className="min-w-0 flex-1">
-        <div className="mb-1.5">
-          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] font-medium uppercase tracking-wide text-[#E8E0D0]/45 wrap-anywhere">
-            {group.name}
-            {miles != null && (
-              <span className="rounded-full bg-[#9FD3A0]/15 px-1.5 py-0.5 text-[10px] font-medium normal-case text-[#9FD3A0]">
-                {formatMiles(miles)}
-              </span>
-            )}
-          </p>
-        </div>
+        {miles != null && (
+          <div className="mb-1.5">
+            <span className="inline-block rounded-full bg-[#9FD3A0]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#9FD3A0]">
+              {formatMiles(miles)}
+            </span>
+          </div>
+        )}
 
         <ul className="space-y-0.5">
           {group.shows.map((show, i) => (
