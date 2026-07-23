@@ -17,6 +17,7 @@ const LINKS: { href: string; label: string }[] = [
   { href: "/admin/venues", label: "Venues" },
   { href: "/admin/articles", label: "Reads" },
   { href: "/admin/writers", label: "Writers" },
+  { href: "/admin/song-club", label: "Song Club" },
   { href: "/admin/review", label: "Review" },
   { href: "/admin/reconcile", label: "Reconcile" },
   { href: "/admin/activity", label: "Activity" },

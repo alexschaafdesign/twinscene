@@ -8,9 +8,11 @@ interface SendEmailInput {
   subject: string;
   html: string;
   text: string;
+  // Optional blind-copy (e.g. Song Club RSVP confirmations copy the organizer).
+  bcc?: string;
 }
 
-export async function sendEmail({ to, subject, html, text }: SendEmailInput): Promise<void> {
+export async function sendEmail({ to, subject, html, text, bcc }: SendEmailInput): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM || "Twin Scene <login@twinscene.org>";
 
@@ -20,6 +22,7 @@ export async function sendEmail({ to, subject, html, text }: SendEmailInput): Pr
     }
     console.log(`\n--- sendEmail (no RESEND_API_KEY, logging instead) ---`);
     console.log(`To: ${to}`);
+    if (bcc) console.log(`Bcc: ${bcc}`);
     console.log(`Subject: ${subject}`);
     console.log(text);
     console.log(`--- end email ---\n`);
@@ -32,7 +35,7 @@ export async function sendEmail({ to, subject, html, text }: SendEmailInput): Pr
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from, to, subject, html, text }),
+    body: JSON.stringify({ from, to, subject, html, text, ...(bcc ? { bcc } : {}) }),
   });
 
   if (!res.ok) {
