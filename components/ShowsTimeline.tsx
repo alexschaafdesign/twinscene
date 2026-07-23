@@ -439,8 +439,8 @@ function VenueBlock({
       )}
 
       <div className="min-w-0 flex-1">
-        <div className="mb-1">
-          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] font-semibold uppercase tracking-wide text-[#E8E0D0]/85 wrap-anywhere">
+        <div className="mb-1.5">
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] font-medium uppercase tracking-wide text-[#E8E0D0]/45 wrap-anywhere">
             {group.name}
             {miles != null && (
               <span className="rounded-full bg-[#9FD3A0]/15 px-1.5 py-0.5 text-[10px] font-medium normal-case text-[#9FD3A0]">
@@ -500,32 +500,26 @@ function CompactRow({
           className="absolute inset-0 z-0"
         />
       )}
-      {/* Time + lineup share a baseline-aligned row so the time sits on the
-          lineup's first line; the status button stays top-aligned (outer li). */}
-      <div className="flex min-w-0 flex-1 items-baseline gap-2.5">
-        <div className="w-12 shrink-0 text-right tabular-nums">
+      {/* Band names lead as the primary text; the time follows on a small,
+          muted line below (the status button stays top-aligned on the li). */}
+      <div className="min-w-0 flex-1 wrap-anywhere">
+        <p className="text-[15px] font-semibold leading-snug text-[#E8E0D0]">
+          {showHeading(show)}
+          <ShowBadges show={show} />
+        </p>
+        {showSubtitle(show) && (
+          <p className="text-xs text-[#E8E0D0]/55">{showSubtitle(show)}</p>
+        )}
+        <p className="mt-0.5 text-xs tabular-nums text-[#E8E0D0]/50">
           {time ? (
-            <span className="text-sm font-semibold text-[#E8E0D0]/90">
+            <>
               {time.num}
-              <span className="ml-0.5 text-[10px] font-normal text-[#E8E0D0]/50">
-                {time.mer}
-              </span>
-            </span>
+              <span className="ml-0.5">{time.mer}</span>
+            </>
           ) : (
-            <span className="text-[10px] uppercase tracking-wide text-[#E8E0D0]/30">
-              TBA
-            </span>
+            <span className="uppercase tracking-wide text-[#E8E0D0]/30">TBA</span>
           )}
-        </div>
-        <div className="min-w-0 flex-1 wrap-anywhere">
-          <p className="text-sm leading-snug">
-            <span className="font-medium text-[#E8E0D0]">{showHeading(show)}</span>
-            <ShowBadges show={show} />
-          </p>
-          {showSubtitle(show) && (
-            <p className="text-xs text-[#E8E0D0]/55">{showSubtitle(show)}</p>
-          )}
-        </div>
+        </p>
       </div>
       {show.id && (
         <div className="relative z-10 shrink-0">
