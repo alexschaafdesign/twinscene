@@ -452,8 +452,11 @@ export default function StagePlotEditor({
         </div>
       </div>
 
-      {/* Canvas */}
-      <div>
+      {/* Editor: stage canvas (left) + selected-item details (right).
+          Stacks to one column below lg. */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        {/* Left column: the stage canvas */}
+        <div className="min-w-0 lg:flex-1">
         <div
           ref={canvasRef}
           onPointerDown={() => setSelectedUid(null)}
@@ -574,10 +577,12 @@ export default function StagePlotEditor({
             </div>
           </div>
         </div>
+        </div>
 
-        {/* Selected item properties */}
-        {selected && (
-          <div className="mt-3 max-w-3xl space-y-3 rounded-md border border-[#E8E0D0]/15 bg-[rgba(232,224,208,0.04)] p-3">
+        {/* Right column: details for the selected item */}
+        <div className="w-full lg:w-72 lg:flex-shrink-0">
+        {selected ? (
+          <div className="space-y-3 rounded-md border border-[#E8E0D0]/15 bg-[rgba(232,224,208,0.04)] p-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium uppercase tracking-wide text-[#E8E0D0]/55">
                 {catalogItem(selected.item_type).label}
@@ -647,7 +652,12 @@ export default function StagePlotEditor({
               />
             </label>
           </div>
+        ) : (
+          <p className="rounded-md border border-dashed border-[#E8E0D0]/15 px-4 py-6 text-sm italic text-[#E8E0D0]/40">
+            Select an item on the stage to edit its label, size, rotation, and notes.
+          </p>
         )}
+        </div>
       </div>
 
       {/* Input list */}
