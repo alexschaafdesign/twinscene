@@ -28,11 +28,10 @@ import type { StagePlotItem, InputListItem } from "@/lib/stagePlots";
 const SNAP = 0.025;
 const snap = (v: number) => Math.min(1, Math.max(0, Math.round(v / SNAP) * SNAP));
 
-// Resize/rotate limits for the on-canvas handles. Scale multiplies the symbol's
-// natural size; rotation snaps to 15° steps so items stay squared-ish.
+// Resize limits for the corner handles. Scale multiplies the symbol's natural
+// size.
 const SCALE_MIN = 0.5;
 const SCALE_MAX = 2.5;
-const ROTATE_SNAP = 15;
 const clampScale = (v: number) => Math.min(SCALE_MAX, Math.max(SCALE_MIN, v));
 
 type Item = {
@@ -106,11 +105,10 @@ export default function StagePlotEditor({
 
   const canvasRef = useRef<HTMLDivElement | null>(null);
   // The in-progress direct-manipulation gesture on a placed item, or null.
-  // `move` tracks the pointer; `rotate`/`resize` measure against the item's
-  // center (in px, captured at gesture start) so the maths stays simple.
+  // `move` tracks the pointer; `resize` measures against the item's center (in
+  // px, captured at gesture start) so the maths stays simple.
   type Gesture =
     | { mode: "move"; uid: string }
-    | { mode: "rotate"; uid: string; cx: number; cy: number }
     | {
         mode: "resize";
         uid: string;
@@ -256,15 +254,6 @@ export default function StagePlotEditor({
             it.uid === g.uid ? { ...it, x: snap(frac.x), y: snap(frac.y) } : it,
           ),
         );
-      } else if (g.mode === "rotate") {
-        // Angle from the item's center to the pointer. +90 so the handle
-        // (which sits directly above the item) reads 0°; snap to a coarse step.
-        const raw =
-          (Math.atan2(e.clientY - g.cy, e.clientX - g.cx) * 180) / Math.PI + 90;
-        const deg = ((Math.round(raw / ROTATE_SNAP) * ROTATE_SNAP % 360) + 360) % 360;
-        setItems((prev) =>
-          prev.map((it) => (it.uid === g.uid ? { ...it, rotation: deg } : it)),
-        );
       } else {
         // resize: scale in proportion to how far the pointer is from center
         // relative to where the drag began.
@@ -295,7 +284,7 @@ export default function StagePlotEditor({
     };
   }, [pointFraction, placeItem, addFromPalette]);
 
-  // Item center in client (px) coords — the pivot for rotate/resize maths.
+  // Item center in client (px) coords — the pivot for the resize maths.
   function itemCenterPx(it: Item): { cx: number; cy: number } | null {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return null;
@@ -307,17 +296,6 @@ export default function StagePlotEditor({
     gestureRef.current = { mode: "move", uid: itemUid };
     setDraggingUid(itemUid);
     setSelectedUid(itemUid);
-  }
-
-  function startRotate(e: React.PointerEvent, it: Item) {
-    e.preventDefault();
-    e.stopPropagation();
-    const center = itemCenterPx(it);
-    if (!center) return;
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    gestureRef.current = { mode: "rotate", uid: it.uid, ...center };
-    setDraggingUid(it.uid);
-    setSelectedUid(it.uid);
   }
 
   function startResize(e: React.PointerEvent, it: Item) {
@@ -482,8 +460,8 @@ export default function StagePlotEditor({
             const cat = catalogItem(it.item_type);
             const isSel = it.uid === selectedUid;
             const isDragging = it.uid === draggingUid;
-            // The 1.08 "lift" pop is for repositioning only — during a
-            // rotate/resize the symbol is already changing, so don't fight it.
+            // The 1.08 "lift" pop is for repositioning only — during a resize
+            // the symbol is already changing, so don't fight it.
             const isMoving = isDragging && gestureRef.current?.mode === "move";
             const size = symbolSize(it.item_type) * it.scale;
             return (
@@ -491,7 +469,7 @@ export default function StagePlotEditor({
                 key={it.uid}
                 role="button"
                 tabIndex={0}
-                aria-label={`${it.label || cat.label}. Drag to move; arrow keys nudge, [ and ] resize, r rotates.`}
+                aria-label={`${it.label || cat.label}. Drag to move; arrow keys nudge, [ and ] resize.`}
                 onPointerDown={(e) => {
                   e.stopPropagation();
                   startMove(e, it.uid);
@@ -504,7 +482,6 @@ export default function StagePlotEditor({
                   else if (e.key === "ArrowDown") { e.preventDefault(); nudge(it.uid, 0, step); }
                   else if (e.key === "[") { e.preventDefault(); updateItem(it.uid, { scale: clampScale(it.scale - 0.1) }); }
                   else if (e.key === "]") { e.preventDefault(); updateItem(it.uid, { scale: clampScale(it.scale + 0.1) }); }
-                  else if (e.key === "r" || e.key === "R") { e.preventDefault(); updateItem(it.uid, { rotation: (it.rotation + (e.shiftKey ? -ROTATE_SNAP : ROTATE_SNAP) + 360) % 360 }); }
                   else if (e.key === "Backspace" || e.key === "Delete") { e.preventDefault(); removeItem(it.uid); }
                 }}
                 style={{
@@ -531,35 +508,31 @@ export default function StagePlotEditor({
                     <StageSymbol type={it.item_type} size={size} />
                   </span>
 
-                  {/* Direct-manipulation handles — only on the selected item.
-                      They sit on the (un-rotated) symbol box so they stay put
-                      as the glyph spins. */}
-                  {isSel && (
-                    <>
+                  {/* Resize grips at each corner — only on the selected item.
+                      Dragging any corner scales the symbol from its center, so
+                      all four behave identically; the diagonal arrows just read
+                      as the familiar "resize" affordance. */}
+                  {isSel &&
+                    (
+                      [
+                        { key: "tl", pos: "-top-2 -left-2", cursor: "cursor-nwse-resize", arrow: "⤡" },
+                        { key: "tr", pos: "-top-2 -right-2", cursor: "cursor-nesw-resize", arrow: "⤢" },
+                        { key: "bl", pos: "-bottom-2 -left-2", cursor: "cursor-nesw-resize", arrow: "⤢" },
+                        { key: "br", pos: "-bottom-2 -right-2", cursor: "cursor-nwse-resize", arrow: "⤡" },
+                      ] as const
+                    ).map((c) => (
                       <button
-                        type="button"
-                        aria-label="Rotate"
-                        title="Drag to rotate"
-                        onPointerDown={(e) => startRotate(e, it)}
-                        style={{ touchAction: "none" }}
-                        className="absolute left-1/2 top-0 flex h-4 w-4 -translate-x-1/2 -translate-y-6 cursor-grab items-center justify-center rounded-full border border-[#E8B84B]/70 bg-[#1a1a1a] text-[9px] leading-none text-[#E8B84B] active:cursor-grabbing"
-                      >
-                        ⟳
-                      </button>
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute left-1/2 top-0 h-4 w-px -translate-x-1/2 -translate-y-2 bg-[#E8B84B]/40"
-                      />
-                      <button
+                        key={c.key}
                         type="button"
                         aria-label="Resize"
                         title="Drag to resize"
                         onPointerDown={(e) => startResize(e, it)}
                         style={{ touchAction: "none" }}
-                        className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-nwse-resize rounded-sm border border-[#E8B84B]/70 bg-[#1a1a1a]"
-                      />
-                    </>
-                  )}
+                        className={`absolute ${c.pos} ${c.cursor} flex h-4 w-4 items-center justify-center rounded-sm border border-[#E8B84B]/70 bg-[#1a1a1a] text-[9px] leading-none text-[#E8B84B]`}
+                      >
+                        {c.arrow}
+                      </button>
+                    ))}
                 </span>
                 <span className="mt-1 max-w-[7rem] truncate text-[10px] font-medium leading-tight text-[#E8E0D0]/85">
                   {it.label || cat.label}
@@ -601,46 +574,6 @@ export default function StagePlotEditor({
                 maxLength={500}
               />
             </label>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[#E8E0D0]/60">Rotation</span>
-                <button
-                  type="button"
-                  className={smallBtn}
-                  onClick={() =>
-                    updateItem(selected.uid, { rotation: (selected.rotation + 45) % 360 })
-                  }
-                >
-                  Rotate 45° ({selected.rotation}°)
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[#E8E0D0]/60">Size</span>
-                <button
-                  type="button"
-                  aria-label="Smaller"
-                  className={smallBtn}
-                  onClick={() =>
-                    updateItem(selected.uid, { scale: clampScale(selected.scale - 0.1) })
-                  }
-                >
-                  −
-                </button>
-                <span className="w-10 text-center text-xs tabular-nums text-[#E8E0D0]/70">
-                  {Math.round(selected.scale * 100)}%
-                </span>
-                <button
-                  type="button"
-                  aria-label="Bigger"
-                  className={smallBtn}
-                  onClick={() =>
-                    updateItem(selected.uid, { scale: clampScale(selected.scale + 0.1) })
-                  }
-                >
-                  +
-                </button>
-              </div>
-            </div>
             <label className="block text-xs text-[#E8E0D0]/60">
               Notes
               <textarea
@@ -654,7 +587,7 @@ export default function StagePlotEditor({
           </div>
         ) : (
           <p className="rounded-md border border-dashed border-[#E8E0D0]/15 px-4 py-6 text-sm italic text-[#E8E0D0]/40">
-            Select an item on the stage to edit its label, size, rotation, and notes.
+            Select an item on the stage to edit its label, size, and notes.
           </p>
         )}
         </div>
@@ -738,10 +671,9 @@ export default function StagePlotEditor({
       </div>
 
       <p className="text-xs text-[#E8E0D0]/40">
-        Changes save automatically. Select an item, then drag the ⟳ handle to rotate or the corner
-        handle to resize — or use the arrow keys to nudge (Shift for bigger steps), “[” / “]” to
-        resize, and “r” to rotate. The channel numbering shown in the PDF falls back to row order
-        when the “#” is blank.
+        Changes save automatically. Select an item, then drag any corner handle to resize it — or
+        use the arrow keys to nudge (Shift for bigger steps) and “[” / “]” to resize. The channel
+        numbering shown in the PDF falls back to row order when the “#” is blank.
       </p>
     </div>
   );
