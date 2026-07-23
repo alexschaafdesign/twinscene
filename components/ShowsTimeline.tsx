@@ -424,13 +424,14 @@ function VenueBlock({
       )}
 
       <div className="min-w-0 flex-1">
-        {miles != null && (
-          <div className="mb-1.5">
-            <span className="inline-block rounded-full bg-[#9FD3A0]/15 px-1.5 py-0.5 text-[10px] font-medium text-[#9FD3A0]">
+        <p className="mb-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] font-medium uppercase tracking-wide text-[#E8E0D0]/45 wrap-anywhere">
+          {group.name}
+          {miles != null && (
+            <span className="rounded-full bg-[#9FD3A0]/15 px-1.5 py-0.5 text-[10px] font-medium normal-case text-[#9FD3A0]">
               {formatMiles(miles)}
             </span>
-          </div>
-        )}
+          )}
+        </p>
 
         <ul className="space-y-0.5">
           {group.shows.map((show, i) => (
