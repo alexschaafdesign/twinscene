@@ -258,6 +258,7 @@ function StagePlotDoc({
             const cat = catalogItem(it.item_type);
             const label = it.label?.trim() || cat.label;
             const houseNote = it.use_house && cat.houseLabel ? `${cat.houseLabel} OK` : null;
+            const xlrNote = it.xlr_out && cat.xlrOut ? cat.xlrOut.note : null;
             const size = symbolSize(it.item_type) * (it.scale || 1);
             const left = Math.min(
               Math.max(it.x * CONTENT_W - ITEM_BOX / 2, 0),
@@ -272,6 +273,7 @@ function StagePlotDoc({
                 <PdfSymbol type={it.item_type} size={size} rotation={it.rotation} />
                 <Text style={styles.itemLabel}>{label}</Text>
                 {houseNote && <Text style={styles.houseNote}>{houseNote}</Text>}
+                {xlrNote && <Text style={styles.houseNote}>{xlrNote}</Text>}
               </View>
             );
           })}

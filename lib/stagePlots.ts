@@ -32,6 +32,7 @@ export interface StagePlotItem {
   rotation: number;
   scale: number; // multiplier on the symbol's natural size; 0.5..2.5
   use_house: boolean; // backline gear: OK to use the venue's if provided
+  xlr_out: boolean; // gear has a direct XLR/DI output (e.g. bass amp)
   notes: string | null;
   position: number;
 }
@@ -104,7 +105,7 @@ export async function getPlotDetail(plotId: number): Promise<StagePlotDetail | n
 
   const items = await sql<StagePlotItem[]>`
     select id, item_type, label, x::float8 as x, y::float8 as y,
-           rotation, scale::float8 as scale, use_house, notes, position
+           rotation, scale::float8 as scale, use_house, xlr_out, notes, position
     from stage_plot_items
     where stage_plot_id = ${plotId}
     order by position asc, id asc
@@ -148,6 +149,7 @@ export interface NormalizedContent {
     rotation: number;
     scale: number;
     use_house: boolean;
+    xlr_out: boolean;
     notes: string | null;
     position: number;
   }[];
@@ -213,6 +215,9 @@ export function normalizeContent(raw: unknown): NormalizedContent {
       // Only backline gear (a catalog entry with a houseLabel) can carry the
       // house flag; anything else stores false regardless of the payload.
       use_house: it.use_house === true && !!catalogItem(it.item_type).houseLabel,
+      // Likewise the XLR-out flag is only meaningful for gear with an xlrOut
+      // config (e.g. bass amp).
+      xlr_out: it.xlr_out === true && !!catalogItem(it.item_type).xlrOut,
       notes: str(it.notes, MAX_TEXT),
       position: i,
     });
@@ -259,6 +264,7 @@ export async function saveContent(plotId: number, content: NormalizedContent): P
           "rotation",
           "scale",
           "use_house",
+          "xlr_out",
           "notes",
           "position",
         )}

@@ -43,6 +43,7 @@ type Item = {
   rotation: number;
   scale: number;
   use_house: boolean;
+  xlr_out: boolean;
   notes: string | null;
 };
 
@@ -69,6 +70,7 @@ function toItem(row: StagePlotItem): Item {
     rotation: row.rotation,
     scale: row.scale ?? 1,
     use_house: row.use_house ?? false,
+    xlr_out: row.xlr_out ?? false,
     notes: row.notes,
   };
 }
@@ -149,6 +151,7 @@ export default function StagePlotEditor({
               rotation: it.rotation,
               scale: it.scale,
               use_house: it.use_house,
+              xlr_out: it.xlr_out,
               notes: it.notes,
             })),
             inputs: inputs.map((row) => ({
@@ -181,6 +184,7 @@ export default function StagePlotEditor({
       rotation: 0,
       scale: 1,
       use_house: false,
+      xlr_out: false,
       notes: null,
     };
     setItems((prev) => [...prev, newItem]);
@@ -546,6 +550,11 @@ export default function StagePlotEditor({
                     {cat.houseLabel} OK
                   </span>
                 )}
+                {it.xlr_out && cat.xlrOut && (
+                  <span className="max-w-[7rem] truncate text-[9px] leading-tight text-[#E8B84B]/85">
+                    {cat.xlrOut.note}
+                  </span>
+                )}
               </div>
             );
           })}
@@ -600,6 +609,19 @@ export default function StagePlotEditor({
                   </span>{" "}
                   if the venue provides one
                 </span>
+              </label>
+            )}
+            {catalogItem(selected.item_type).xlrOut && (
+              <label className="flex cursor-pointer items-start gap-2 text-xs text-[#E8E0D0]/70">
+                <input
+                  type="checkbox"
+                  checked={selected.xlr_out}
+                  onChange={(e) =>
+                    updateItem(selected.uid, { xlr_out: e.target.checked })
+                  }
+                  className="mt-0.5 accent-[#E8B84B]"
+                />
+                <span>{catalogItem(selected.item_type).xlrOut!.question}</span>
               </label>
             )}
             <label className="block text-xs text-[#E8E0D0]/60">

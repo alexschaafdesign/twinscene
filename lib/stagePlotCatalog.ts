@@ -34,6 +34,11 @@ export interface CatalogItem {
    *  toggle on the item, and the PDF flags it. The noun phrase, e.g.
    *  "house kit". Absent = the band always brings their own. */
   houseLabel?: string;
+  /** Set for gear that may have a direct XLR/DI output (e.g. a bass amp), so
+   *  the engineer can take a line straight off the amp. When present the editor
+   *  shows a yes/no toggle; `question` is the checkbox label, `note` the short
+   *  flag shown on the canvas + PDF when it's on. */
+  xlrOut?: { question: string; note: string };
 }
 
 export const STAGE_PLOT_CATALOG: CatalogItem[] = [
@@ -53,6 +58,7 @@ export const STAGE_PLOT_CATALOG: CatalogItem[] = [
     label: "Bass Amp",
     defaultInputs: [{ source: "Bass" }],
     houseLabel: "house bass amp",
+    xlrOut: { question: "Has a direct XLR output (DI)", note: "XLR DI out" },
   },
   {
     key: "acoustic_guitar",
