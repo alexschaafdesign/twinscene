@@ -20,8 +20,8 @@
 // `position` (a band's own profile choices) or a collision with an
 // UnderCurrentMPLS/manual row of the same URL.
 
-import { sql } from "./db";
-import { getBirdhausDb } from "./birdhausDb";
+import { sql } from "./db.ts";
+import { getBirdhausDb } from "./birdhausDb.ts";
 
 const SHOW_PAGE_BASE = "https://thebirdhaus.org/shows";
 

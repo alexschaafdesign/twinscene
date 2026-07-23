@@ -33,15 +33,15 @@ export const COMRADE_CATEGORIES: ComradeCategory[] = [
 export function comradeCategoryLabel(category: string): string {
   switch (category) {
     case "recording_studio":
-      return "Recording Studio";
+      return "Recording studios";
     case "record_label":
-      return "Record Label";
+      return "Record labels";
     case "rehearsal_space":
-      return "Rehearsal Space";
+      return "Rehearsal spaces";
     case "sound_production":
       return "Sound / Production";
     case "record_store":
-      return "Record Store / Distro";
+      return "Record Stores / Distros";
     case "promoter_collective":
       return "Promoter / Collective";
     case "photo_video":
